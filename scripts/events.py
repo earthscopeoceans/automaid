@@ -1,3 +1,10 @@
+# Written by Sebastien Bonnieux.
+# Last modified by jdsimon@princeton.edu,  20-Aug-2018.
+
+# Change log -
+#
+# 20-Aug-2018: Added stats.sac["user2"] = self.trig
+
 import os
 import glob
 import re
@@ -228,6 +235,7 @@ class Event:
         stats.sac["stdp"] = self.depth
         stats.sac["user0"] = self.snr
         stats.sac["user1"] = self.criterion
+        stats.sac["user2"] = self.trig
         stats.sac["iztype"] = 9  # 9 == IB in sac format
 
         # Save data into a Stream object
