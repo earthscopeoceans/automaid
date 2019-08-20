@@ -164,3 +164,39 @@ def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
     plotly.plot({'data': data, 'layout': layout},
                 filename=vital_file_path + "external_pressure_offset.html",
                 auto_open=False)
+
+
+def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
+
+    pressure_offset = [dive.p2t_offset_measurement - dive.p2t_offset_param for dive in mdives if dive.is_complete_dive]
+    date = [dive.end_date for dive in mdives if dive.is_complete_dive]
+
+    # Get values between the appropriate date
+    i = 0
+    while date[i] < begin and i < len(date)-1:
+        i += 1
+    j = 0
+    while date[j] < end and j < len(date)-1:
+        j += 1
+    date = date[i:j]
+    pressure_offset = pressure_offset[i:j]
+
+    # Add battery values to the graph
+    pressure_offset_line = graph.Scatter(x=date,
+                                         y=pressure_offset,
+                                         name="pressure offset",
+                                         line=dict(color='blue',
+                                                   width=2),
+                                         mode='lines')
+
+    data = [pressure_offset_line]
+
+    layout = graph.Layout(title="Corrected pressure offset in LOG files",
+                          xaxis=dict(title='Coordinated Universal Time (UTC)', titlefont=dict(size=18)),
+                          yaxis=dict(title='Pressure offset (millibars)', titlefont=dict(size=18)),
+                          hovermode='closest'
+                          )
+
+    plotly.plot({'data': data, 'layout': layout},
+                filename=vital_file_path + "corrected_pressure_offset.html",
+                auto_open=False)

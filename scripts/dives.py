@@ -31,6 +31,8 @@ class Dive:
     surface_reach_loc = None
     great_depth_reach_loc = None
     great_depth_leave_loc = None
+    p2t_offset_param = 0
+    p2t_offset_measurement = 0
 
     def __init__(self, base_path, log_name, events):
         self.base_path = base_path
@@ -130,6 +132,13 @@ class Dive:
             else:
                 print "WARNING: No GPS synchronization after surfacing for \"" \
                         + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+
+        # Find the pressure offset
+        if self.is_complete_dive:
+            catch = re.findall("offset (-?\d+)mbar", self.log_content)
+            self.p2t_offset_param = int(catch[0])
+            catch = re.findall("Pext (-?\d+)mbar", self.log_content)
+            self.p2t_offset_measurement = int(catch[0])
 
     def generate_datetime_log(self):
         # Check if file exist
@@ -359,13 +368,17 @@ class Dive:
         for event in self.events:
             event.plotly(self.export_path)
 
-    def generate_events_plot(self):
+    def generate_events_png(self):
         for event in self.events:
-            event.plot(self.export_path)
+            event.plot_png(self.export_path)
 
     def generate_events_sac(self):
         for event in self.events:
-            event.to_sac_and_mseed(self.export_path, self.station_number, force_without_loc=False)
+            event.to_sac(self.export_path, self.station_number, force_without_loc=False)
+
+    def generate_events_mseed(self):
+        for event in self.events:
+            event.to_mseed(self.export_path, self.station_number, force_without_loc=False)
 
 
 # Create dives object

@@ -1,9 +1,9 @@
 # automaid
 
-This program converts raw data transmitted by Mermaid instruments to
-classify data, correct clock drifts, interpolate float positions and
-then generates seismic SAC files, plots seismic events and dives and
-generates KML, HTML, and PNG files.
+This version is no more maintained, updated version can be found on the earthscopeoceans github:
+[https://github.com/earthscopeoceans/automaid](https://github.com/earthscopeoceans/automaid)
+
+This program convert raw data transmitted by Mermaid instruments to classify datas, correct clock drifts, interpolate float position and then generate seismic SAC files, plot seismic events and dives and generate KML files.
 
 Written by Sebastien Bonnieux. Maintained by Frederik J. Simons and Joel D. Simon. 
 
@@ -73,3 +73,7 @@ of the content of the content of the `processed` directory.
 of events in a html page. This kind of plot can be disabled to save
 disk space.
 
+An additional tool is available to invert a single ".MER" files. For
+this, go in the `scripts` directory. Put a Mermaid file with the
+extension ".MER" in the `scripts/tool_invert_mer` directory. And
+finally run the script: `python tool_invert_mer.py`.

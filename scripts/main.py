@@ -41,7 +41,10 @@ redo = False
 
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
-events_plotly = True
+events_plotly = False
+events_mseed = True
+events_sac = True
+events_png = True
 
 # Path for input datas
 dataPath = "server"
@@ -78,7 +81,7 @@ def main():
         if not os.path.exists(mfloat_path):
             os.mkdir(mfloat_path)
 
-        # Remove existing files in the processed directory (if the script was been interrupted the time before)
+        # Remove existing files in the processed directory (if the script have been interrupted the time before)
         for f in glob.glob(mfloat_path + "*.*"):
             os.remove(f)
 
@@ -133,16 +136,22 @@ def main():
 
         # Generate plot and sac files
         for dive in mdives:
-            dive.generate_events_plot()
+            if events_png:
+                dive.generate_events_png()
             if events_plotly:
                 dive.generate_events_plotly()
-            dive.generate_events_sac()
+            if events_sac:
+                dive.generate_events_sac()
+            if events_mseed:
+                dive.generate_events_mseed()
 
         # Plot vital data
         kml.generate(mfloat_path, mfloat, mdives)
         vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
         vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
         vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
+        if len(mdives) > 1:
+            vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
