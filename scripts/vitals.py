@@ -23,6 +23,7 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
     while date[i] < begin and i < len(date)-1:
         i += 1
     j = 0
+ 
     while date[j] < end and j < len(date)-1:
         j += 1
     date = date[i:j]
@@ -171,11 +172,16 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
     pressure_offset = [dive.p2t_offset_measurement - dive.p2t_offset_param for dive in mdives if dive.is_complete_dive]
     date = [dive.end_date for dive in mdives if dive.is_complete_dive]
 
+    # Dead-float adjustment
+    if len(date) < 1:
+        return
+
     # Get values between the appropriate date
     i = 0
     while date[i] < begin and i < len(date)-1:
         i += 1
     j = 0
+
     while date[j] < end and j < len(date)-1:
         j += 1
     date = date[i:j]

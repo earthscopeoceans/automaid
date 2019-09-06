@@ -13,7 +13,7 @@ import utils
 filterDate = {
     "452.112-N-01": (datetime.datetime(2018, 12, 27), datetime.datetime(2100, 1, 1)),
     "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
-    "452.112-N-03": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.112-N-03": (datetime.datetime(2018, 4, 9), datetime.datetime(2100, 1, 1)),
     "452.112-N-04": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
     "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
@@ -33,7 +33,11 @@ filterDate = {
     "452.020-P-22": (datetime.datetime(2018, 9, 10), datetime.datetime(2100, 1, 1)),
     "452.020-P-23": (datetime.datetime(2018, 9, 12), datetime.datetime(2100, 1, 1)),
     "452.020-P-24": (datetime.datetime(2018, 9, 13), datetime.datetime(2100, 1, 1)),
-    "452.020-P-25": (datetime.datetime(2018, 9, 14), datetime.datetime(2100, 1, 1))
+    "452.020-P-25": (datetime.datetime(2018, 9, 14), datetime.datetime(2100, 1, 1)),
+    "452.020-P-0050": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-0052": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-0053": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-0054": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1))
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
