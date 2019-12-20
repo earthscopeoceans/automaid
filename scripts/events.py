@@ -88,6 +88,7 @@ class Event:
         # Get the frequency recorded in the .MER environment header
         fs_catch = re.findall("TRUE_SAMPLE_FREQ FS_Hz=(\d+\.\d+)", self.environment)
         self.measured_fs = float(fs_catch[0])
+        #self.measured_fs = 40
 
         # Divide frequency by number of scales
         int_scl = int(self.scales)
@@ -204,14 +205,15 @@ class Event:
         export_path = export_path + self.get_export_file_name() + ".png"
         if os.path.exists(export_path):
             return
+        data = [d/(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000) for d in self.data]
         # Plot frequency image
         plt.figure(figsize=(9, 4))
         plt.title(self.__get_figure_title(), fontsize=12)
         plt.plot(utils.get_time_array(len(self.data), 1./self.decimated_fs),
-                 self.data,
+                 data,
                  color='b')
         plt.xlabel("Time (s)", fontsize=12)
-        plt.ylabel("Counts", fontsize=12)
+        plt.ylabel("Pascal", fontsize=12)
         plt.tight_layout()
         plt.grid()
         plt.savefig(export_path)

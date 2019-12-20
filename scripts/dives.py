@@ -47,6 +47,7 @@ class Dive:
             self.log_content = f.read()
 
         # Get the last date
+        print self.log_name
         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
         self.end_date = UTCDateTime(int(ed))
 

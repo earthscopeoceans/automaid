@@ -8,6 +8,7 @@ import vitals
 import kml
 import re
 import utils
+import pickle
 
 # Set a time range of analysis for a specific float
 filterDate = {
@@ -15,7 +16,7 @@ filterDate = {
     "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
     "452.112-N-03": (datetime.datetime(2018, 4, 9), datetime.datetime(2100, 1, 1)),
     "452.112-N-04": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-    "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
+    #"452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
     "452.020-P-07": (datetime.datetime(2018, 6, 27), datetime.datetime(2100, 1, 1)),
     "452.020-P-08": (datetime.datetime(2018, 8, 5), datetime.datetime(2100, 1, 1)),
@@ -34,10 +35,11 @@ filterDate = {
     "452.020-P-23": (datetime.datetime(2018, 9, 12), datetime.datetime(2100, 1, 1)),
     "452.020-P-24": (datetime.datetime(2018, 9, 13), datetime.datetime(2100, 1, 1)),
     "452.020-P-25": (datetime.datetime(2018, 9, 14), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0050": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0052": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0053": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0054": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1))
+    "452.020-P-0050": (datetime.datetime(2019, 8, 11), datetime.datetime(2100, 1, 1)),
+    #"452.020-P-0051": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-0052": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-0053": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-0054": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1))
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
@@ -46,13 +48,15 @@ redo = False
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
 events_plotly = False
-events_mseed = True
+events_mseed = False
 events_sac = True
 events_png = True
 
 # Path for input datas
 dataPath = "server"
 
+# Dictionary to save data in a file
+datasave = dict()
 
 def main():
     # Set working directory in "scripts"
@@ -91,8 +95,9 @@ def main():
 
         # Copy appropriate files in the directory and remove files outside of the time range
         files_to_copy = list()
-        files_to_copy += glob.glob("../" + dataPath + "/" + mfloat_nb + "*.LOG")
-        files_to_copy += glob.glob("../" + dataPath + "/" + mfloat_nb + "*.MER")
+        extensions = ["000", "001", "002", "003", "004", "005", "LOG", "MER"]
+        for extension in extensions:
+            files_to_copy += glob.glob("../" + dataPath + "/" + mfloat_nb + "*." + extension)
         if mfloat in filterDate.keys():
             begin = filterDate[mfloat][0]
             end = filterDate[mfloat][1]
@@ -163,6 +168,21 @@ def main():
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER"):
             os.remove(f)
 
+        # Put dive in a variable that will be saved in a file
+        datasave[mfloat] = mdives
+
+    with open("../processed/MerDives.pydata", 'wb') as f:
+        pickle.dump(datasave, f)
+
+        # for dive in mdives[:-1]: # on ne regarde pas la derniere plongee qui n'a pas ete interpolee
+        #    if dive.is_complete_dive: # on ne regarde que les vraies plongees (pas les tests faits a terre)
+        #        print dive.log_name
+        #        for gps in dive.gps_list[0:-1]: # point GPS avant de descendre
+        #            print gps.date
+        #        print dive.surface_leave_loc.date
+        #        print dive.great_depth_reach_loc.date
+        #        print dive.great_depth_leave_loc.date
+        #        print dive.gps_list[-1].date # point GPS en arrivant en surface
 
 if __name__ == "__main__":
     main()

@@ -26,9 +26,9 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
  
     while date[j] < end and j < len(date)-1:
         j += 1
-    date = date[i:j]
-    voltage = voltage[i:j]
-    minimum_voltage = minimum_voltage[i:j]
+    date = date[i:j+1]
+    voltage = voltage[i:j+1]
+    minimum_voltage = minimum_voltage[i:j+1]
 
     # Add battery values to the graph
     voltage_line = graph.Scatter(x=date,
@@ -78,8 +78,8 @@ def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
     j = 0
     while date[j] < end and j < len(date)-1:
         j += 1
-    date = date[i:j]
-    internal_pressure = internal_pressure[i:j]
+    date = date[i:j+1]
+    internal_pressure = internal_pressure[i:j+1]
 
     # Add battery values to the graph
     internal_pressure_line = graph.Scatter(x=date,
@@ -130,10 +130,10 @@ def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
     j = 0
     while date[j] < end and j < len(date)-1:
         j += 1
-    date = date[i:j]
+    date = date[i:j+1]
     date_rev = date[::-1]
     pressure_offset = pressure_offset[i:j]
-    pressure_offset_range = pressure_offset_range[i:j]
+    pressure_offset_range = pressure_offset_range[i:j+1]
     pressure_offset_max = [x + y for x, y in zip(pressure_offset, pressure_offset_range)]
     pressure_offset_min = [x - y for x, y in zip(pressure_offset, pressure_offset_range)]
     pressure_offset_min_rev = pressure_offset_min[::-1]
@@ -184,8 +184,8 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
 
     while date[j] < end and j < len(date)-1:
         j += 1
-    date = date[i:j]
-    pressure_offset = pressure_offset[i:j]
+    date = date[i:j+1]
+    pressure_offset = pressure_offset[i:j+1]
 
     # Add battery values to the graph
     pressure_offset_line = graph.Scatter(x=date,
