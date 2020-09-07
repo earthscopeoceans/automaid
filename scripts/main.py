@@ -48,7 +48,7 @@ redo = False
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
 events_plotly = False
-events_mseed = False
+events_mseed = True
 events_sac = True
 events_png = True
 
