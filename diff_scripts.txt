@@ -1,0 +1,18 @@
+Only in /Users/joelsimon/mermaid/scripts: .git
+Only in /Users/joelsimon/mermaid/scripts: .gitignore
+Only in /Users/joelsimon/mermaid/automaid/scripts: README.md
+Only in /Users/joelsimon/mermaid/automaid/scripts/bin: README.md
+Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs
+Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs.icdf24_3
+Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs.icdf24_5
+Only in /Users/joelsimon/mermaid/scripts: dives.pyc
+Only in /Users/joelsimon/mermaid/scripts: events.pyc
+Only in /Users/joelsimon/mermaid/scripts: gps.pyc
+Only in /Users/joelsimon/mermaid/scripts: kml.pyc
+diff -r /Users/joelsimon/mermaid/automaid/scripts/main.py /Users/joelsimon/mermaid/scripts/main.py
+51c51
+< events_mseed = False
+---
+> events_mseed = True
+Only in /Users/joelsimon/mermaid/scripts: utils.pyc
+Only in /Users/joelsimon/mermaid/scripts: vitals.pyc
