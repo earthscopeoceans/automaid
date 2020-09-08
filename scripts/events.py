@@ -1,9 +1,11 @@
-# Written by Sebastien Bonnieux.
-# Last modified by jdsimon@princeton.edu,  20-Aug-2018.
-
-# Change log -
+# automaid v0.1.0
+# pymaid environment (Python v2.7)
 #
-# 20-Aug-2018: Added stats.sac["user2"] = self.trig
+# Original author: Sebastien Bonnieux
+#
+# Current maintainer: Dr. Joel D. Simon (JDS)
+# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+# Last modified by JDS: 08-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob

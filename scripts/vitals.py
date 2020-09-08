@@ -1,3 +1,12 @@
+# automaid v0.1.0
+# pymaid environment (Python v2.7)
+#
+# Original author: Sebastien Bonnieux
+#
+# Current maintainer: Dr. Joel D. Simon (JDS)
+# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+# Last modified by JDS: 08-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+
 import re
 from obspy import UTCDateTime
 import plotly.graph_objs as graph
@@ -23,7 +32,7 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
     while date[i] < begin and i < len(date)-1:
         i += 1
     j = 0
- 
+
     while date[j] < end and j < len(date)-1:
         j += 1
     date = date[i:j+1]

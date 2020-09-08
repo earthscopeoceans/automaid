@@ -1,6 +1,14 @@
+# automaid v0.1.0
+# pymaid environment (Python v2.7)
+#
+# Original author: Sebastien Bonnieux
+#
+# Current maintainer: Dr. Joel D. Simon (JDS)
+# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+# Last modified by JDS: 08-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+
 import os
 import random
-
 
 def generate(dest_path, mfloat_name, dives):
     if len(dives) < 1:
