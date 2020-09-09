@@ -1,15 +1,15 @@
-# automaid
+automaid v0.2.0
 
-This version is no more maintained, updated version can be found on the earthscopeoceans github:
-[https://github.com/earthscopeoceans/automaid](https://github.com/earthscopeoceans/automaid)
+Written by Sebastien Bonnieux.
+Maintained by Joel D. Simon (jdsimon@princeton.edu) and Frederik J. Simons
 
-This program convert raw data transmitted by Mermaid instruments to classify datas, correct clock drifts, interpolate float position and then generate seismic SAC files, plot seismic events and dives and generate KML files.
-
-Written by Sebastien Bonnieux. Maintained by Frederik J. Simons and Joel D. Simon. 
+This program convert raw data transmitted by Mermaid instruments to classify
+datas, correct clock drifts, interpolate float position and then generate
+seismic SAC files, plot seismic events and dives and generate KML files.
 
 ### 1. INSTALLATION
 
-This installation procedure has been tested with macOS. For Linux the
+This installation procedure has been tested with MacOS. For Linux the
 procedure is valid but one could prefer to use a the package manager.
 For Windows the installation of Python 2.7 is valid but the
 compilation of the wavelet inversion program with "make" could be
@@ -22,21 +22,21 @@ An easy installation procedure is described here:
   disk space). (You may already have it, you might have to do `module
   load anaconda/5.2.0` to specify the precise version).
 * Restart your terminal to load the new PATH variables.
-* Add the conda-forge channel:  
-`conda config --add channels conda-forge`
-* Create a virtual environment called "pymaid":  
-`conda create -n pymaid python=2.7`
+* Add the conda-forge channel:
+  `conda config --add channels conda-forge`
+* Create a virtual environment called "pymaid":
+  `conda create -n pymaid python=2.7`
 
 * Make sure you are in the `bash` shell!
 
-* Activate the environment:  
-`source activate pymaid`
-* Install obspy:  
-`conda install obspy`
-* Install plotly 2.7.0:  
-`conda install plotly=2.7.0`
-* Quit the virtual environment:  
-`source deactivate`
+* Activate the environment:
+  `source activate pymaid`
+* Install obspy:
+  `conda install obspy`
+* Install plotly 2.7.0:
+  `conda install plotly=2.7.0`
+* Quit the virtual environment:
+  `source deactivate`
 
 In addition to the Python 2.7 installation it is necessary to compile,
 using `make` the wavelet inversion programs located in
@@ -44,28 +44,33 @@ using `make` the wavelet inversion programs located in
 must be in the "bin" directory and must be named `icdf24_v103_test` and
 `icdf24_v103ec_test`.
 
+Finally, ensure the environmental variables:
+(1) $MERMAID, itself a directory containing "server/" and "processed/", and
+(2) $AUTOMAID, the path to this cloned directory, containing "scripts/",
+are defined in your system.
+
 ### 2. USAGE
 
-To use the application: 
+To use the application:
 
-* Copy files from your Mermaid server into the "server" directory:  
-`scp username@host:\{"*.LOG","*.MER","*.vit"\} server`
-* Activate the virtual environment:  
-`source activate pymaid`
-* Run the main.py file in the "scripts" directory:  
-`python scripts/main.py`
-* Quit the virtual environment:  
-`source deactivate`
+* Copy files from your Mermaid server into the "$MERMAID/server" directory:
+  `scp username@host:\{"*.LOG","*.MER","*.vit"\} server`
+* Activate the virtual environment:
+  `source activate pymaid` or `conda activate pymaid` or (if "conda" not found)
+  e.g., `source /Users/joelsimon/anaconda3/etc/profile.d/conda.sh ; conda  activate pymaid`
+* Run the main.py file:
+  `python $AUTOMAID/scripts/main.py`
+* Quit the virtual environment:
+  `source deactivate`
 
-You will be getting the processed files into the directory `processed`.
-You may have to remove some error-prone log files and create some
-directories - we will be editing the script for increased versatility
-as we go along.
+You will be getting the processed files into the directory `$MERMAID/processed`.
+You may have to remove some error-prone log files and create some directories -
+we will be editing the script for increased versatility as we go along.
 
 The "main.py" file can be edited to select some options:
 
 * A date range between which to process the data can be chosen with
-the `begin` and `end` variables. 
+the `begin` and `end` variables.
 * A "redo" flag can be set to True in order to restart the processing
 of data for each launch of the script. This flag force the deletion
 of the content of the content of the `processed` directory.

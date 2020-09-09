@@ -1,0 +1,26 @@
+At some point:
+   -- reconcile READMEs before different remotes
+
+Upcoming:
+* v1.0.0
+  -- Fix P-25.vit with early return in Events.py
+
+* v0.3.0
+  -- Add version to "kuser0" SAC header field
+
+Current:
+* v0.2.0
+  -- Make paths relative to $MERMAID and $AUTOMAID
+  -- Known issues (I0.2.0_1): icdf24_v103_test and icdf24_v103ec_test in
+     $AUTOMAID/scripts/bin (after running make in $AUTOMAID/scripts/src/[V103
+     and V103ec] and moving them) do not run with fullpaths:
+
+     Y: "icdf24_v103_test 5 1 wtcoeffs"
+     N: "$AUTOMAID/scripts/bin/icdf24_v103_test 5 1 $AUTOMAID/scripts/bin/wtcoeffs"
+
+* v0.1.0
+  -- Base version, with minor modifications from Seb's listed in remote_diffs/
+     (that directory of plain text files is slated for removal, but may be
+     retrieved from that release) 
+  -- Known issues(I0.1.0_1): P-25.vit does not process (GPS issue); 
+  

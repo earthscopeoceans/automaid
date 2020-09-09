@@ -1,11 +1,11 @@
-# automaid v0.1.0
+# automaid v0.2.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 09-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import shutil
@@ -18,6 +18,7 @@ import kml
 import re
 import utils
 import pickle
+from pdb import set_trace as keyboard
 
 # Set a time range of analysis for a specific float
 filterDate = {
@@ -61,23 +62,26 @@ events_mseed = True
 events_sac = True
 events_png = True
 
-# Path for input datas
-dataPath = "server"
+# Set paths.
+automaid_path = os.environ["AUTOMAID"]
+mermaid_path = os.environ["MERMAID"]
+server_path = os.path.join(mermaid_path, "server")
+processed_path = os.path.join(mermaid_path, "processed")
 
 # Dictionary to save data in a file
 datasave = dict()
 
 def main():
     # Set working directory in "scripts"
-    if "scripts" in os.listdir("."):
-        os.chdir("scripts")
+    os.chdir(os.path.join(automaid_path, "scripts", ""))
 
     # Create processed directory if it doesn't exist
-    if not os.path.exists("../processed/"):
-        os.mkdir("../processed/")
+    if not os.path.exists(processed_path):
+        os.mkdir(processed_path)
 
     # Search Mermaid floats
-    mfloats = [p.split("/")[-1][:-4] for p in glob.glob("../" + dataPath + "/*.vit")]
+    vitfile_path = os.path.join(server_path, "*.vit")
+    mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # For each Mermaid float
     for mfloat in mfloats:
@@ -85,7 +89,7 @@ def main():
         print "> " + mfloat
 
         # Set the path for the float
-        mfloat_path = "../processed/" + mfloat + "/"
+        mfloat_path = os.path.join(processed_path, mfloat, "")
 
         # Get float number
         mfloat_nb = re.findall("(\d+)$", mfloat)[0]
@@ -106,7 +110,7 @@ def main():
         files_to_copy = list()
         extensions = ["000", "001", "002", "003", "004", "005", "LOG", "MER"]
         for extension in extensions:
-            files_to_copy += glob.glob("../" + dataPath + "/" + mfloat_nb + "*." + extension)
+            files_to_copy += glob.glob(os.path.join(server_path, mfloat_nb +  "*." + extension))
         if mfloat in filterDate.keys():
             begin = filterDate[mfloat][0]
             end = filterDate[mfloat][1]
@@ -117,7 +121,7 @@ def main():
             end = datetime.datetime(3000, 1, 1)
 
         # Add .vit and .out files
-        files_to_copy += glob.glob("../" + dataPath + "/" + mfloat + "*")
+        files_to_copy += glob.glob(os.path.join(server_path, mfloat + "*"))
 
         # Copy files
         for f in files_to_copy:
@@ -180,7 +184,7 @@ def main():
         # Put dive in a variable that will be saved in a file
         datasave[mfloat] = mdives
 
-    with open("../processed/MerDives.pydata", 'wb') as f:
+    with open(os.path.join(processed_path, "MerDives.pydata"), 'wb') as f:
         pickle.dump(datasave, f)
 
         # for dive in mdives[:-1]: # on ne regarde pas la derniere plongee qui n'a pas ete interpolee
