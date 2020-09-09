@@ -1,11 +1,11 @@
-# automaid v0.1.0
+# automaid v0.2.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 09-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -21,7 +21,7 @@ import plotly.offline as plotly
 import matplotlib.pyplot as plt
 import utils
 import gps
-
+from pdb import set_trace as keyboard
 
 class Events:
     events = None
@@ -147,6 +147,7 @@ class Event:
         # Write cdf24 data
         with open("bin/wtcoeffs", 'w') as f:
             f.write(self.binary)
+
         # Do icd24
         if edge_correction == "1":
             #print "icdf24_v103ec_test"
