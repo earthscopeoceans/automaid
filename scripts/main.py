@@ -1,4 +1,4 @@
-# automaid v0.3.0
+# automaid v1.0.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
@@ -21,7 +21,7 @@ import pickle
 from pdb import set_trace as keyboard
 
 # Tag version number.
-version = 'v0.3.0'
+version = 'v1.0.0'
 
 # Set a time range of analysis for a specific float
 filterDate = {

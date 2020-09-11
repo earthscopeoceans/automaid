@@ -1,4 +1,4 @@
-automaid v0.2.0
+automaid v1.0.0
 
 Written by Sebastien Bonnieux.
 Maintained by Joel D. Simon (jdsimon@princeton.edu) and Frederik J. Simons

@@ -1,6 +1,6 @@
 # -*-coding:Utf-8 -*
 #
-# automaid v0.3.0
+# automaid v1.0.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux

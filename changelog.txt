@@ -1,8 +1,8 @@
-Upcoming:
-* v1.0.0
-  -- Fix P-25.vit with early return in Events.py
-
 Current:
+* v1.0.0: 11-Sep-2020
+  -- Fix P-25.vit gps.linear_interpolation crash with early return in dives.py
+
+Previous:
 * v0.3.0: 11-Sep-2020
   -- Add version to "kuser0" SAC header field
   -- Print .MER (if any) that accompanies each .LOG to stdout
@@ -15,7 +15,6 @@ Current:
      Y: "icdf24_v103_test 5 1 wtcoeffs"
      N: "$AUTOMAID/scripts/bin/icdf24_v103_test 5 1 $AUTOMAID/scripts/bin/wtcoeffs"
 
-Previous:
 * v0.1.0: 08-Sep-2020
   -- Base version, with minor modifications from Seb's listed in remote_diffs/
      (that directory of plain text files is slated for removal, but may be

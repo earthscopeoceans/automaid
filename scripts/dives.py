@@ -1,4 +1,4 @@
-# automaid v0.3.0
+# automaid v1.0.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
@@ -306,9 +306,36 @@ class Dive:
                   + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
             return
 
-        # Divide gps in two list
+        # Split the GPS list: the final GPS location in the .MER file is from
+        # the next dive (and is roughly(?) the same time as the first GPS
+        # location in the subsequent MER file).
         gps_before_dive = self.gps_list[:-1]
         gps_after_dive = [self.gps_list[-1]] + next_dive.gps_list[:-1]
+
+        # GPS linear interpolation requires at least two GPS fixes. By default,
+        # the GPS list is parsed from the MER file. If that list is less than
+        # length two, try parsing the (same dive) GPS list from the LOG file. If
+        # there are still less than two GPS fixes before or after the dive,
+        # return early because we cannot compute an interpolated location.
+        if len(gps_before_dive) < 2 and self.gps_list[0].source == 'mer':
+            self.gps_list = gps.get_gps_list(self.log_content, None, None)
+            gps_before_dive = self.gps_list[:-1]
+
+        if len(gps_after_dive) < 2 and self.gps_list[0].source == 'mer':
+            self.gps_list = gps.get_gps_list(self.log_content, None, None)
+            gps_after_dive = [self.gps_list[-1]] + next_dive.gps_list[:-1]
+
+        if len(gps_before_dive) >= 2 and len(gps_after_dive) >= 2:
+            self.is_complete_gps_list = True
+        else:
+            print "!!!!_______________________________________________!!!!"
+            print "!!!!                                               !!!!"
+            print "!!!! Less than two GPS fixes before or after dive, !!!!"
+            print "!!!! cannot compute interpolated location:         !!!!"
+            print "!!!! " + self.mmd_name + " and " + self.log_name + "           !!!!"
+            print "!!!!                                               !!!!"
+            print "!!!!_______________________________________________!!!!"
+            return
 
         # Find location when float leave the surface
         surface_leave_date = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
