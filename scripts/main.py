@@ -1,11 +1,11 @@
-# automaid v0.2.0
+# automaid v0.3.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 09-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import shutil
@@ -19,6 +19,9 @@ import re
 import utils
 import pickle
 from pdb import set_trace as keyboard
+
+# Tag version number.
+version = 'v0.3.0'
 
 # Set a time range of analysis for a specific float
 filterDate = {
@@ -128,10 +131,10 @@ def main():
             shutil.copy(f, mfloat_path)
 
         # Build list of all mermaid events recorded by the float
-        mevents = events.Events(mfloat_path)
+        mevents = events.Events(mfloat_path, version)
 
         # Process data for each dive
-        mdives = dives.get_dives(mfloat_path, mevents)
+        mdives = dives.get_dives(mfloat_path, mevents, version)
 
         # Compute files for each dive
         for dive in mdives:

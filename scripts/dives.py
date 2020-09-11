@@ -1,11 +1,11 @@
-# automaid v0.2.0
+# automaid v0.3.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 09-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import glob
 import os
@@ -43,9 +43,10 @@ class Dive:
     p2t_offset_param = 0
     p2t_offset_measurement = 0
 
-    def __init__(self, base_path, log_name, events):
+    def __init__(self, base_path, log_name, events, version=None):
         self.base_path = base_path
         self.log_name = log_name
+        self.__version__ = version
         print log_name
 
         # Get the date from the file name
@@ -56,7 +57,6 @@ class Dive:
             self.log_content = f.read()
 
         # Get the last date
-        print self.log_name
         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
         self.end_date = UTCDateTime(int(ed))
 
@@ -105,6 +105,8 @@ class Dive:
         # If the dive contain a Mermaid file
         self.events = list()
         if self.mmd_name:
+            print "    --> " + self.mmd_name
+
             # Read the Mermaid environment associated to the dive
             with open(self.base_path + self.mmd_name, "r") as f:
                 content = f.read()
@@ -392,7 +394,7 @@ class Dive:
 
 
 # Create dives object
-def get_dives(path, events):
+def get_dives(path, events, version):
     # Concatenate log files that need it
     concatenate_log_files(path)
     # Get the list of log files
@@ -402,7 +404,7 @@ def get_dives(path, events):
     # Create Dive objects
     dives = list()
     for log_name in log_names:
-        dives.append(Dive(path, log_name, events))
+        dives.append(Dive(path, log_name, events, version))
     return dives
 
 

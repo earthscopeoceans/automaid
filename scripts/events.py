@@ -1,11 +1,11 @@
-# automaid v0.2.0
+# automaid v0.3.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 09-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -26,8 +26,9 @@ from pdb import set_trace as keyboard
 class Events:
     events = None
 
-    def __init__(self, base_path=None):
+    def __init__(self, base_path=None, version=None):
         # Initialize event list (if list is declared above, then elements of the previous instance are kept in memory)
+        self.__version__ = version
         self.events = list()
         # Read all Mermaid files and find events associated to the dive
         mer_files = glob.glob(base_path + "*.MER")
@@ -40,7 +41,7 @@ class Events:
                 # Divide header and binary
                 header = event.split("<DATA>\x0A\x0D")[0]
                 binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
-                self.events.append(Event(file_name, header, binary))
+                self.events.append(Event(file_name, header, binary, version))
 
     def get_events_between(self, begin, end):
         catched_events = list()
@@ -68,10 +69,12 @@ class Event:
     station_loc = None
     drift_correction = None
 
-    def __init__(self, file_name, header, binary):
+    def __init__(self, file_name, header, binary, version=None):
         self.file_name = file_name
         self.header = header
         self.binary = binary
+        self.__version__ = version
+
         self.scales = re.findall(" STAGES=(-?\d+)", self.header)[0]
         catch_trig = re.findall(" TRIG=(\d+)", self.header)
         if len(catch_trig) > 0:
@@ -291,6 +294,7 @@ class Event:
         stats.sac["user0"] = self.snr
         stats.sac["user1"] = self.criterion
         stats.sac["user2"] = self.trig
+        stats.sac["kuser0"] = self.__version__
         stats.sac["iztype"] = 9  # 9 == IB in sac format
 
         # Save data into a Stream object
