@@ -1,14 +1,18 @@
-# automaid v1.0.0
+# automaid v1.1.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 17-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
+import setup
 import os
 import random
+
+# Get current version number.
+version = setup.get_version()
 
 def generate(dest_path, mfloat_name, dives):
     if len(dives) < 1:

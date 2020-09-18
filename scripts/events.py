@@ -1,12 +1,13 @@
-# automaid v1.0.0
+# automaid v1.1.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 17-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
+import setup
 import os
 import glob
 import re
@@ -23,15 +24,19 @@ import utils
 import gps
 from pdb import set_trace as keyboard
 
+# Get current version number.
+version = setup.get_version()
+
 class Events:
     events = None
 
-    def __init__(self, base_path=None, version=None):
+    def __init__(self, base_path=None):
         # Initialize event list (if list is declared above, then elements of the previous instance are kept in memory)
         self.__version__ = version
         self.events = list()
         # Read all Mermaid files and find events associated to the dive
-        mer_files = glob.glob(base_path + "*.MER")
+        #mer_files = glob.glob(base_path + "*.MER")
+        mer_files = glob.glob(os.path.join(base_path, "*.MER"))
         for mer_file in mer_files:
             file_name = mer_file.split("/")[-1]
             with open(mer_file, "r") as f:
@@ -41,7 +46,7 @@ class Events:
                 # Divide header and binary
                 header = event.split("<DATA>\x0A\x0D")[0]
                 binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
-                self.events.append(Event(file_name, header, binary, version))
+                self.events.append(Event(file_name, header, binary))
 
     def get_events_between(self, begin, end):
         catched_events = list()
@@ -69,7 +74,7 @@ class Event:
     station_loc = None
     drift_correction = None
 
-    def __init__(self, file_name, header, binary, version=None):
+    def __init__(self, file_name, header, binary):
         self.file_name = file_name
         self.header = header
         self.binary = binary
@@ -139,7 +144,7 @@ class Event:
     def compute_station_location(self, drift_begin_gps, drift_end_gps):
         self.station_loc = gps.linear_interpolation([drift_begin_gps, drift_end_gps], self.date)
 
-    def invert_transform(self):
+    def invert_transform(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
         # If scales == -1 this is a raw signal, just convert binary data to numpy array of int32
         if self.scales == "-1":
             self.data = numpy.frombuffer(self.binary, numpy.int32)
@@ -147,25 +152,33 @@ class Event:
         # Get additional information to invert wavelet
         normalized = re.findall(" NORMALIZED=(\d+)", self.environment)[0]
         edge_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.environment)[0]
+
+        # Change to binary directory. These scripts do not fail with full paths.
+        start_dir = os.getcwd();
+        os.chdir(bin_path)
+
         # Write cdf24 data
-        with open("bin/wtcoeffs", 'w') as f:
+        with open("wtcoeffs", 'w') as f:
             f.write(self.binary)
 
         # Do icd24
         if edge_correction == "1":
             #print "icdf24_v103ec_test"
-            subprocess.check_output(["bin/icdf24_v103ec_test",
+            subprocess.check_output(["icdf24_v103ec_test",
                                      self.scales,
                                      normalized,
-                                     "bin/wtcoeffs"])
+                                     "wtcoeffs"])
         else:
             #print "icdf24_v103_test"
-            subprocess.check_output(["bin/icdf24_v103_test",
+            subprocess.check_output(["icdf24_v103_test",
                                     self.scales,
                                     normalized,
-                                    "bin/wtcoeffs"])
+                                    "wtcoeffs"])
         # Read icd24 data
-        self.data = numpy.fromfile("bin/wtcoeffs.icdf24_" + self.scales, numpy.int32)
+        self.data = numpy.fromfile("wtcoeffs.icdf24_" + self.scales, numpy.int32)
+
+        # Return to start directory.
+        os.chdir(start_dir)
 
     def get_export_file_name(self):
         export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.file_name
@@ -285,7 +298,6 @@ class Event:
         stats.network = "MH"
         stats.station = station_number
         stats.starttime = self.date
-
         stats.sac = dict()
         if not force_without_loc:
             stats.sac["stla"] = self.station_loc.latitude
@@ -293,7 +305,8 @@ class Event:
         stats.sac["stdp"] = self.depth
         stats.sac["user0"] = self.snr
         stats.sac["user1"] = self.criterion
-        stats.sac["user2"] = self.trig
+        stats.sac["user2"] = self.trig # samples
+        stats.sac["user3"] = self.drift_correction # seconds
         stats.sac["kuser0"] = self.__version__
         stats.sac["iztype"] = 9  # 9 == IB in sac format
 

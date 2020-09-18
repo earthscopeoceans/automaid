@@ -1,12 +1,13 @@
-# automaid v1.0.0
+# automaid v1.1.0
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 17-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
+import setup
 import glob
 import os
 import re
@@ -15,7 +16,10 @@ import plotly.offline as plotly
 import utils
 from obspy import UTCDateTime
 import gps
+from pdb import set_trace as keyboard
 
+# Get current version number.
+version = setup.get_version()
 
 # Log class to manipulate log files
 class Dive:
@@ -43,7 +47,7 @@ class Dive:
     p2t_offset_param = 0
     p2t_offset_measurement = 0
 
-    def __init__(self, base_path, log_name, events, version=None):
+    def __init__(self, base_path, log_name, events):
         self.base_path = base_path
         self.log_name = log_name
         self.__version__ = version
@@ -366,6 +370,9 @@ class Dive:
         i = 0
         while pressure_val[i] < mixed_layer_depth_m and i < len(pressure_val):
             i += 1
+
+        # d1,p1 = last reading BEFORE DESCENDING through mixed layer depth
+        # d2,p2 = first reading AFTER DESCENDING through mixed layer depth
         d2 = pressure_date[i]
         p2 = pressure_val[i]
         if i > 0:
@@ -375,6 +382,7 @@ class Dive:
             d1 = surface_leave_date
             p1 = 0
 
+
         # compute when the float pass under the mixed layer
         reach_great_depth_date = d1 + (mixed_layer_depth_m - p1) * (d2 - d1) / (p2 - p1)
 
@@ -382,9 +390,11 @@ class Dive:
         i = len(pressure_val)-1
         while pressure_val[i] < mixed_layer_depth_m and i > 0:
             i -= 1
+
+        # d1,p1 = last reading BEFORE ASCENDING through mixed layer depth
+        # d2,p2 = first reading AFTER ASCENDING through mixed layer depth
         d1 = pressure_date[i]
         p1 = pressure_val[i]
-
         if i < len(pressure_val)-1:
             d2 = pressure_date[i+1]
             p2 = pressure_val[i+1]
@@ -421,7 +431,7 @@ class Dive:
 
 
 # Create dives object
-def get_dives(path, events, version):
+def get_dives(path, events):
     # Concatenate log files that need it
     concatenate_log_files(path)
     # Get the list of log files
@@ -431,7 +441,7 @@ def get_dives(path, events, version):
     # Create Dive objects
     dives = list()
     for log_name in log_names:
-        dives.append(Dive(path, log_name, events, version))
+        dives.append(Dive(path, log_name, events))
     return dives
 
 
