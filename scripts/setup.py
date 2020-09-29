@@ -5,5 +5,5 @@
 # Last modified: 17-Sep-2020
 
 def get_version():
-    version = 'v1.1.0'
+    version = 'v1.2.0'
     return version

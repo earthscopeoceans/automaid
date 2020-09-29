@@ -1,3 +1,7 @@
+* v1.2.0
+  -- modified Events class so that single MER file may be passed as opposed to
+     default of globbing entire input base path
+
 Current:
 * v1.1.0: 17-Sep-2020
   -- GPS clock-drift correction added to USER3 variable in SAC header

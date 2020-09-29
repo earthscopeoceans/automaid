@@ -6,7 +6,8 @@
 # Converts a single .MER file without location interpolation, and places the SAC
 # and miniSEED outputs into the same directory as the input .MER file.
 #
-# Warning: does not correct for MERMAID clock drift.
+# Warning: does not correct for MERMAID clock drift, but that does not explain
+#          the entire time difference between using this tool and main.py...
 #
 # Original author: Sebastien Bonnieux
 #
@@ -28,7 +29,7 @@ mer_file_name = sys.argv[1];
 mer_file_path = os.path.join(os.path.split(mer_file_name)[0], "")
 
 def invert_main():
-    mevents = events.Events(mer_file_path)
+    mevents = events.Events(mer_file_path, mer_file_name)
     for event in mevents.events:
         with open(os.path.join(mer_file_path, event.file_name), 'r') as f:
             content = f.read()

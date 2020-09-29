@@ -24,14 +24,15 @@ class GPS:
     clockfreq = None
     source = None
 
-    def __init__(self, date, latitude, longitude, clockdrift, clockfreq, source):
+    def __init__(self, date, latitude, longitude, clockdrift, clockfreq, hdop, vdop, source):
         self.date = date
         self.latitude = latitude
         self.longitude = longitude
         self.clockdrift = clockdrift
         self.clockfreq = clockfreq
+        self.hdop = hdop
+        self.vdop = vdop
         self.source = source
-
 
 def linear_interpolation(gps_list, date):
     gpsl = gps_list
@@ -83,7 +84,7 @@ def linear_interpolation(gps_list, date):
         longitude = gpsl[i].longitude
         longitude += (date - gpsl[i].date) * (gpsl[j].longitude - gpsl[i].longitude) / (gpsl[j].date - gpsl[i].date)
 
-    return GPS(date, latitude, longitude, None, None, "interpolated")
+    return GPS(date, latitude, longitude, None, None, None, None, "interpolated")
 
 
 # Find GPS fix in log files and Mermaid files
@@ -104,7 +105,7 @@ def get_gps_list(log_content, mmd_environment_content, mmd_name):
         if not cached:
             gpslist.append(gps_log)
 
-    return gpslist
+    return gpslist, gps_from_log, gps_from_mmd_env
 
 
 def get_gps_from_mermaid_environment(mmd_name, content):
@@ -190,10 +191,14 @@ def get_gps_from_mermaid_environment(mmd_name, content):
                    + " at " + fixdate.isoformat() + ", clockfreq = " + str(clockfreq) + "Hz"
             print err_msg
 
+        # .MER files do not include hdop or vdop.
+        hdop = None
+        vdop = None
+
         # Add date to the list
         if fixdate is not None and latitude is not None and longitude is not None \
                 and clockdrift is not None and clockfreq is not None:
-            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, "mer"))
+            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, "mer"))
         else:
             raise ValueError
 
@@ -256,7 +261,24 @@ def get_gps_from_log(content):
         else:
             clockfreq = None
 
+        hdop = re.findall("hdop (\d+.\d+)", gps_log)
+        if len(hdop) > 0:
+            hdop = hdop[0]
+            hdop = float(hdop)
+
+        else:
+            hdop = None
+
+        vdop = re.findall("vdop (\d+.\d+)", gps_log)
+        if len(vdop) > 0:
+            vdop = vdop[0]
+            vdop = float(vdop)
+
+        else:
+            vdop = None
+
+
         if fixdate is not None and latitude is not None and longitude is not None:
-            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, "log"))
+            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, "log"))
 
     return gps

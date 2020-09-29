@@ -30,13 +30,19 @@ version = setup.get_version()
 class Events:
     events = None
 
-    def __init__(self, base_path=None):
-        # Initialize event list (if list is declared above, then elements of the previous instance are kept in memory)
+    def __init__(self, base_path=None, mer_file_name=None):
+        # Initialize event list (if list is declared above, then elements of the
+        # previous instance are kept in memory)
         self.__version__ = version
         self.events = list()
-        # Read all Mermaid files and find events associated to the dive
-        #mer_files = glob.glob(base_path + "*.MER")
-        mer_files = glob.glob(os.path.join(base_path, "*.MER"))
+
+        # If just a base path to (e.g., a server directory) is passed, load all
+        # .MER files contained there; otherwise read a single input file
+        if mer_file_name is None:
+            mer_files = glob.glob(os.path.join(base_path, "*.MER"))
+        else:
+            mer_files = glob.glob(os.path.join(base_path, mer_file_name))
+
         for mer_file in mer_files:
             file_name = mer_file.split("/")[-1]
             with open(mer_file, "r") as f:
@@ -153,7 +159,7 @@ class Event:
         normalized = re.findall(" NORMALIZED=(\d+)", self.environment)[0]
         edge_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.environment)[0]
 
-        # Change to binary directory. These scripts do not fail with full paths.
+        # Change to binary directory. These scripts can fail with full paths.
         start_dir = os.getcwd();
         os.chdir(bin_path)
 
@@ -252,7 +258,7 @@ class Event:
         if os.path.exists(export_path_msd):
             return
 
-        # Check if the station location have been calculated
+        # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
             print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
             return
@@ -269,7 +275,7 @@ class Event:
         if os.path.exists(export_path_sac):
             return
 
-        # Check if the station location have been calculated
+        # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
             print self.get_export_file_name() + ": Skip sac generation, wait the next ascent to compute location"
             return
@@ -306,7 +312,10 @@ class Event:
         stats.sac["user0"] = self.snr
         stats.sac["user1"] = self.criterion
         stats.sac["user2"] = self.trig # samples
-        stats.sac["user3"] = self.drift_correction # seconds
+        if self.drift_correction is not None:
+            stats.sac["user3"] = self.drift_correction # seconds
+        else:
+            stats.sac["user3"] = -12345.0 # undefined default
         stats.sac["kuser0"] = self.__version__
         stats.sac["iztype"] = 9  # 9 == IB in sac format
 

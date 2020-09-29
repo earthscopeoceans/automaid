@@ -1,4 +1,5 @@
-# automaid v1.1.0
+# automaid -- a Python package to process MERMAID files
+#
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
@@ -57,14 +58,14 @@ filterDate = {
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = False
+redo = True
 
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
 events_plotly = False
-events_mseed = True
+events_mseed = False
 events_sac = True
-events_png = True
+events_png = False
 
 # Set paths.
 automaid_path = os.environ["AUTOMAID"]
@@ -84,7 +85,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*.vit")
+    vitfile_path = os.path.join(server_path, "*P-10.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # For each Mermaid float
@@ -149,7 +150,7 @@ def main():
             # Generate dive plot
             dive.generate_dive_plotly()
 
-        # Compute clock drift correction for each event
+        # Compute clock drift correction for each event, and build list of GPS locations.
         for dive in mdives:
             dive.correct_events_clock_drift()
 
@@ -160,16 +161,27 @@ def main():
             mdives[i].compute_events_station_location(mdives[i+1])
             i += 1
 
-        # Generate plot and sac files
+        # mmd_names = [o.mmd_name for o in mdives]
+        # mmd_is_complete = [o.mmd_file_is_complete for o in mdives]
+        # skip_mmd__file = [o.mmd_file_is_complete==False for o in mdives]
+
+        # Determine which .MER files are incomplete and thus should have their
+        # associated events skipped in the next processing step.
+        incomplete_mmd_files = list()
+        for dive in mdives:
+            if dive.mmd_file_is_complete is False:
+                incomplete_mmd_files.append(dive.mmd_name)
+
+        # Generate plots, SAC, and miniSEED files.
         for dive in mdives:
             if events_png:
-                dive.generate_events_png()
+                dive.generate_events_png(incomplete_mmd_files)
             if events_plotly:
-                dive.generate_events_plotly()
+                dive.generate_events_plotly(incomplete_mmd_files)
             if events_sac:
-                dive.generate_events_sac()
+                dive.generate_events_sac(incomplete_mmd_files)
             if events_mseed:
-                dive.generate_events_mseed()
+                dive.generate_events_mseed(incomplete_mmd_files)
 
         # Plot vital data
         kml.generate(mfloat_path, mfloat, mdives)
@@ -178,6 +190,53 @@ def main():
         vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
         if len(mdives) > 1:
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
+
+        # Build unsorted list of all GPS fixes from .LOG and .MER.
+        gps_dates = list()
+        gps_latitudes = list()
+        gps_longitudes = list()
+        gps_hdops = list()
+        gps_vdops = list()
+        gps_clockdrifts = list()
+        gps_sources = list()
+
+        for dive in mdives:
+            # Collect all GPS data from LOG file.
+            for gps_fix in dive.gps_from_log:
+                gps_dates.append(gps_fix.date)
+                gps_latitudes.append(gps_fix.latitude)
+                gps_longitudes.append(gps_fix.longitude)
+                gps_hdops.append(gps_fix.hdop)
+                gps_vdops.append(gps_fix.vdop)
+                gps_clockdrifts.append(gps_fix.clockdrift)
+                gps_sources.append(dive.log_name)
+
+            # Collect all GPS data from MER file.
+            for gps_fix in dive.gps_from_mmd_env:
+                gps_dates.append(gps_fix.date)
+                gps_latitudes.append(gps_fix.latitude)
+                gps_longitudes.append(gps_fix.longitude)
+                gps_hdops.append(gps_fix.hdop)
+                gps_vdops.append(gps_fix.vdop)
+                gps_clockdrifts.append(gps_fix.clockdrift)
+                gps_sources.append(dive.mmd_name)
+
+        # Concatenate all GPS data into zipped tuple and sort based on zeroth (date) index.
+        complete_gps_tup = sorted(zip(gps_dates, gps_latitudes, gps_longitudes, gps_hdops,
+                                       gps_vdops, gps_clockdrifts, gps_sources))
+
+        # Write textfile.
+        fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>5.3f}    {:>5.3f}    {:>17.6f}    {:>15s}\n"
+        with open(os.path.join(processed_path, mfloat_path, mfloat+"_GPS.txt"), "w+") as f:
+            for t in complete_gps_tup:
+                l = list(t)
+                if l[3] is None:
+                    l[3] = float("NaN")
+
+                if l[4] is None:
+                    l[4] = float("NaN")
+
+                f.write(fmt_spec.format(l[0], l[1], l[2], l[3], l[4], l[5], l[6]))
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
@@ -200,6 +259,8 @@ def main():
         #        print dive.great_depth_reach_loc.date
         #        print dive.great_depth_leave_loc.date
         #        print dive.gps_list[-1].date # point GPS en arrivant en surface
+
+
 
 if __name__ == "__main__":
     main()
