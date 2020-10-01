@@ -13,7 +13,7 @@
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 17-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 30-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import events
@@ -25,23 +25,23 @@ from pdb import set_trace as keyboard
 # Get current version number.
 version = setup.get_version()
 
-mer_file_name = sys.argv[1];
-mer_file_path = os.path.join(os.path.split(mer_file_name)[0], "")
+mmd_file_name = sys.argv[1];
+mmd_file_path = os.path.join(os.path.split(mmd_file_name)[0], "")
 
 def invert_main():
-    mevents = events.Events(mer_file_path, mer_file_name)
+    mevents = events.Events(mmd_file_path, mmd_file_name)
     for event in mevents.events:
-        with open(os.path.join(mer_file_path, event.file_name), 'r') as f:
+        with open(os.path.join(mmd_file_path, event.mmd_data_name), 'r') as f:
             content = f.read()
         environment = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)[0]
         event.set_environment(environment)
         event.find_measured_sampling_frequency()
         event.correct_date()
         event.invert_transform()
-        event.plotly(mer_file_path)
-        event.plot_png(mer_file_path)
-        event.to_sac(mer_file_path, station_number="00", force_without_loc=True)
-        event.to_mseed(mer_file_path, station_number="00", force_without_loc=True)
+        event.plotly(mmd_file_path, force_with_incomplete_mmd=True)
+        event.plot_png(mmd_file_path, force_with_incomplete_mmd=True)
+        event.to_sac(mmd_file_path, station_number="00", force_without_loc=True, force_with_incomplete_mmd=True)
+        event.to_mseed(mmd_file_path, station_number="00", force_without_loc=True, force_with_incomplete_mmd=True)
 
 if __name__ == "__main__":
     invert_main()

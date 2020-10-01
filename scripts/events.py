@@ -5,7 +5,7 @@
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 17-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 30-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -30,7 +30,7 @@ version = setup.get_version()
 class Events:
     events = None
 
-    def __init__(self, base_path=None, mer_file_name=None):
+    def __init__(self, base_path=None, mmd_name=None):
         # Initialize event list (if list is declared above, then elements of the
         # previous instance are kept in memory)
         self.__version__ = version
@@ -38,21 +38,21 @@ class Events:
 
         # If just a base path to (e.g., a server directory) is passed, load all
         # .MER files contained there; otherwise read a single input file
-        if mer_file_name is None:
-            mer_files = glob.glob(os.path.join(base_path, "*.MER"))
+        if mmd_name is None:
+            mmd_files = glob.glob(os.path.join(base_path, "*.MER"))
         else:
-            mer_files = glob.glob(os.path.join(base_path, mer_file_name))
+            mmd_files = glob.glob(os.path.join(base_path, mmd_name))
 
-        for mer_file in mer_files:
-            file_name = mer_file.split("/")[-1]
-            with open(mer_file, "r") as f:
+        for mmd_file in mmd_files:
+            mmd_data_name = mmd_file.split("/")[-1]
+            with open(mmd_file, "r") as f:
                 content = f.read()
             events = content.split("</PARAMETERS>")[-1].split("<EVENT>")[1:]
             for event in events:
                 # Divide header and binary
                 header = event.split("<DATA>\x0A\x0D")[0]
                 binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
-                self.events.append(Event(file_name, header, binary))
+                self.events.append(Event(mmd_data_name, header, binary))
 
     def get_events_between(self, begin, end):
         catched_events = list()
@@ -63,7 +63,8 @@ class Events:
 
 
 class Event:
-    file_name = None
+    mmd_data_name = None
+    mmd_file_is_complete = None
     environment = None
     header = None
     binary = None
@@ -80,8 +81,8 @@ class Event:
     station_loc = None
     drift_correction = None
 
-    def __init__(self, file_name, header, binary):
-        self.file_name = file_name
+    def __init__(self, mmd_data_name, header, binary):
+        self.mmd_data_name = mmd_data_name
         self.header = header
         self.binary = binary
         self.__version__ = version
@@ -187,7 +188,7 @@ class Event:
         os.chdir(start_dir)
 
     def get_export_file_name(self):
-        export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.file_name
+        export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.mmd_data_name
         if not self.trig:
             export_file_name = export_file_name + ".REQ"
         else:
@@ -207,11 +208,16 @@ class Event:
                 + "     SNR = " + str(self.snr)
         return title
 
-    def plotly(self, export_path):
+    def plotly(self, export_path, force_with_incomplete_mmd=False):
         # Check if file exist
         export_path = export_path + self.get_export_file_name() + ".html"
         if os.path.exists(export_path):
             return
+
+        # Return in the .MER file is incomplete (tranmission failure)
+        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
+            return
+
         # Add acoustic values to the graph
         data_line = graph.Scatter(x=utils.get_date_array(self.date, len(self.data), 1./self.decimated_fs),
                                   y=self.data,
@@ -232,12 +238,17 @@ class Event:
                     filename=export_path,
                     auto_open=False)
 
-    def plot_png(self, export_path):
+    def plot_png(self, export_path, force_with_incomplete_mmd=False):
         # Check if file exist
         export_path = export_path + self.get_export_file_name() + ".png"
         if os.path.exists(export_path):
             return
         data = [d/(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000) for d in self.data]
+
+        # Return in the .MER file is incomplete (tranmission failure)
+        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
+            return
+
         # Plot frequency image
         plt.figure(figsize=(9, 4))
         plt.title(self.__get_figure_title(), fontsize=12)
@@ -252,15 +263,19 @@ class Event:
         plt.clf()
         plt.close()
 
-    def to_mseed(self, export_path, station_number, force_without_loc):
+    def to_mseed(self, export_path, station_number, force_without_loc=False, force_with_incomplete_mmd=False):
         # Check if file exist
         export_path_msd = export_path + self.get_export_file_name() + ".mseed"
         if os.path.exists(export_path_msd):
             return
 
+        # Return in the .MER file is incomplete (tranmission failure)
+        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
+            return
+
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
-            print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
+            #print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
             return
 
         # Get stream object
@@ -269,10 +284,14 @@ class Event:
         # Save stream object
         stream.write(export_path_msd, format='MSEED')
 
-    def to_sac(self, export_path, station_number, force_without_loc):
+    def to_sac(self, export_path, station_number, force_without_loc=False, force_with_incomplete_mmd=False):
         # Check if file exist
         export_path_sac = export_path + self.get_export_file_name() + ".sac"
         if os.path.exists(export_path_sac):
+            return
+
+        # Return in the .MER file is incomplete (tranmission failure)
+        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
             return
 
         # Check if the station location has been calculated
@@ -286,7 +305,7 @@ class Event:
         # Save stream object
         stream.write(export_path_sac, format='SAC')
 
-    def get_stream(self, export_path, station_number, force_without_loc):
+    def get_stream(self, export_path, station_number, force_without_loc=False):
         # Check if file exist
         export_path_sac = export_path + self.get_export_file_name() + ".sac"
         export_path_msd = export_path + self.get_export_file_name() + ".mseed"

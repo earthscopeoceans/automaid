@@ -33,7 +33,7 @@ class Dive:
     is_dive = None
     is_complete_dive = None
     log_content = None
-    mmd_name = None
+    mmd_environment_name = None
     mmd_environment = None
     events = None
     station_name = None
@@ -46,15 +46,15 @@ class Dive:
     great_depth_leave_loc = None
     p2t_offset_param = 0
     p2t_offset_measurement = 0
-    mmd_bytes_actual = None
-    mmd_bytes_according_to_log = None
+    mmd_bytes_received = None
+    mmd_bytes_expected = None
     mmd_file_is_complete = None
+    dive_id = None
 
     def __init__(self, base_path, log_name, events):
         self.base_path = base_path
         self.log_name = log_name
         self.__version__ = version
-        print log_name
 
         # Get the date from the file name -- the hexidecimal component of the
         # .LOG file name is the same Unix Epoch time as the first line of the
@@ -110,7 +110,7 @@ class Dive:
         # Find the .MER file of the ascent
         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
         if len(catch) > 0:
-            self.mmd_name = catch[-1].replace("/", "_")
+            self.mmd_environment_name = catch[-1].replace("/", "_")
 
         # If the dive wrote a .MER file then retrieve its corresponding
         # environment because those GPS fixes DO relate to start/end of the
@@ -123,27 +123,39 @@ class Dive:
         # back corresponding to a single dive, it may take multiple surfacings
         # to finally transmit them all).
         self.events = list()
-        if self.mmd_name:
-            print "    --> " + self.mmd_name
-
+        if self.mmd_environment_name:
             # Verify that the number of bytes purported to be in the .MER file
             # are actually in the .MER file (the .LOG prints the expectation)
-            byte_re = re.search("](\d+) bytes in " + self.mmd_name.replace("_", "/"), self.log_content)
-            self.mmd_bytes_according_to_log = int(byte_re.group(1))
+            bytes_expected = re.search("](\d+) bytes in " \
+                                       + self.mmd_environment_name.replace("_", "/"), self.log_content)
+            self.mmd_bytes_expected = int(bytes_expected.group(1))
 
-            mer_fullfile_name = self.base_path + self.mmd_name
-            self.mmd_bytes_actual = os.path.getsize(mer_fullfile_name)
+            mer_fullfile_name = self.base_path + self.mmd_environment_name
+            self.mmd_bytes_received = os.path.getsize(mer_fullfile_name)
 
             self.mmd_file_is_complete = False
-            if self.mmd_bytes_actual == self.mmd_bytes_according_to_log:
+            if self.mmd_bytes_received == self.mmd_bytes_expected:
                 self.mmd_file_is_complete = True
+
+            # Warning if .MER transmission is incomplete
+            if not self.mmd_file_is_complete:
+                print("!!!! WARNING: MER file transmission is incomplete, do not invert SAC/mSEED using {:s}" \
+                      .format(self.mmd_environment_name))
+                print("      Expected {:>6d} bytes\n      Received {:>6d} bytes"\
+                      .format(self.mmd_bytes_expected, self.mmd_bytes_received))
 
             # Read the Mermaid environment associated to the dive
             with open(mer_fullfile_name, "r") as f:
                 content = f.read()
             self.mmd_environment = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)[0]
 
-            # Get list of events associated to the dive
+            # Get dive ID according to .MER (can these be reset?)
+            dive_id = re.search("<DIVE ID=(\d+)", self.mmd_environment)
+            self.dive_id = int(dive_id.group(1))
+
+            # Get list of events associated with this .MER files environment
+            # (the metadata header, which does not necessarily relate to the
+            # attached events and their binary data).
             self.events = events.get_events_between(self.date, self.end_date)
 
             # For each event
@@ -159,7 +171,7 @@ class Dive:
 
         # Find the position of the float
         self.gps_list, self.gps_from_log, self.gps_from_mmd_env \
-            = gps.get_gps_list(self.log_content, self.mmd_environment, self.mmd_name)
+            = gps.get_gps_list(self.log_content, self.mmd_environment, self.mmd_environment_name)
         self.gps_list_is_complete = False
         if self.is_complete_dive:
             # Check that the last GPS fix of the list correspond to the ascent position
@@ -167,15 +179,15 @@ class Dive:
             surface_date = UTCDateTime(surface_date[0][1])
             if len(self.gps_list) == 0:
                 print "WARNING: No GPS synchronization at all for \"" \
-                        + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                        + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             elif len(self.gps_list) > 1 and self.gps_list[-1].date > surface_date:
                 self.gps_list_is_complete = True
             elif self.gps_list[-1].date > surface_date:
                 print "WARNING: No GPS synchronization before diving for \"" \
-                        + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                        + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             else:
                 print "WARNING: No GPS synchronization after surfacing for \"" \
-                        + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                        + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
 
         # Find the pressure offset
         if self.is_complete_dive:
@@ -197,13 +209,18 @@ class Dive:
 
     def generate_mermaid_environment_file(self):
         # Check if there is a Mermaid file
-        if self.mmd_name is None:
+        if self.mmd_environment_name is None:
             return
 
         # Check if file exist
-        export_path = self.export_path + self.log_name + "." + self.mmd_name + ".env"
+        export_path = self.export_path + self.log_name + "." + self.mmd_environment_name + ".env"
         if os.path.exists(export_path):
             return
+
+        # Return in the .MER file is incomplete (tranmission failure)
+        if not self.mmd_file_is_complete:
+            return
+
         # Write file
         with open(export_path, "w") as f:
             f.write(self.mmd_environment)
@@ -213,18 +230,26 @@ class Dive:
         export_path = self.export_path + self.log_name[:-4] + '.html'
         if os.path.exists(export_path):
             return
+
         # If the float is not diving don't plot anything
         if not self.is_dive:
             return
+
+        # Return in the .MER file is incomplete (tranmission failure)
+        if not self.mmd_file_is_complete:
+            return
+
         # Search pressure values
         pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
         bypass = utils.find_timestamped_values(":\[BYPASS", self.log_content)
         valve = utils.find_timestamped_values(":\[VALVE", self.log_content)
         pump = utils.find_timestamped_values(":\[PUMP", self.log_content)
         mermaid_events = utils.find_timestamped_values("[MRMAID,\d+] *\d+dbar, *-?\d+degC", self.log_content)
+
         # Return if there is no data to plot
         if len(pressure) < 1:
             return
+
         # Add pressure values to the graph
         p_val = [-int(p[0])/100. for p in pressure]
         p_date = [p[1] for p in pressure]
@@ -239,6 +264,7 @@ class Dive:
         # Find minimum and maximum for Y axis of vertical lines
         minimum = min(p_val) + 0.05*min(p_val)
         maximum = 0
+
         # Add bypass lines
         bypass = [bp[1] for bp in bypass]
         bypass_line = utils.plotly_vertical_shape(bypass,
@@ -289,23 +315,23 @@ class Dive:
         # Compute clock drift
         if not self.is_dive:
             # print "WARNING: Events are not part of a dive, don't do clock drift correction for \""\
-            #       + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+            #       + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if not self.is_complete_dive:
             print "WARNING: Events are not part of a complete dive, do not correct clock drift for \""\
-                  + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                  + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if not self.gps_list_is_complete:
             print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
-                  + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                  + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if self.gps_list[-2].clockfreq <= 0:
             print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
-                  + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                  + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if self.gps_list[-1].clockfreq <= 0:
             print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
-                  + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                  + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Correct clock drift
@@ -316,33 +342,28 @@ class Dive:
         # Check if the dive is complete
         if not self.is_complete_dive:
             # print "WARNING: The dive is not complete, do not compute event location estimation for \""\
-            #       + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+            #       + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Check if the dive contain enough gps fix
         if len(self.gps_list) <= 1:
             print "WARNING: The current dive doesn't contain enough GPS fix,""" \
                   + " do not compute event location estimation for \"" \
-                  + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                  + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Check if the next dive contain gps fix
         if len(next_dive.gps_list) <= 1:
             print "WARNING: The next dive doesn't contain enough GPS fix,""" \
                   + " do not compute event location estimation for \"" \
-                  + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                  + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Warning GPS list is incomplete, do not compute event location
         if not self.gps_list_is_complete:
             print "WARNING: GPS list is incomplete, do not compute event location for \""\
-                  + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
+                  + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
-
-        # Warning if .MER transmission is incomplete
-        if not self.mmd_file_is_complete:
-            print "WARNING: MER file transmission is incomplete, do not invert SAC/mSEED for \""\
-                + str(self.mmd_name) + "\", \"" + str(self.log_name) + "\""
 
         # Split the GPS list: the final GPS location in the .MER file is from
         # the next dive (and is roughly(?) the same time as the first GPS
@@ -368,7 +389,7 @@ class Dive:
             print "!!!!                                               !!!!"
             print "!!!! Less than two GPS fixes before or after dive, !!!!"
             print "!!!! cannot compute interpolated location:         !!!!"
-            print "!!!! " + self.mmd_name + " and " + self.log_name + "           !!!!"
+            print "!!!! " + self.mmd_environment_name + " and " + self.log_name + "           !!!!"
             print "!!!!                                               !!!!"
             print "!!!!_______________________________________________!!!!"
             return
@@ -445,25 +466,21 @@ class Dive:
         for event in self.events:
             event.compute_station_location(self.great_depth_reach_loc, self.great_depth_leave_loc)
 
-    def generate_events_plotly(self, incomplete_mmd_files=None):
+    def generate_events_plotly(self):
         for event in self.events:
-            if event.file_name not in incomplete_mmd_files:
-                event.plotly(self.export_path)
+            event.plotly(self.export_path, force_with_incomplete_mmd=False)
 
-    def generate_events_png(self, incomplete_mmd_files=None):
+    def generate_events_png(self):
         for event in self.events:
-            if event.file_name not in incomplete_mmd_files:
-                event.plot_png(self.export_path, incomplete_mmd_files=None)
+            event.plot_png(self.export_path, force_with_incomplete_mmd=False)
 
-    def generate_events_sac(self, incomplete_mmd_files=None):
+    def generate_events_sac(self):
         for event in self.events:
-            if event.file_name not in incomplete_mmd_files:
-                event.to_sac(self.export_path, self.station_number, force_without_loc=False)
+            event.to_sac(self.export_path, self.station_number, force_without_loc=False, force_with_incomplete_mmd=False)
 
-    def generate_events_mseed(self, incomplete_mmd_files=None):
+    def generate_events_mseed(self):
         for event in self.events:
-            if event.file_name not in incomplete_mmd_files:
-                event.to_mseed(self.export_path, self.station_number, force_without_loc=False)
+            event.to_mseed(self.export_path, self.station_number, force_without_loc=False, force_with_incomplete_mmd=False)
 
 
 # Create dives object
@@ -507,3 +524,32 @@ def concatenate_log_files(path):
                 with open(path + log_file, "w") as fl:
                     fl.write(logstring)
                 logstring = ""
+
+def attach_mmd_is_complete_to_dive_events(dive_list):
+    """Intakes a list of Dive instances and updates their events.mmd_file_is_complete
+    field (events is a list of events associated with each dive).
+
+    More verbose: each Dive instance is associated with a single .MER file via
+    dive.mmd_environment_name in the sense that this is the .MER file whose
+    environment is associated with that dive (the GPS fixes in the environment
+    are similar to the corresponding .LOG file, in dive.log_name).  However, the
+    events (a separate list) attached to this dive may have had their .MER
+    binary data written to a different .MER file.  I.e., the .MER environment
+    does not necessarily correspond to the same file's event data records, and
+    thus .MER data does not necessarily correspond to the last dive.
+
+    """
+
+    # Generate lists of:
+    # (1) all mmd (.MER) files processed
+    # (2) the completeness (or lack thereof) of those same files
+    # and zip them into dictionary for easy reference
+    mmd_environment_names = [o.mmd_environment_name for o in dive_list]
+    mmd_files_are_complete = [o.mmd_file_is_complete for o in dive_list]
+    mmd_dict = dict(zip(mmd_environment_names, mmd_files_are_complete))
+
+    # Attach completeness metric to each event
+    for d in dive_list:
+         for e in d.events:
+            if e.mmd_data_name is not None:
+                e.mmd_file_is_complete = mmd_dict[e.mmd_data_name]
