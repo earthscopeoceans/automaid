@@ -85,7 +85,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*P-10.vit")
+    vitfile_path = os.path.join(server_path, "*.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # For each Mermaid float
