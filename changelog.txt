@@ -1,8 +1,32 @@
-* v1.2.0
-  -- modified Events class so that single MER file may be passed as opposed to
-     default of globbing entire input base path
-
 Current:
+* v1.2.0: 01-Oct-2020
+  -- Spell out, explicitly, which .MER file contributed event binary data in
+     each Event instance
+  -- Spell out, explicitly, which .MER file was used for dive event metadata (GPS
+     fixes) via its environment (the header that precedes event data) in each
+     Dive instance
+  -- Make relationship between event data (.MER binary) and dive location (.MER
+     environment and .LOG data) explicit via
+     attach_mmd_is_complete_to_dive_events() method because every dive generates
+     1 LOG and maybe 0, 1, or multiple .MER files and the binary data in any
+     give .MER file does not necessarily correspond to that same file's
+     environment
+  -- Add verification of complete transmission of .MER file before attempting to
+     generate SAC/mSEED
+  -- Add printout detailing the connection successive dives and their .MER and
+     .LOG files; this follows from dives.attach_mmd_is_complete_to_dive_events--
+     see those printouts in dives.py to understand how various dives and events
+     relate, and how the latter list may be pulled from multiple text files
+  -- Modify Events globbing to truly allow passage of single .MER in
+     tool_invert_mer.py, and update the latter to force the generation of
+     SAC/mSEED files with an incomplete .MER file because validating a .MER file
+     requires the associated .LOG (for number of bytes written), which is not
+     available to tool_invert_mer.py
+  -- Attach hdop, vdop to GPS when available
+  -- Write list of all GPS data from .LOG / .MER -- currently in main.py; this
+     logic should probably be pulled out into gps.py at some point
+
+Previous:
 * v1.1.0: 17-Sep-2020
   -- GPS clock-drift correction added to USER3 variable in SAC header
   -- Packaged version number stored in setup.py and imported in scripts
@@ -13,7 +37,6 @@ Current:
      allow fullpath inputs
   -- Removed local server/ and processed/ directories: those go in $MERMAID
 
-Previous:
 * v1.0.0: 11-Sep-2020
   -- Fix P-25.vit gps.linear_interpolation crash with early return in dives.py
 
@@ -37,4 +60,3 @@ Previous:
 
 Todo:
   -- Reconcile READMEs across different remotes
-
