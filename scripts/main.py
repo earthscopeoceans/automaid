@@ -1,12 +1,11 @@
-# automaid -- a Python package to process MERMAID files
-#
+# Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 #
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 30-Sep-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -58,7 +57,7 @@ filterDate = {
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = True
+redo = False
 
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
@@ -226,7 +225,7 @@ def main():
         complete_gps_tup = sorted(zip(gps_dates, gps_latitudes, gps_longitudes, gps_hdops,
                                        gps_vdops, gps_clockdrifts, gps_sources))
 
-        # Write textfile.
+        # Write GPS text file
         fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>5.3f}    {:>5.3f}    {:>17.6f}    {:>15s}\n"
         gps_f = os.path.join(processed_path, mfloat_path, mfloat+"_GPS.txt")
         with open(gps_f, "w+") as f:
@@ -240,6 +239,24 @@ def main():
 
                 f.write(fmt_spec.format(l[0], l[1], l[2], l[3], l[4], l[5], l[6]))
 
+        # Generate printout detailing how everything connects
+        sac_count = 0
+        print ""
+        i = 0
+        for d in mdives:
+            # For every dive...
+            if d.is_dive:
+                print("  .DIVE. {:s}".format(mfloat_serial))
+            else:
+                print("  .NO DIVE. {:s}".format(mfloat_serial))
+            d.print_dive_length()
+            d.print_dive_gps(mdives[i+1])
+            d.print_dive_events()
+            print ""
+
+        print("    {:s} total: {:d} SAC files\n" \
+              .format(mfloat_serial, sum(o.sac_count for o in mdives)))
+
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
             os.remove(f)
@@ -249,40 +266,6 @@ def main():
         # Put dive in a variable that will be saved in a file
         datasave[mfloat] = mdives
 
-        # Generate printout detailing how everything connects
-        sac_count = 0
-        print ""
-        for d in mdives:
-            # For every dive...
-            if d.is_dive:
-                #print("Dive ID: {:d}".format(d.dive_id))
-                print("  .DIVE. {:s}".format(mfloat_serial))
-                dive_len = (d.end_date-d.date) / (60*60*24)
-                print("  Dates: {:s} -> {:s} ({:.1f} days; first/last line of {:s})" \
-                      .format(str(d.date)[0:19], str(d.end_date)[0:19], dive_len, d.log_name))
-
-                print("    GPS: {:s} (<ENVIRONMENT/>) & {:s}" \
-                      .format(d.mmd_environment_name, d.log_name))
-
-                # For every event written to a .MER file (but not necessarily recorded) during that dive...
-                if d.events is None:
-                    print("    ---> no detected or requested events")
-                else:
-                    for e in d.events:
-                        if e.station_loc is None:
-                            print("    ---> ! NOT MADE (not enough GPS fixes) {:s}.sac (<EVENT/> binary in {:s})" \
-                                  .format(e.get_export_file_name(), e.mmd_data_name))
-                        else:
-                            if not e.mmd_file_is_complete:
-                                print("    ---> ! NOT MADE (incomplete .MER file) {:s}.sac (<EVENT/> binary in {:s})" \
-                                      .format(e.get_export_file_name(), e.mmd_data_name))
-                            else:
-                                sac_count += 1
-                                print("    ---> {:s}.sac (<EVENT/> binary in {:s})" \
-                                      .format(e.get_export_file_name(), e.mmd_data_name))
-
-                print ""
-        print(" Generated {:d} {:s} SAC files\n".format(sac_count, mfloat_serial))
     with open(os.path.join(processed_path, "MerDives.pydata"), 'wb') as f:
         pickle.dump(datasave, f)
 
