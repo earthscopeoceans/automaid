@@ -1,0 +1,105 @@
+01-Oct-2020
+
+This example shows how automaid v1.2+ handles incomplete .MER files by requiring
+that the number of bytes actually written to each .MER matches exactly the .MER
+file sizes reported in their associated .LOG files.
+
+The example server directories server_incomplete_transmission and
+server_complete_transmission differ only in a single file, 10_5E79D332.MER,
+which, in the former directory, is incomplete due to a transmission error.
+
+______________________________________________________________________________________
+
+To run the examples from within this directory --
+
+$ python $AUTOMAID/scripts/main.py --server server_complete_transmission --processed processed_complete_transmission
+$ python $AUTOMAID/scripts/main.py --server server_incomplete_transmission --processed processed_incomplete_transmission
+
+______________________________________________________________________________________
+
+To make sense of the printouts --
+
+You will note in the output of the incomplete case:
+
+    WARNING: MER file transmission is incomplete, do not invert SAC/mSEED using 10_5E79D332.MER
+	  Expected 162975 bytes (according to 10_5E76C2B7.LOG)
+	  Received 100352 bytes
+
+Further, we are alerted that (cherry-picking from the printout):
+
+    .DIVE. P-10
+     Date: 2020-03-15T02:51:36 -> 2020-03-17T09:40:54 (2.3 days; first/last line of 10_5E6D9838.LOG)
+      GPS: 10_5E709976.MER (<ENVIRONMENT/>) & 10_5E6D9838.LOG (this dive)
+	   10_5E739FA8.MER (<ENVIRONMENT/>) & 10_5E709B26.LOG (next dive)
+    Event: ! NOT MADE (incomplete .MER file) 20200316T094049.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: ! NOT MADE (incomplete .MER file) 20200316T235451.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: ! NOT MADE (incomplete .MER file) 20200317T022444.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: ! NOT MADE (incomplete .MER file) 20200316T174744.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+
+    .DIVE. P-10
+     Date: 2020-03-22T01:43:19 -> 2020-03-24T09:37:25 (2.3 days; first/last line of 10_5E76C2B7.LOG)
+      GPS: 10_5E79D332.MER (<ENVIRONMENT/>) & 10_5E76C2B7.LOG (this dive)
+	   10_5E7D0424.MER (<ENVIRONMENT/>) & 10_5E79D4D5.LOG (next dive)
+    Event: ! NOT MADE (incomplete .MER file) 20200322T223416.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: ! NOT MADE (incomplete .MER file) 20200323T132042.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+
+
+In total there are six events reported in 10_5E79D332.MER, associated with two
+separate dives, that were not converted into SAC files because of the
+transmission error. Look at server_incomplete_transmission/10_5E79D332.MER and
+count the event blocks: there are six complete event blocks and one incomplete
+event block.
+
+Alternatively, for the complete case, we get no such warning at the start of
+execution and the following modified printout is returned (again, cherry-picked):
+
+    .DIVE. P-10
+     Date: 2020-03-15T02:51:36 -> 2020-03-17T09:40:54 (2.3 days; first/last line of 10_5E6D9838.LOG)
+      GPS: 10_5E709976.MER (<ENVIRONMENT/>) & 10_5E6D9838.LOG (this dive)
+	   10_5E739FA8.MER (<ENVIRONMENT/>) & 10_5E709B26.LOG (next dive)
+    Event: 20200316T094049.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: 20200316T235451.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: 20200317T022444.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: 20200316T174744.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: 20200316T212653.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: 20200317T020823.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: 20200316T191615.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+
+
+    .DIVE. P-10
+     Date: 2020-03-22T01:43:19 -> 2020-03-24T09:37:25 (2.3 days; first/last line of 10_5E76C2B7.LOG)
+      GPS: 10_5E79D332.MER (<ENVIRONMENT/>) & 10_5E76C2B7.LOG (this dive)
+	   10_5E7D0424.MER (<ENVIRONMENT/>) & 10_5E79D4D5.LOG (next dive)
+    Event: 20200322T223416.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+    Event: 20200323T132042.10_5E79D332.MER.DET.WLT5.sac (<EVENT/> binary in 10_5E79D332.MER)
+
+Now there are nine events associated with this completed .MER file, and all were
+converted to SAC files because the .MER file is complete.  Look at
+server_complete_transmission/10_5E79D332.MER and count the event blocks: there
+are nine complete event blocks.
+
+______________________________________________________________________________________
+
+To understand what went wrong --
+
+* 10_5E79D332.MER was transmitted to shore as an incomplete .MER file and
+  downloaded to my local (JDS') server on Wed Mar 25 09:36:35 2020 -0400
+
+  (master) commit b486412d7129e8c8b84bd8c304e4a14d5d71a98a
+  10_5E79D332.MER | Bin 0 -> 100352 bytes
+
+* I immediately converted its data to SAC files using automaid pre-v0.1.0, which
+  had no .MER validations to ensure the file was completely transmitted (I was
+  not aware it was incomplete)
+
+* After a later dive, 10_5E79D332.MER was updated (apparently not all of its
+  data was successfully transmitted while at the surface of a previous dive) and
+  written to my (JDS') local server on Fri Apr 17 11:31:10 2020 -0400
+
+  (master) commit 6bef8eea04cb8abcab307b1230b703b50f8b40ec
+  10_5E79D332.MER | Bin 100352 -> 162975 bytes
+
+* Because "Redo" is generally set to False in main.py, automaid skipped this
+  update and did not generate new SAC files associated wit this updated .MER
+  file -- I only realized there was an issue when testing new automaid releases
+  and remaking everything
