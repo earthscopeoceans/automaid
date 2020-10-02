@@ -9,6 +9,7 @@
 
 import setup
 import os
+import argparse
 import shutil
 import glob
 import datetime
@@ -20,6 +21,20 @@ import re
 import utils
 import pickle
 from pdb import set_trace as keyboard
+
+# Set default paths
+automaid_path = os.environ["AUTOMAID"]
+def_mermaid_path = os.environ["MERMAID"]
+def_server_path = os.path.join(def_mermaid_path, "server")
+def_processed_path = os.path.join(def_mermaid_path, "processed")
+
+# Parse (optional) command line inputs to override default paths
+parser = argparse.ArgumentParser()
+parser.add_argument('--server', default=def_server_path, help="Path to server directory")
+parser.add_argument('--processed', default=def_processed_path, help="Path to processed directory")
+args = parser.parse_args()
+server_path = os.path.abspath(args.server)
+processed_path = os.path.abspath(args.processed)
 
 # Get current version number.
 version = setup.get_version()
@@ -65,12 +80,6 @@ events_plotly = False
 events_mseed = True
 events_sac = True
 events_png = False
-
-# Set paths.
-automaid_path = os.environ["AUTOMAID"]
-mermaid_path = os.environ["MERMAID"]
-server_path = os.path.join(mermaid_path, "server")
-processed_path = os.path.join(mermaid_path, "processed")
 
 # Dictionary to save data in a file
 datasave = dict()
