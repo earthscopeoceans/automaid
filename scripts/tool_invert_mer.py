@@ -25,7 +25,7 @@ from pdb import set_trace as keyboard
 # Get current version number.
 version = setup.get_version()
 
-mmd_file_name = sys.argv[1];
+mmd_file_name = sys.argv[1]
 mmd_file_path = os.path.join(os.path.split(mmd_file_name)[0], "")
 
 def invert_main():

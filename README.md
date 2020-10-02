@@ -1,4 +1,4 @@
-automaid v1.0.0
+automaid -- a Python package to process MERMAID files
 
 Written by Sebastien Bonnieux.
 Maintained by Joel D. Simon (jdsimon@princeton.edu) and Frederik J. Simons
@@ -10,7 +10,7 @@ seismic SAC files, plot seismic events and dives and generate KML files.
 ### 1. INSTALLATION
 
 This installation procedure has been tested with MacOS. For Linux the
-procedure is valid but one could prefer to use a the package manager.
+procedure is valid but one could prefer to use a package manager.
 For Windows the installation of Python 2.7 is valid but the
 compilation of the wavelet inversion program with "make" could be
 problematic.
