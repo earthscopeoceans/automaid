@@ -146,10 +146,10 @@ class Dive:
 
             # Warning if .MER transmission is incomplete
             if not self.mmd_file_is_complete:
-                print("!!!! WARNING: MER file transmission is incomplete, do not invert SAC/mSEED using {:s}" \
+                print("WARNING: MER file transmission is incomplete, do not invert SAC/mSEED using {:s}" \
                       .format(self.mmd_environment_name))
-                print("      Expected {:>6d} bytes\n      Received {:>6d} bytes"\
-                      .format(self.mmd_bytes_expected, self.mmd_bytes_received))
+                print("      Expected {:>6d} bytes (according to {:s})\n      Received {:>6d} bytes"\
+                      .format(self.mmd_bytes_expected, self.log_name, self.mmd_bytes_received))
 
             # Read the Mermaid environment associated to the dive
             with open(mer_fullfile_name, "r") as f:
