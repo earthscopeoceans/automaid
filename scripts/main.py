@@ -2,10 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-#
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 05-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -179,7 +178,7 @@ def main():
             mdives[i].compute_events_station_location(mdives[i+1])
             i += 1
 
-        # Generate plots, SAC, and miniSEED files.
+        # Generate plots, SAC, and miniSEED files
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
         for dive in mdives:
             if events_png:
@@ -199,57 +198,37 @@ def main():
         if len(mdives) > 1:
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
 
-        # Build unsorted list of all GPS fixes from .LOG and .MER.
-        print(" ...writing list of {:s} GPS locations...".format(mfloat_serial))
-        gps_dates = list()
-        gps_latitudes = list()
-        gps_longitudes = list()
-        gps_hdops = list()
-        gps_vdops = list()
-        gps_clockdrifts = list()
-        gps_sources = list()
 
-        for dive in mdives:
-            # Collect all GPS data from LOG file.
-            for gps_fix in dive.gps_from_log:
-                gps_dates.append(gps_fix.date)
-                gps_latitudes.append(gps_fix.latitude)
-                gps_longitudes.append(gps_fix.longitude)
-                gps_hdops.append(gps_fix.hdop)
-                gps_vdops.append(gps_fix.vdop)
-                gps_clockdrifts.append(gps_fix.clockdrift)
-                gps_sources.append(dive.log_name)
+        # Collect, sort, and write to all GPS points recorded in both the .LOG
+        # and .MER files (flatten function posted by Alex Martelli on stack
+        # overflow, "How to make a flat list out of list of lists?")
+        flatten = lambda l: [item for sublist in l for item in sublist]
+        gps_list_from_log = flatten([dive.gps_from_log for dive in mdives])
+        gps_list_from_mmd_env = flatten([dive.gps_from_mmd_env for dive in mdives])
 
-            # Collect all GPS data from MER file.
-            for gps_fix in dive.gps_from_mmd_env:
-                gps_dates.append(gps_fix.date)
-                gps_latitudes.append(gps_fix.latitude)
-                gps_longitudes.append(gps_fix.longitude)
-                gps_hdops.append(gps_fix.hdop)
-                gps_vdops.append(gps_fix.vdop)
-                gps_clockdrifts.append(gps_fix.clockdrift)
-                gps_sources.append(dive.mmd_environment_name)
+        # Concatenate lists from both sources (resulting in unsorted list)
+        gps_list_full = gps_list_from_log +  gps_list_from_mmd_env
 
-        # Concatenate all GPS data into zipped tuple and sort based on zeroth (date) index.
-        complete_gps_tup = sorted(zip(gps_dates, gps_latitudes, gps_longitudes, gps_hdops,
-                                       gps_vdops, gps_clockdrifts, gps_sources))
+        # Sort the full GPS list using their date attributes
+        gps_list_full.sort(key=lambda x: x.date)
 
         # Write GPS text file
-        fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>5.3f}    {:>5.3f}    {:>17.6f}    {:>15s}\n"
+        fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}    {:>15s}\n"
         gps_f = os.path.join(processed_path, mfloat_path, mfloat+"_GPS.txt")
         with open(gps_f, "w+") as f:
-            for t in complete_gps_tup:
-                l = list(t)
-                if l[3] is None:
-                    l[3] = float("NaN")
+            for g in gps_list_full:
+                # Replace missing hdop/vdop (not printed in .MER files) values
+                # with NaNs for printing purposes (those attributes will remain
+                # None in their associated GPS instances; this is just for the
+                # purposes of this final flat list)
+                if g.hdop is None:
+                    g.hdop = float("NaN")
+                if g.vdop is None:
+                    g.vdop = float("NaN")
 
-                if l[4] is None:
-                    l[4] = float("NaN")
-
-                f.write(fmt_spec.format(l[0], l[1], l[2], l[3], l[4], l[5], l[6]))
+                f.write(fmt_spec.format(g.date, g.latitude, g.longitude, g.hdop, g.vdop, g.clockdrift, g.source))
 
         # Generate printout detailing how everything connects
-        sac_count = 0
         print ""
         i = 0
         for d in mdives:
@@ -264,7 +243,7 @@ def main():
             print ""
 
         print("    {:s} total: {:d} SAC files\n" \
-              .format(mfloat_serial, sum(o.sac_count for o in mdives)))
+              .format(mfloat_serial, sum(dive.sac_count for dive in mdives)))
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
