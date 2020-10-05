@@ -2,10 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-#
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 05-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import glob
@@ -178,7 +177,7 @@ class Dive:
 
         # Find the position of the float
         self.gps_list, self.gps_from_log, self.gps_from_mmd_env \
-            = gps.get_gps_list(self.log_content, self.mmd_environment, self.mmd_environment_name)
+            = gps.get_gps_list(self.log_name, self.log_content,  self.mmd_environment_name, self.mmd_environment)
         self.gps_list_is_complete = False
         if self.is_complete_dive:
             # Check that the last GPS fix of the list correspond to the ascent position
@@ -390,11 +389,11 @@ class Dive:
         # length two, try parsing the (same dive) GPS list from the LOG file. If
         # there are still less than two GPS fixes before or after the dive,
         # return early because we cannot compute an interpolated location.
-        if len(gps_before_dive) < 2 and self.gps_list[0].source == 'mer':
+        if len(gps_before_dive) < 2 and "MER" in self.gps_list[0].source:
             self.gps_list = self.gps_from_log
             gps_before_dive = self.gps_list[:-1]
 
-        if len(gps_after_dive) < 2 and self.gps_list[0].source == 'mer':
+        if len(gps_after_dive) < 2 and "MER" in self.gps_list[0].source:
             self.gps_list = self.gps_from_log
             gps_after_dive = [self.gps_list[-1]] + next_dive.gps_list[:-1]
 
@@ -595,8 +594,8 @@ def attach_mmd_is_complete_to_dive_events(dive_list):
     # (1) all mmd (.MER) files processed
     # (2) the completeness (or lack thereof) of those same files
     # and zip them into dictionary for easy reference
-    mmd_environment_names = [o.mmd_environment_name for o in dive_list]
-    mmd_files_are_complete = [o.mmd_file_is_complete for o in dive_list]
+    mmd_environment_names = [d.mmd_environment_name for d in dive_list]
+    mmd_files_are_complete = [d.mmd_file_is_complete for d in dive_list]
     mmd_dict = dict(zip(mmd_environment_names, mmd_files_are_complete))
 
     # Attach completeness metric to each event
