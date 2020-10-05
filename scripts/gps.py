@@ -2,10 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-#
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 05-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import re
@@ -88,10 +87,9 @@ def linear_interpolation(gps_list, date):
 
 
 # Find GPS fix in log files and Mermaid files
-def get_gps_list(log_content, mmd_environment_content, mmd_name):
-
-    gps_from_log = get_gps_from_log(log_content)
-    gps_from_mmd_env = get_gps_from_mermaid_environment(mmd_name, mmd_environment_content)
+def get_gps_list(log_name, log_content, mmd_environment_name, mmd_environment):
+    gps_from_log = get_gps_from_log(log_name, log_content)
+    gps_from_mmd_env = get_gps_from_mermaid_environment(mmd_environment_name, mmd_environment)
 
     gpslist = list()
     for gps_log in gps_from_log:
@@ -108,15 +106,15 @@ def get_gps_list(log_content, mmd_environment_content, mmd_name):
     return gpslist, gps_from_log, gps_from_mmd_env
 
 
-def get_gps_from_mermaid_environment(mmd_name, content):
+def get_gps_from_mermaid_environment(mmd_name, mmd_environment):
     gps = list()
 
     # Mermaid environment can be empty
-    if content is None:
+    if mmd_environment is None:
         return gps
 
     # get gps information in the mermaid environment
-    gps_tag_list = content.split("</ENVIRONMENT>")[0].split("<GPSINFO")[1:]
+    gps_tag_list = mmd_environment.split("</ENVIRONMENT>")[0].split("<GPSINFO")[1:]
     for gps_tag in gps_tag_list:
         fixdate = re.findall(" DATE=(\d+-\d+-\d+T\d+:\d+:\d+)", gps_tag)
         if len(fixdate) > 0:
@@ -198,17 +196,17 @@ def get_gps_from_mermaid_environment(mmd_name, content):
         # Add date to the list
         if fixdate is not None and latitude is not None and longitude is not None \
                 and clockdrift is not None and clockfreq is not None:
-            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, "mer"))
+            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, mmd_name))
         else:
             raise ValueError
 
     return gps
 
 
-def get_gps_from_log(content):
+def get_gps_from_log(log_name, log_content):
     gps = list()
 
-    gps_log_list = content.split("GPS fix...")[1:]
+    gps_log_list = log_content.split("GPS fix...")[1:]
     for gps_log in gps_log_list:
         # get gps information of each gps fix
         fixdate = re.findall("(\d+):\[MRMAID *, *\d+\]\$GPSACK", gps_log)
@@ -279,6 +277,6 @@ def get_gps_from_log(content):
 
 
         if fixdate is not None and latitude is not None and longitude is not None:
-            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, "log"))
+            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, log_name))
 
     return gps
