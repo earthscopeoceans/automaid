@@ -18,5 +18,5 @@ minor changes to them. The differences between 1) and 2) are immaterial as far
 as processed data concerned, except that in some SAC files I set
 stats.sac["user2"] = self.trig.
 
-The python scripts in Version 3) is out of date and will now be overwritten by
+The python scripts in Version 3) are out of date and will now be overwritten by
 my version and maintained from there.

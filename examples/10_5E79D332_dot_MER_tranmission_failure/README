@@ -12,8 +12,9 @@ ________________________________________________________________________________
 
 To run the examples from within this directory --
 
-$ python $AUTOMAID/scripts/main.py --server server_complete_transmission --processed processed_complete_transmission
+$ conda activate pymaid
 $ python $AUTOMAID/scripts/main.py --server server_incomplete_transmission --processed processed_incomplete_transmission
+$ python $AUTOMAID/scripts/main.py --server server_complete_transmission --processed processed_complete_transmission
 
 ______________________________________________________________________________________
 
@@ -99,7 +100,7 @@ To understand what went wrong --
   (master) commit 6bef8eea04cb8abcab307b1230b703b50f8b40ec
   10_5E79D332.MER | Bin 100352 -> 162975 bytes
 
-* Because "Redo" is generally set to False in main.py, automaid skipped this
+* Because "redo" is generally set to False in main.py, automaid skipped this
   update and did not generate new SAC files associated wit this updated .MER
   file -- I only realized there was an issue when testing new automaid releases
   and remaking everything
