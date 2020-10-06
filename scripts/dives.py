@@ -499,19 +499,19 @@ class Dive:
         # By definition 1 .LOG == 1 "dive," so there is always a .log file but
         # not necessarily an associated .MER (e.g., test or init I think?)
         if self.mmd_environment_name is not None:
-            print("    GPS: {:s} (<ENVIRONMENT/>) & {:s} (this dive)" \
+            print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
                   .format(self.mmd_environment_name, self.log_name))
         else:
-            print("    GPS: {:s} (this dive)".format(self.log_name))
+            print("    GPS: {:s} [this dive]".format(self.log_name))
 
         # Repeat printout for the following dive, whose data affect the gps
         # interpolation of the current dive
         if self.next_dive_exists:
             if self.next_dive_mmd_environment_name is not None:
-                print("         {:s} (<ENVIRONMENT/>) & {:s} (next dive)" \
+                print("         {:s} (</ENVIRONMENT>) & {:s} [next dive]" \
                       .format(self.next_dive_mmd_environment_name, self.next_dive_log_name))
             else:
-                print("         {:s} (next_dive)".format(self.next_dive_log_name))
+                print("         {:s} [next dive]".format(self.next_dive_log_name))
         else:
             print("         (...awaiting next_dive...)")
 
@@ -521,14 +521,14 @@ class Dive:
         else:
             for e in self.events:
                 if e.station_loc is None:
-                    print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (<EVENT/> binary in {:s})" \
+                    print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
                           .format(e.get_export_file_name(), e.mmd_data_name))
                 else:
                     if not e.mmd_file_is_complete:
-                        print("  Event: ! NOT MADE (incomplete .MER file) {:s}.sac (<EVENT/> binary in {:s})" \
+                        print("  Event: ! NOT MADE (incomplete .MER file) {:s}.sac (</EVENT> binary in {:s})" \
                               .format(e.get_export_file_name(), e.mmd_data_name))
                     else:
-                        print("  Event: {:s}.sac (<EVENT/> binary in {:s})" \
+                        print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
                               .format(e.get_export_file_name(), e.mmd_data_name))
                         self.sac_count += 1
 
