@@ -1,8 +1,10 @@
 01-Oct-2020
 
-This example shows how automaid v1.2+ handles incomplete .MER files by requiring
-that the number of bytes actually written to each .MER matches exactly the .MER
-file sizes reported in their associated .LOG files.
+This example shows how automaid v1.2.0 handles incomplete .MER files by
+requiring that the number of bytes actually written to each .MER matches exactly
+the .MER file sizes reported in their associated .LOG files.  Note that future
+versions of automaid may process these files differently and/or terminate with
+different printouts.
 
 The example server directories server_incomplete_transmission and
 server_complete_transmission differ only in a single file, 10_5E79D332.MER,
