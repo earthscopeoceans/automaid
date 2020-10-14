@@ -1,0 +1,171 @@
+Using automaid v1.4.0 -- 14-Oct-2020
+
+This is the same example and server setup of the test in ../automaid_v1.2.0.
+
+The example server directories server_incomplete_transmission and
+server_complete_transmission differ only in a single file, 10_5E79D332.MER,
+which, in the former directory, is incomplete due to a transmission error.
+
+This example shows that automaid 1.4.0 will actually make SAC/mSEED files for
+SOME events in incomplete .MER files, and not just skip and entire .MER file
+just because it is incomplete (as is done in previous automaid versions).
+
+______________________________________________________________________________________
+
+To run the examples from within this directory (zsh) --
+
+$ conda activate pymaid
+$ BASE_SERVER=$AUTOMAID/tests_and_verifications/test_data/10_5E79D332.MER_incomplete_transmission
+$ python $AUTOMAID/scripts/main.py --server $BASE_SERVER/server_incomplete_transmission \
+  --processed ./processed_incomplete_transmission
+$ python $AUTOMAID/scripts/main.py --server $BASE_SERVER/server_complete_transmission \
+  --processed ./processed_complete_transmission
+
+______________________________________________________________________________________
+
+Printout for incomplete server:
+
+Processing P-10 .LOG & .MER files...
+ ...compiling a list of events from P-10 .MER files (GPS & seismic data)...
+ ...matching those events to P-10 .LOG ('dive') files (GPS & dive metadata)...
+WARNING: 10_5E79D332.MER file transmission is incomplete
+         Expected 162975 bytes (according to 10_5E76C2B7.LOG)
+         Received 100352 bytes
+ ...writing P-10 sac/mseed/png/html output files...
+20200325T042617.10_5E7D0424.MER.DET.WLT5: Skip sac generation, wait the next ascent to compute location
+
+  .DIVE. P-10
+   Date: 2020-03-15T02:51:36 -> 2020-03-17T09:40:54 (2.3 days; first/last line of 10_5E6D9838.LOG)
+    GPS: 10_5E709976.MER (</ENVIRONMENT>) & 10_5E6D9838.LOG [this dive]
+         10_5E739FA8.MER (</ENVIRONMENT>) & 10_5E709B26.LOG [next dive]
+  Event: 20200316T094049.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200316T235451.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200317T022444.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200316T112222.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T001833.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T051650.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200315T235809.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T002604.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T161434.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200317T031352.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200317T024757.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T092414.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T005652.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T004930.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200315T223154.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T003253.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T004120.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T144943.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T063958.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T233549.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T003715.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200315T221754.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200317T003128.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200316T120527.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200316T150043.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200316T145634.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200315T215103.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200317T001243.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+
+  .DIVE. P-10
+   Date: 2020-03-17T09:40:54 -> 2020-03-19T16:43:48 (2.3 days; first/last line of 10_5E709B26.LOG)
+    GPS: 10_5E739FA8.MER (</ENVIRONMENT>) & 10_5E709B26.LOG [this dive]
+         10_5E79D332.MER (</ENVIRONMENT>) & 10_5E76C2B7.LOG [next dive]
+  Event: 20200319T055112.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+
+  .DIVE. P-10
+   Date: 2020-03-22T01:43:19 -> 2020-03-24T09:37:25 (2.3 days; first/last line of 10_5E76C2B7.LOG)
+    GPS: 10_5E79D332.MER (</ENVIRONMENT>) & 10_5E76C2B7.LOG [this dive]
+         10_5E7D0424.MER (</ENVIRONMENT>) & 10_5E79D4D5.LOG [next dive]
+  Event: 20200322T223416.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200323T132042.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+
+  .DIVE. P-10
+   Date: 2020-03-24T09:37:25 -> 2020-03-26T19:42:55 (2.4 days; first/last line of 10_5E79D4D5.LOG)
+    GPS: 10_5E7D0424.MER (</ENVIRONMENT>) & 10_5E79D4D5.LOG [this dive]
+         (...awaiting next_dive...)
+  Event: ! NOT MADE (not enough GPS fixes) 20200325T042617.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+
+    P-10 total: 31 SAC files
+
+_____________________________
+
+Printout for complete server:
+
+Processing P-10 .LOG & .MER files...
+ ...compiling a list of events from P-10 .MER files (GPS & seismic data)...
+ ...matching those events to P-10 .LOG ('dive') files (GPS & dive metadata)...
+ ...writing P-10 sac/mseed/png/html output files...
+20200325T042617.10_5E7D0424.MER.DET.WLT5: Skip sac generation, wait the next ascent to compute location
+
+  .DIVE. P-10
+   Date: 2020-03-15T02:51:36 -> 2020-03-17T09:40:54 (2.3 days; first/last line of 10_5E6D9838.LOG)
+    GPS: 10_5E709976.MER (</ENVIRONMENT>) & 10_5E6D9838.LOG [this dive]
+         10_5E739FA8.MER (</ENVIRONMENT>) & 10_5E709B26.LOG [next dive]
+  Event: 20200316T094049.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200316T235451.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200317T022444.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200316T174744.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200316T212653.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200317T020823.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200316T191615.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200316T112222.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T001833.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T051650.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200315T235809.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T002604.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T161434.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200317T031352.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200317T024757.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+  Event: 20200316T092414.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T005652.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T004930.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200315T223154.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T003253.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T004120.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T144943.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T063958.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T233549.10_5E709976.MER.DET.WLT5.sac (</EVENT> binary in 10_5E709976.MER)
+  Event: 20200316T003715.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200315T221754.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200317T003128.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200316T120527.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200316T150043.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200316T145634.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200315T215103.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+  Event: 20200317T001243.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+
+  .DIVE. P-10
+   Date: 2020-03-17T09:40:54 -> 2020-03-19T16:43:48 (2.3 days; first/last line of 10_5E709B26.LOG)
+    GPS: 10_5E739FA8.MER (</ENVIRONMENT>) & 10_5E709B26.LOG [this dive]
+         10_5E79D332.MER (</ENVIRONMENT>) & 10_5E76C2B7.LOG [next dive]
+  Event: 20200319T055112.10_5E739FA8.MER.DET.WLT5.sac (</EVENT> binary in 10_5E739FA8.MER)
+
+  .DIVE. P-10
+   Date: 2020-03-22T01:43:19 -> 2020-03-24T09:37:25 (2.3 days; first/last line of 10_5E76C2B7.LOG)
+    GPS: 10_5E79D332.MER (</ENVIRONMENT>) & 10_5E76C2B7.LOG [this dive]
+         10_5E7D0424.MER (</ENVIRONMENT>) & 10_5E79D4D5.LOG [next dive]
+  Event: 20200322T223416.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+  Event: 20200323T132042.10_5E79D332.MER.DET.WLT5.sac (</EVENT> binary in 10_5E79D332.MER)
+
+  .DIVE. P-10
+   Date: 2020-03-24T09:37:25 -> 2020-03-26T19:42:55 (2.4 days; first/last line of 10_5E79D4D5.LOG)
+    GPS: 10_5E7D0424.MER (</ENVIRONMENT>) & 10_5E79D4D5.LOG [this dive]
+         (...awaiting next_dive...)
+  Event: ! NOT MADE (not enough GPS fixes) 20200325T042617.10_5E7D0424.MER.DET.WLT5.sac (</EVENT> binary in 10_5E7D0424.MER)
+
+    P-10 total: 35 SAC files
+______________________________________________________________________________________
+
+To make sense of the printouts:
+
+* Count all SAC files associated with 10_5E79D332.MER ("</EVENT> binary in 10_5E79D332.MER") --
+  server_incomplete: 5
+  server_complete: 9
+
+* 10_5E79D332.MER includes nine complete events in the server_complete, and five
+  complete (and one incomplete) events in server_incomplete
+
+* automaid 1.4.0 now generates SAC/mSEED files for all five complete events in
+  the incomplete server case, as opposed to just skipping every event contained
+  in the incomplete .MER file
