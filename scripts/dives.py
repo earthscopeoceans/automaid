@@ -76,7 +76,6 @@ class Dive:
         # and I do not yet know how to get around that; if this line fails wait
         # until next surfacing to rerun automaid until a fix is found
         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
-
         self.end_date = UTCDateTime(int(ed))
         self.dive_length = self.end_date - self.date # seconds
 
