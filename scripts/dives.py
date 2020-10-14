@@ -602,6 +602,6 @@ def attach_mmd_is_complete_to_dive_events(dive_list):
 
     # Attach completeness metric to each event
     for d in dive_list:
-         for e in d.events:
-             if e.mmd_data_name is not None:
+        for e in d.events:
+            if e.mmd_data_name is not None:
                 e.mmd_file_is_complete = mmd_dict[e.mmd_data_name]
