@@ -1,4 +1,24 @@
+Upcoming:
+*v2.0.0: combine log/mer GPS lists for location interpolation
+
 Current:
+*v1.4.0: 14-Oct-2020
+
+  -- Check the actual byte length of each event contained in every .MER file,
+     and only process those that are validated to be completed (this overrides
+     the more blunt-force approach of v1.2.0, which skipped entire .MER files
+     if they were incomplete)
+  -- Clear data (the files 'wtcoeffs' and 'wtcoeffs.icdf24_?') written to disk
+     with the script 'icdf24_v103(ec)_test' for each event processed; the data
+     are read from disk as the event's data which means that if the script
+     failed (which it previously did silently), and no new data were written,
+     the old data would be read in and associated with the next event that came
+     along, resulting in the same data being associated incorrectly with
+     incomplete events
+  -- Add user-specific default paths to argparse --help printout
+  -- Fix relative/absolute argument parsing in tool_invert_mer.py
+
+Previous:
 *v1.3.0: 09-Oct-2020
   -- Add argument parsing: --server [server path] --processed [processed path]
   -- Make main.py GPS concatenation more pythonic with list comprehension
@@ -6,7 +26,6 @@ Current:
      just the strings "log" and "mer"
   -- Add example detailing how code handles 10_5E79D332.MER transmission failure
 
-Previous:
 * v1.2.0: 01-Oct-2020
   -- Spell out, explicitly, which .MER file contributed event binary data in
      each Event instance

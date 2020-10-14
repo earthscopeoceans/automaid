@@ -3,8 +3,8 @@
 #
 # Author: Dr. Joel D. Simon
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified: 05-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified: 14-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
-    version = 'v1.3.0'
+    version = 'v1.4.0'
     return version
