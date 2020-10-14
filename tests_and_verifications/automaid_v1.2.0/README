@@ -1,4 +1,4 @@
-01-Oct-2020
+Using automaid v1.2.0 -- 01-Oct-2020
 
 This example shows how automaid v1.2.0 handles incomplete .MER files by
 requiring that the number of bytes actually written to each .MER matches exactly
