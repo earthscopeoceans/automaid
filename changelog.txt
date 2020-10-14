@@ -3,7 +3,6 @@ Upcoming:
 
 Current:
 *v1.4.0: 14-Oct-2020
-
   -- Check the actual byte length of each event contained in every .MER file,
      and only process those that are validated to be completed (this overrides
      the more blunt-force approach of v1.2.0, which skipped entire .MER files
