@@ -2,10 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-#
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 13-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -22,6 +21,7 @@ import plotly.offline as plotly
 import matplotlib.pyplot as plt
 import utils
 import gps
+import sys
 from pdb import set_trace as keyboard
 
 # Get current version number.
@@ -52,7 +52,21 @@ class Events:
                 # Divide header and binary
                 header = event.split("<DATA>\x0A\x0D")[0]
                 binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
-                self.events.append(Event(mmd_data_name, header, binary))
+
+                # The double split above is not foolproof; if the final data
+                # block in the .MER file ends without </DATA> (i.e., the file
+                # was not completely transmitted), the object 'binary' will just
+                # return everything to the end of the file -- verify that the we
+                # actually have the expected number of bytes (in Python 2 the
+                # len returns the size of binary data in type 'string'; in
+                # Python 3 the type is 'bytes')
+                actual_binary_length = len(binary)
+                bytes_per_sample = int(re.search('BYTES_PER_SAMPLE=(\d+)', header).group(1))
+                num_samples = int(re.search('LENGTH=(\d+)', header).group(1))
+                expected_binary_length = bytes_per_sample * num_samples
+
+                if actual_binary_length == expected_binary_length:
+                    self.events.append(Event(mmd_data_name, header, binary))
 
     def get_events_between(self, begin, end):
         catched_events = list()
@@ -156,33 +170,73 @@ class Event:
         if self.scales == "-1":
             self.data = numpy.frombuffer(self.binary, numpy.int32)
             return
-        # Get additional information to invert wavelet
+
+        # Get additional information on flavor of invert wavelet transform
         normalized = re.findall(" NORMALIZED=(\d+)", self.environment)[0]
         edge_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.environment)[0]
 
-        # Change to binary directory. These scripts can fail with full paths.
+        # Change to binary directory because these scripts can fail with full paths
         start_dir = os.getcwd();
         os.chdir(bin_path)
 
+        # The following scripts READ wavelet coefficients (what MERMAID
+        # generally sends) from a file named "wtcoeffs" and WRITE the inverted
+        # data to a file name, e.g., "wtcoeffs.icdf24_5"
+        wtcoeffs_data_file_name = "wtcoeffs"
+        inverted_data_file_name = "wtcoeffs.icdf24_" + self.scales
+
+        # Delete any previously-inverted data just to be absolutely sure we are
+        # working with this events' data only (an interruption before the second
+        # call to delete these files could result in their persistence)
+        if os.path.exists(wtcoeffs_data_file_name):
+            os.remove(wtcoeffs_data_file_name)
+
+        if os.path.exists(inverted_data_file_name):
+            os.remove(inverted_data_file_name)
+
         # Write cdf24 data
-        with open("wtcoeffs", 'w') as f:
+        with open(wtcoeffs_data_file_name, 'w') as f:
             f.write(self.binary)
 
-        # Do icd24
+        # The inverse wavelet transform C code (icdf24_v103(ec)_test) is called
+        # below in a subprocess and its output is verified; determine if edge
+        # correction needs to be accounted for
+        icdf24_arg_list = list()
         if edge_correction == "1":
-            #print "icdf24_v103ec_test"
-            subprocess.check_output(["icdf24_v103ec_test",
-                                     self.scales,
-                                     normalized,
-                                     "wtcoeffs"])
+            icdf24_arg_list.append("icdf24_v103ec_test")
+
         else:
-            #print "icdf24_v103_test"
-            subprocess.check_output(["icdf24_v103_test",
-                                    self.scales,
-                                    normalized,
-                                    "wtcoeffs"])
-        # Read icd24 data
-        self.data = numpy.fromfile("wtcoeffs.icdf24_" + self.scales, numpy.int32)
+            icdf24_arg_list.append("icdf24_v103_test")
+
+
+        # Extend the icdf24_v103(ec)_test argument list with other data values
+        icdf24_arg_list.extend([self.scales, normalized, wtcoeffs_data_file_name])
+
+        # Perform inverse wavelet transform
+        stdout = subprocess.check_output(icdf24_arg_list)
+
+        # Ensure the inverse wavelet transform worked as expected, meaning that
+        # it generated an output file of int32 data
+        if not os.path.exists(inverted_data_file_name):
+            cmd  = ' '.join(map(str, icdf24_arg_list)) # prints python list as comma-separated string
+            err_mess = "\nFailed: inverse wavelet transformation\n"
+            err_mess += "In directory: {:s}\n".format(bin_path)
+            err_mess += "Attempted command: {:s}\n".format(cmd)
+            err_mess += "Using: event around {:s} in {:s}\n\n".format(self.date, self.mmd_data_name)
+            err_mess += "Command printout:\n'{:s}'".format(stdout)
+
+            # This output message is more helpful than the program crashing on
+            # the next line
+            sys.exit(err_mess)
+
+        # Read the inverted data
+        self.data = numpy.fromfile(inverted_data_file_name, numpy.int32)
+
+        # Delete the files of coefficient and inverted data, otherwise a latter
+        # .MER with an incomplete binary event block can come along and use the
+        # same data
+        os.remove(wtcoeffs_data_file_name)
+        os.remove(inverted_data_file_name)
 
         # Return to start directory.
         os.chdir(start_dir)
@@ -208,14 +262,10 @@ class Event:
                 + "     SNR = " + str(self.snr)
         return title
 
-    def plotly(self, export_path, force_with_incomplete_mmd=False):
+    def plotly(self, export_path):
         # Check if file exist
         export_path = export_path + self.get_export_file_name() + ".html"
         if os.path.exists(export_path):
-            return
-
-        # Return in the .MER file is incomplete (tranmission failure)
-        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
             return
 
         # Add acoustic values to the graph
@@ -238,16 +288,12 @@ class Event:
                     filename=export_path,
                     auto_open=False)
 
-    def plot_png(self, export_path, force_with_incomplete_mmd=False):
+    def plot_png(self, export_path):
         # Check if file exist
         export_path = export_path + self.get_export_file_name() + ".png"
         if os.path.exists(export_path):
             return
         data = [d/(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000) for d in self.data]
-
-        # Return in the .MER file is incomplete (tranmission failure)
-        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
-            return
 
         # Plot frequency image
         plt.figure(figsize=(9, 4))
@@ -263,14 +309,10 @@ class Event:
         plt.clf()
         plt.close()
 
-    def to_mseed(self, export_path, station_number, force_without_loc=False, force_with_incomplete_mmd=False):
+    def to_mseed(self, export_path, station_number, force_without_loc=False):
         # Check if file exist
         export_path_msd = export_path + self.get_export_file_name() + ".mseed"
         if os.path.exists(export_path_msd):
-            return
-
-        # Return in the .MER file is incomplete (tranmission failure)
-        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
             return
 
         # Check if the station location has been calculated
@@ -284,14 +326,10 @@ class Event:
         # Save stream object
         stream.write(export_path_msd, format='MSEED')
 
-    def to_sac(self, export_path, station_number, force_without_loc=False, force_with_incomplete_mmd=False):
+    def to_sac(self, export_path, station_number, force_without_loc=False):
         # Check if file exist
         export_path_sac = export_path + self.get_export_file_name() + ".sac"
         if os.path.exists(export_path_sac):
-            return
-
-        # Return in the .MER file is incomplete (tranmission failure)
-        if not self.mmd_file_is_complete and not force_with_incomplete_mmd:
             return
 
         # Check if the station location has been calculated
