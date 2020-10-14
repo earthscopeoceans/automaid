@@ -53,13 +53,22 @@ class Events:
                 header = event.split("<DATA>\x0A\x0D")[0]
                 binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
 
+                # N.B:
+                # "\x0A" is "\n": True
+                # "\x0D" is "\r": True
+                # "\x09" is "\t": True
+                # https://docs.python.org/2/reference/lexical_analysis.html#string-and-bytes-literals
+                # I don't know why Seb choose to represent the separators as
+                # hex, I believe a valid split would be "...split('\n\r\t</DATA>')..."
+
                 # The double split above is not foolproof; if the final data
                 # block in the .MER file ends without </DATA> (i.e., the file
                 # was not completely transmitted), the object 'binary' will just
                 # return everything to the end of the file -- verify that the we
-                # actually have the expected number of bytes (in Python 2 the
-                # len returns the size of binary data in type 'string'; in
-                # Python 3 the type is 'bytes')
+                # actually have the expected number of bytes (apparently len()
+                # returns the byte-length of a string, though I am not super
+                # happy with this solution because I would prefer to know the
+                # specific encoding used for event binary...)
                 actual_binary_length = len(binary)
                 bytes_per_sample = int(re.search('BYTES_PER_SAMPLE=(\d+)', header).group(1))
                 num_samples = int(re.search('LENGTH=(\d+)', header).group(1))
