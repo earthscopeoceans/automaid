@@ -12,11 +12,14 @@ which, in the former directory, is incomplete due to a transmission error.
 
 ______________________________________________________________________________________
 
-To run the examples from within this directory --
+To run the examples from within this directory (zsh) --
 
 $ conda activate pymaid
-$ python $AUTOMAID/scripts/main.py --server server_incomplete_transmission --processed processed_incomplete_transmission
-$ python $AUTOMAID/scripts/main.py --server server_complete_transmission --processed processed_complete_transmission
+$ BASE_SERVER=$AUTOMAID/tests_and_verifications/test_data/10_5E79D332.MER_incomplete_transmission
+$ python $AUTOMAID/scripts/main.py --server $BASE_SERVER/server_incomplete_transmission \
+  --processed ./processed_incomplete_transmission
+$ python $AUTOMAID/scripts/main.py --server $BASE_SERVER/server_complete_transmission \
+  --processed ./processed_complete_transmission
 
 ______________________________________________________________________________________
 
