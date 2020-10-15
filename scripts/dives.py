@@ -337,11 +337,11 @@ class Dive:
             print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
                 + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
-        if self.gps_list[-2].clockfreq <= 0:
+        if self.gps_before_dive[-1].clockfreq <= 0:
             print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
                 + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
-        if self.gps_list[-1].clockfreq <= 0:
+        if self.gps_after_dive[0].clockfreq <= 0:
             print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
                 + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
