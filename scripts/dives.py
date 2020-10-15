@@ -190,23 +190,23 @@ class Dive:
             = gps.get_gps_list(self.log_name, self.log_content,  self.mmd_environment_name, self.mmd_environment)
         self.gps_list_is_complete = False
         if self.is_complete_dive:
-            # Split the GPS list into before/after dive sublists
-            self.gps_before_dive = [x for x in self.gps_list if x.date < self.dive_date]
-            self.gps_after_dive = [x for x in self.gps_list if x.date > self.dive_date]
-
             # Check that the last GPS fix of the list correspond to the ascent position
             self.surface_date = utils.find_timestamped_values("\[MAIN *, *\d+\]surface", self.log_content)
             self.surface_date = UTCDateTime(self.surface_date[0][1])
-            if len(self.gps_list) == 0:
-                print "WARNING: No GPS synchronization at all for \"" \
-                        + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
-            elif len(self.gps_list) > 1 and self.gps_list[-1].date > self.surface_date:
+
+            # Split the GPS list into before/after dive sublists
+            self.gps_before_dive = [x for x in self.gps_list if x.date < self.dive_date]
+            self.gps_after_dive = [x for x in self.gps_list if x.date > self.surface_date]
+            if self.gps_after_dive:
                 self.gps_list_is_complete = True
-            elif self.gps_list[-1] > self.surface_date:
-                print "WARNING: No GPS synchronization before diving for \"" \
-                        + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             else:
                 print "WARNING: No GPS synchronization after surfacing for \"" \
+                        + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+            if not self.gps_list:
+                print "WARNING: No GPS synchronization at all for \"" \
+                        + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+            if not self.gps_before_dive:
+                print "WARNING: No GPS synchronization before diving for \"" \
                         + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
 
         # Find the pressure offset
