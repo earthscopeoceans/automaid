@@ -95,7 +95,7 @@ def get_gps_list(log_name, log_content, mmd_environment_name, mmd_environment):
     gps_list = gps_from_log + gps_from_mmd_env
 
     # Order based on date
-    gps_list = sorted(gps_list, key=lambda gpsfix: gpsfix.date)
+    gps_list = sorted(gps_list, key=lambda x: x.date)
 
     return gps_list, gps_from_log, gps_from_mmd_env
 
