@@ -7,4 +7,4 @@
 
 def get_version():
     version = 'v1.4.0'
-    return version
+    return version[::-1]

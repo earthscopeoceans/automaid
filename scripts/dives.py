@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 15-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import glob
@@ -27,12 +27,16 @@ class Dive:
     base_path = None
     directory_name = None
     export_path = None
-    date = None
+    start_date = None
+    dive_date = None
     end_date = None
     dive_length = None
     is_init = None
     is_dive = None
     is_complete_dive = None
+    gps_before_dive = None
+    gps_after_dive = None
+    surface_date = None
     log_content = None
     mmd_environment_name = None
     next_dive_mmd_environment_name = None
@@ -64,7 +68,7 @@ class Dive:
         # .LOG file name is the same Unix Epoch time as the first line of the
         # LOG file (there in int seconds); i.e., .LOG files are named for the
         # time that their first line is written
-        self.date = utils.get_date_from_file_name(log_name)
+        self.start_date = utils.get_date_from_file_name(log_name)
 
         # Read the content of the LOG
         with open(self.base_path + self.log_name, "r") as f:
@@ -77,7 +81,7 @@ class Dive:
         # until next surfacing to rerun automaid until a fix is found
         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
         self.end_date = UTCDateTime(int(ed))
-        self.dive_length = self.end_date - self.date # seconds
+        self.dive_length = self.end_date - self.start_date # seconds
 
         # Check if the log correspond to the float initialization
         self.is_init = False
@@ -89,6 +93,9 @@ class Dive:
         self.is_dive = False
         if "[DIVING," in self.log_content:
             self.is_dive = True
+            # Hold on to the date of the dive to parse the entire dive's GPS
+            # list into into before dive/after dive sublists
+            self.dive_date = utils.find_timestamped_values("\[DIVING, *\d+\]", self.log_content)[0][1]
 
         # Check if the log correspond to a complete dive
         self.is_complete_dive = False
@@ -98,7 +105,7 @@ class Dive:
                 self.is_complete_dive = True
 
         # Generate the directory name
-        self.directory_name = self.date.strftime("%Y%m%d-%Hh%Mm%Ss")
+        self.directory_name = self.start_date.strftime("%Y%m%d-%Hh%Mm%Ss")
         if self.is_init:
             self.directory_name += "Init"
         elif not self.is_dive:
@@ -165,7 +172,7 @@ class Dive:
             # Get list of events associated with this .MER files environment
             # (the metadata header, which does not necessarily relate to the
             # attached events and their binary data).
-            self.events = events.get_events_between(self.date, self.end_date)
+            self.events = events.get_events_between(self.start_date, self.end_date)
 
             # For each event
             for event in self.events:
@@ -183,15 +190,19 @@ class Dive:
             = gps.get_gps_list(self.log_name, self.log_content,  self.mmd_environment_name, self.mmd_environment)
         self.gps_list_is_complete = False
         if self.is_complete_dive:
+            # Split the GPS list into before/after dive sublists
+            self.gps_before_dive = [x for x in self.gps_list if x.date < self.dive_date]
+            self.gps_after_dive = [x for x in self.gps_list if x.date > self.dive_date]
+
             # Check that the last GPS fix of the list correspond to the ascent position
-            surface_date = utils.find_timestamped_values("\[MAIN *, *\d+\]surface", self.log_content)
-            surface_date = UTCDateTime(surface_date[0][1])
+            self.surface_date = utils.find_timestamped_values("\[MAIN *, *\d+\]surface", self.log_content)
+            self.surface_date = UTCDateTime(self.surface_date[0][1])
             if len(self.gps_list) == 0:
                 print "WARNING: No GPS synchronization at all for \"" \
                         + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
-            elif len(self.gps_list) > 1 and self.gps_list[-1].date > surface_date:
+            elif len(self.gps_list) > 1 and self.gps_list[-1].date > self.surface_date:
                 self.gps_list_is_complete = True
-            elif self.gps_list[-1].date > surface_date:
+            elif self.gps_list[-1] > self.surface_date:
                 print "WARNING: No GPS synchronization before diving for \"" \
                         + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             else:
@@ -337,7 +348,7 @@ class Dive:
 
         # Correct clock drift
         for event in self.events:
-            event.correct_clock_drift(self.gps_list[-2], self.gps_list[-1])
+            event.correct_clock_drift(self.gps_before_dive[-1], self.gps_after_dive[0])
 
     def compute_events_station_location(self, next_dive):
         # Keep tabs on the MER/LOG files that affect the current dive's gps
@@ -373,26 +384,8 @@ class Dive:
                   + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
-        # Split the GPS list: the final GPS location in the .MER file is from
-        # the next dive (and is roughly(?) the same time as the first GPS
-        # location in the subsequent MER file).
-        gps_before_dive = self.gps_list[:-1]
-        gps_after_dive = [self.gps_list[-1]] + next_dive.gps_list[:-1]
-
-        # GPS linear interpolation requires at least two GPS fixes. By default,
-        # the GPS list is parsed from the MER file. If that list is less than
-        # length two, try parsing the (same dive) GPS list from the LOG file. If
-        # there are still less than two GPS fixes before or after the dive,
-        # return early because we cannot compute an interpolated location.
-        if len(gps_before_dive) < 2 and "MER" in self.gps_list[0].source:
-            self.gps_list = self.gps_from_log
-            gps_before_dive = self.gps_list[:-1]
-
-        if len(gps_after_dive) < 2 and "MER" in self.gps_list[0].source:
-            self.gps_list = self.gps_from_log
-            gps_after_dive = [self.gps_list[-1]] + next_dive.gps_list[:-1]
-
-        if len(gps_before_dive) < 2 or len(gps_after_dive) < 2:
+        # GPS linear interpolation requires at least two GPS fixes
+        if len(self.gps_before_dive) < 2 or len(self.gps_after_dive) < 2:
             print "WARNING: Less than two GPS fixes before or after dive, do not compute event location for \""\
                   + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
@@ -400,12 +393,12 @@ class Dive:
         # Find location when float leave the surface
         surface_leave_date = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
         surface_leave_date = surface_leave_date[0][1]
-        self.surface_leave_loc = gps.linear_interpolation(gps_before_dive, surface_leave_date)
+        self.surface_leave_loc = gps.linear_interpolation(self.gps_before_dive, surface_leave_date)
 
         # Find location when float reach the surface
         surface_reach_date = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
         surface_reach_date = surface_reach_date[-1][1]
-        self.surface_reach_loc = gps.linear_interpolation(gps_after_dive, surface_reach_date)
+        self.surface_reach_loc = gps.linear_interpolation(self.gps_after_dive, surface_reach_date)
 
         # Location is determined when the float reach the mixed layer depth
         mixed_layer_depth_m = 50
@@ -462,8 +455,8 @@ class Dive:
         leave_great_depth_date = d1 + (mixed_layer_depth_m - p1) * (d2 - d1) / (p2 - p1)
 
         # compute location with linear interpolation
-        self.great_depth_reach_loc = gps.linear_interpolation(gps_before_dive, reach_great_depth_date)
-        self.great_depth_leave_loc = gps.linear_interpolation(gps_after_dive, leave_great_depth_date)
+        self.great_depth_reach_loc = gps.linear_interpolation(self.gps_before_dive, reach_great_depth_date)
+        self.great_depth_leave_loc = gps.linear_interpolation(self.gps_after_dive, leave_great_depth_date)
 
         # compute location of events
         for event in self.events:
@@ -488,7 +481,7 @@ class Dive:
     def print_dive_length(self):
         dive_length_days = self.dive_length / (60*60*24)
         print("   Date: {:s} -> {:s} ({:.1f} days; first/last line of {:s})" \
-              .format(str(self.date)[0:19], str(self.end_date)[0:19], dive_length_days, self.log_name))
+              .format(str(self.start_date)[0:19], str(self.end_date)[0:19], dive_length_days, self.log_name))
 
     def print_dive_gps(self, next_dive):
         # By definition 1 .LOG == 1 "dive," so there is always a .log file but
