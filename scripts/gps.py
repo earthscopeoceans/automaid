@@ -73,7 +73,7 @@ def linear_interpolation(gps_list, date):
             i += 1
             j += 1
 
-    # If distance between two GPS points is below 20 meter, don't do interpolation jut use a gps point
+    # If the distance between the two GPS points retained is less than 20 m, don't interpolate just pick one
     if gps2dist_azimuth(gpsl[j].latitude, gpsl[j].longitude, gpsl[i].latitude, gpsl[i].longitude)[0] < 20:
         latitude = gpsl[i].latitude
         longitude = gpsl[i].longitude
