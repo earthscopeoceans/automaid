@@ -196,17 +196,8 @@ def main():
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
 
 
-        # Collect, sort, and write to all GPS points recorded in both the .LOG
-        # and .MER files (flatten function posted by Alex Martelli on stack
-        # overflow, "How to make a flat list out of list of lists?")
-        flatten = lambda l: [item for sublist in l for item in sublist]
-        gps_list_from_log = flatten([dive.gps_from_log for dive in mdives])
-        gps_list_from_mmd_env = flatten([dive.gps_from_mmd_env for dive in mdives])
-
-        # Concatenate lists from both sources (resulting in unsorted list)
-        gps_list_full = gps_list_from_log +  gps_list_from_mmd_env
-
-        # Sort the full GPS list using their date attributes
+        # Concatenate all GPS fixes from every .LOG and .MER for every dive
+        gps_list_full = [g for d in mdives for g in d.gps_list]
         gps_list_full.sort(key=lambda x: x.date)
 
         # Write GPS text file
