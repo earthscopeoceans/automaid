@@ -204,6 +204,9 @@ def main():
         fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}    {:>15s}\n"
         gps_f = os.path.join(processed_path, mfloat_path, mfloat+"_GPS.txt")
         with open(gps_f, "w+") as f:
+            f.write("MERMAID: {:s}\n".format(mfloat))
+            f.write("COLUMN:                   1             2              3         4         5                    6                  7\n".format())
+            f.write("DESCRIPTION:       GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME             SOURCE\n".format())
             for g in gps_list_full:
                 # Replace missing hdop/vdop (not printed in .MER files) values
                 # with NaNs for printing purposes (those attributes will remain
