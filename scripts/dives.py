@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 15-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 16-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import glob
@@ -56,7 +56,6 @@ class Dive:
     mmd_bytes_expected = None
     mmd_file_is_complete = None
     dive_id = None
-    sac_count = 0
     next_dive_exists = False
 
     def __init__(self, base_path, log_name, events):
@@ -389,7 +388,7 @@ class Dive:
                 + " do not compute event location estimation for \"" \
                 + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
-        
+
         # Find location when float leave the surface
         surface_leave_date = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
         surface_leave_date = surface_leave_date[0][1]
@@ -513,8 +512,6 @@ class Dive:
                 else:
                     print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
                           .format(e.get_export_file_name(), e.mmd_data_name))
-                    self.sac_count += 1
-
 
 # Create dives object
 def get_dives(path, events):

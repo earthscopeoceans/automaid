@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 14-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 16-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -239,8 +239,8 @@ def main():
             d.print_dive_events()
             print ""
 
-        print("    {:s} total: {:d} SAC files\n" \
-              .format(mfloat_serial, sum(dive.sac_count for dive in mdives)))
+        print("    {:s} total: {:d} SAC & miniSEED files\n" \
+              .format(mfloat_serial, sum(e.can_generate_sac for d in mdives for e in d.events)))
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
