@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 19-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -29,10 +29,20 @@ def_processed_path = os.path.join(def_mermaid_path, "processed")
 
 # Parse (optional) command line inputs to override default paths
 parser = argparse.ArgumentParser()
-parser.add_argument('--server', default=def_server_path,
-                    help="path to server directory (default: {:s})".format(def_server_path))
-parser.add_argument('--processed', default=def_processed_path,
-                    help="path to processed directory (default: {:s})".format(def_processed_path))
+# problem: metavar=''   prints: "-s , --server"
+# problem: metavar='\b' prints: "-s, --server", but misaligns the help statement...
+parser.add_argument('-s',
+                    '--server',
+                    default=def_server_path,
+                    dest='server',
+                    #metavar='\b',
+                    help="server directory (default: {:s})".format(def_server_path))
+parser.add_argument('-p',
+                    '--processed',
+                    default=def_processed_path,
+                    dest='processed',
+                    #metavar='',
+                    help="processed directory (default: {:s})".format(def_processed_path))
 args = parser.parse_args()
 server_path = os.path.abspath(args.server)
 processed_path = os.path.abspath(args.processed)
