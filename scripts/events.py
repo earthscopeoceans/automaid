@@ -4,9 +4,8 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
-import setup
 import os
 import glob
 import re
@@ -22,30 +21,36 @@ import matplotlib.pyplot as plt
 import utils
 import gps
 import sys
+import setup
 from pdb import set_trace as keyboard
 
 # Get current version number.
 version = setup.get_version()
 
 class Events:
-    events = None
 
-    def __init__(self, base_path=None, mmd_name=None):
-        # Initialize event list (if list is declared above, then elements of the
-        # previous instance are kept in memory)
-        self.__version__ = version
+    ## The Events (plural) class references a SINGLE .MER file, and all events
+    ## that live within it, which may be associated with the environments of
+    ## multiple other .MER files
+    ##
+    ## Multiple events (event binary blocks) may exist in a single Events.mer_name
+
+    def __init__(self, base_path=None, mer_name=None):
+        self.mer_name = mer_name
+        self.base_path = base_path
         self.events = list()
+        self.__version__ = version
 
         # If just a base path to (e.g., a server directory) is passed, load all
         # .MER files contained there; otherwise read a single input file
-        if mmd_name is None:
-            mmd_files = glob.glob(os.path.join(base_path, "*.MER"))
+        if self.mer_name is None:
+            mer_files = glob.glob(os.path.join(self.base_path, "*.MER"))
         else:
-            mmd_files = glob.glob(os.path.join(base_path, mmd_name))
+            mer_files = glob.glob(os.path.join(self.base_path, self.mer_name))
 
-        for mmd_file in mmd_files:
-            mmd_data_name = mmd_file.split("/")[-1]
-            with open(mmd_file, "r") as f:
+        for mer_file in mer_files:
+            mer_binary_name = mer_file.split("/")[-1]
+            with open(mer_file, "r") as f:
                 content = f.read()
             events = content.split("</PARAMETERS>")[-1].split("<EVENT>")[1:]
             for event in events:
@@ -75,7 +80,7 @@ class Events:
                 expected_binary_length = bytes_per_sample * num_samples
 
                 if actual_binary_length == expected_binary_length:
-                    self.events.append(Event(mmd_data_name, header, binary))
+                    self.events.append(Event(mer_binary_name, header, binary))
 
     def get_events_between(self, begin, end):
         catched_events = list()
@@ -86,37 +91,46 @@ class Events:
 
 
 class Event:
-    mmd_data_name = None
-    mmd_file_is_complete = None
-    environment = None
-    header = None
-    binary = None
-    data = None
-    date = None
-    measured_fs = None   # Measured sampling frequency
-    decimated_fs = None  # Sampling frequency of the received data
-    trig = None
-    depth = None
-    temperature = None
-    criterion = None
-    snr = None
-    requested = None
-    station_loc = None
-    drift_correction = None
-    can_generate_mseed = False
-    can_generate_sac = False
 
-    def __init__(self, mmd_data_name, header, binary):
-        self.mmd_data_name = mmd_data_name
+    ## The Event (singular) class references TWO .MER files, which may be the
+    ## same, through Event.mer_binary_name and Event.mer_environment_name
+
+    ## Only a single event (event binary block) is referenced by
+    ## Event.mer_binary_name and Event.mer_environment_name
+
+    def __init__(self, mer_binary_name=None, header=None, binary=None):
+        self.mer_binary_name = mer_binary_name
         self.header = header
         self.binary = binary
         self.__version__ = version
+
+        # Defaults
+        self.mer_environment_name = None
+        self.mer_environment = None  # as opposed to self.environment, to mirror Dive attribute
+        self.date = None
+        self.data = None
+
+        self.measured_fs = None
+        self.decimated_fs = None
+        self.trig = None
+        self.depth = None
+        self.temperature = None
+        self.criterion = None
+        self.snr = None
+        self.scales = None
+
+        self.station_loc = None
+        self.clockdrift_correction = None
+
+        self.is_complete_mer_file = False
+        self.can_generate_mseed = False
+        self.can_generate_sac = False
+        self.is_requested = False
 
         self.scales = re.findall(" STAGES=(-?\d+)", self.header)[0]
         catch_trig = re.findall(" TRIG=(\d+)", self.header)
         if len(catch_trig) > 0:
             # Event detected with STA/LTA algorithm
-            self.requested = False
             self.trig = int(catch_trig[0])
             date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", header, re.DOTALL)
             self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
@@ -126,16 +140,17 @@ class Event:
             self.snr = float(re.findall(" SNR=(\d+\.\d+)", self.header)[0])
         else:
             # Event requested by user
-            self.requested = True
+            self.is_requested = True
             date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", header, re.DOTALL)
             self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
 
-    def set_environment(self, environment):
-        self.environment = environment
+    def set_environment(self, mer_environment_name, mer_environment):
+        self.mer_environment_name = mer_environment_name
+        self.mer_environment = mer_environment
 
     def find_measured_sampling_frequency(self):
         # Get the frequency recorded in the .MER environment header
-        fs_catch = re.findall("TRUE_SAMPLE_FREQ FS_Hz=(\d+\.\d+)", self.environment)
+        fs_catch = re.findall("TRUE_SAMPLE_FREQ FS_Hz=(\d+\.\d+)", self.mer_environment)
         self.measured_fs = float(fs_catch[0])
         #self.measured_fs = 40
 
@@ -149,7 +164,7 @@ class Event:
 
     def correct_date(self):
         # Calculate the date of the first sample
-        if self.requested:
+        if self.is_requested:
             # For a requested event
             rec_file_date = re.findall("FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2})", self.header)
             rec_file_date = UTCDateTime.strptime(rec_file_date[0], "%Y-%m-%dT%H_%M_%S")
@@ -166,12 +181,12 @@ class Event:
             # The recorded date is the STA/LTA trigger date, subtract the time before the trigger.
             self.date = self.date - float(self.trig) / self.decimated_fs
 
-    def correct_clock_drift(self, gps_descent, gps_ascent):
+    def correct_clockdrift(self, gps_descent, gps_ascent):
         # Correct the clock drift of the Mermaid board with GPS measurement
         pct = (self.date - gps_descent.date) / (gps_ascent.date - gps_descent.date)
-        self.drift_correction = gps_ascent.clockdrift * pct
+        self.clockdrift_correction = gps_ascent.clockdrift * pct
         # Apply correction
-        self.date = self.date + self.drift_correction
+        self.date = self.date + self.clockdrift_correction
 
     def compute_station_location(self, drift_begin_gps, drift_end_gps):
         self.station_loc = gps.linear_interpolation([drift_begin_gps, drift_end_gps], self.date)
@@ -183,8 +198,8 @@ class Event:
             return
 
         # Get additional information on flavor of invert wavelet transform
-        normalized = re.findall(" NORMALIZED=(\d+)", self.environment)[0]
-        edge_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.environment)[0]
+        normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
+        edge_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.mer_environment)[0]
 
         # Change to binary directory because these scripts can fail with full paths
         start_dir = os.getcwd();
@@ -233,7 +248,7 @@ class Event:
             err_mess = "\nFailed: inverse wavelet transformation\n"
             err_mess += "In directory: {:s}\n".format(bin_path)
             err_mess += "Attempted command: {:s}\n".format(cmd)
-            err_mess += "Using: event around {:s} in {:s}\n\n".format(self.date, self.mmd_data_name)
+            err_mess += "Using: event around {:s} in {:s}\n\n".format(self.date, self.mer_binary_name)
             err_mess += "Command printout:\n'{:s}'".format(stdout)
 
             # This output message is more helpful than the program crashing on
@@ -253,7 +268,7 @@ class Event:
         os.chdir(start_dir)
 
     def get_export_file_name(self):
-        export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.mmd_data_name
+        export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
         if not self.trig:
             export_file_name = export_file_name + ".REQ"
         else:
@@ -386,8 +401,8 @@ class Event:
         stats.sac["user0"] = self.snr
         stats.sac["user1"] = self.criterion
         stats.sac["user2"] = self.trig # samples
-        if self.drift_correction is not None:
-            stats.sac["user3"] = self.drift_correction # seconds
+        if self.clockdrift_correction is not None:
+            stats.sac["user3"] = self.clockdrift_correction # seconds
         else:
             stats.sac["user3"] = -12345.0 # undefined default
         stats.sac["kuser0"] = self.__version__

@@ -4,15 +4,16 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import re
 from obspy import UTCDateTime
 import plotly.graph_objs as graph
 import plotly.offline as plotly
+from pdb import set_trace as keyboard
 
-# Get current version number.
+# Get current version number
 version = setup.get_version()
 
 def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
@@ -68,6 +69,7 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
                 filename=vital_file_path + "voltage.html",
                 auto_open=False)
 
+    return
 
 def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
     # Read file
@@ -112,6 +114,7 @@ def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
                 filename=vital_file_path + "internal_pressure.html",
                 auto_open=False)
 
+    return
 
 def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
     # Read file
@@ -178,10 +181,11 @@ def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
                 auto_open=False)
 
 
-def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
+    return
 
-    pressure_offset = [dive.p2t_offset_measurement - dive.p2t_offset_param for dive in mdives if dive.is_complete_dive]
-    date = [dive.end_date for dive in mdives if dive.is_complete_dive]
+def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
+    date  = [d.end_date for d in mdives if d.is_complete_dive]
+    corrected_pressure_offset = [d.p2t_offset_corrected for d in mdives if d.is_complete_dive]
 
     # Dead-float adjustment
     if len(date) < 1:
@@ -196,24 +200,26 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
     while date[j] < end and j < len(date)-1:
         j += 1
     date = date[i:j+1]
-    pressure_offset = pressure_offset[i:j+1]
+    corrected_pressure_offset = corrected_pressure_offset[i:j+1]
 
     # Add battery values to the graph
-    pressure_offset_line = graph.Scatter(x=date,
-                                         y=pressure_offset,
-                                         name="pressure offset",
-                                         line=dict(color='blue',
-                                                   width=2),
-                                         mode='lines')
+    corrected_pressure_offset_line = graph.Scatter(x=date,
+                                                   y=corrected_pressure_offset,
+                                                   name="corrected_pressure offset",
+                                                   line=dict(color='blue',
+                                                             width=2),
+                                                   mode='lines')
 
-    data = [pressure_offset_line]
+    data = [corrected_pressure_offset_line]
 
     layout = graph.Layout(title="Corrected pressure offset in LOG files",
                           xaxis=dict(title='Coordinated Universal Time (UTC)', titlefont=dict(size=18)),
-                          yaxis=dict(title='Pressure offset (millibars)', titlefont=dict(size=18)),
+                          yaxis=dict(title='Corrected pressure offset (millibars)', titlefont=dict(size=18)),
                           hovermode='closest'
                           )
 
     plotly.plot({'data': data, 'layout': layout},
-                filename=vital_file_path + "corrected_pressure_offset.html",
+                filename=vital_file_path + "corrected_external_pressure_offset.html",
                 auto_open=False)
+
+    return

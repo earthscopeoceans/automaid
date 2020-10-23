@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 19-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -20,6 +20,9 @@ import re
 import utils
 import pickle
 from pdb import set_trace as keyboard
+
+# Get current version number.
+version = setup.get_version()
 
 # Set default paths
 automaid_path = os.environ["AUTOMAID"]
@@ -46,9 +49,6 @@ parser.add_argument('-p',
 args = parser.parse_args()
 server_path = os.path.abspath(args.server)
 processed_path = os.path.abspath(args.processed)
-
-# Get current version number.
-version = setup.get_version()
 
 # Set a time range of analysis for a specific float
 filterDate = {
@@ -83,12 +83,12 @@ filterDate = {
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = False
+redo = True
 
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
 events_plotly = False
-events_mseed = True
+events_mseed = False
 events_sac = True
 events_png = False
 
@@ -106,6 +106,10 @@ def main():
     # Search Mermaid floats
     vitfile_path = os.path.join(server_path, "*.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
+
+    # Initialize empty dict to hold the instance of every last complete dive for
+    # every MERMAID
+    lastdive = dict()
 
     # For each Mermaid float
     for mfloat in mfloats:
@@ -176,7 +180,7 @@ def main():
 
         # Compute clock drift correction for each event, and build list of GPS locations.
         for dive in mdives:
-            dive.correct_events_clock_drift()
+            dive.correct_events_clockdrift()
 
         # Compute location of mermaid float for each event (because the station is moving)
         # the algorithm use gps information in the next dive to estimate surface drift
@@ -211,7 +215,7 @@ def main():
         gps_list_full.sort(key=lambda x: x.date)
 
         # Write GPS text file
-        fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}    {:>15s}\n"
+        g_fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}    {:>15s}\n"
         gps_f = os.path.join(processed_path, mfloat_path, mfloat+"_GPS.txt")
         with open(gps_f, "w+") as f:
             f.write("MERMAID: {:s}\n".format(mfloat))
@@ -227,7 +231,7 @@ def main():
                 if g.vdop is None:
                     g.vdop = float("NaN")
 
-                f.write(fmt_spec.format(g.date, g.latitude, g.longitude, g.hdop, g.vdop, g.clockdrift, g.source))
+                f.write(g_fmt_spec.format(g.date, g.latitude, g.longitude, g.hdop, g.vdop, g.clockdrift, g.source))
 
         # Generate printout detailing how everything connects
         print ""
@@ -246,6 +250,12 @@ def main():
         print("    {:s} total: {:d} SAC & miniSEED files\n" \
               .format(mfloat_serial, sum(e.can_generate_sac for d in mdives for e in d.events)))
 
+        # Hold onto final dive instance outside local scope to write "last dive" text file
+        for d in reversed(mdives):
+            if d.is_complete_dive:
+                lastdive[mfloat] = d
+                break
+
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
             os.remove(f)
@@ -255,8 +265,33 @@ def main():
         # Put dive in a variable that will be saved in a file
         datasave[mfloat] = mdives
 
-    with open(os.path.join(processed_path, "MerDives.pydata"), 'wb') as f:
-        pickle.dump(datasave, f)
+
+    #______________________________________________________________________________________#
+    lastdive_fmt_spec = "{:>12s}    {:>27s}    {:>15s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
+    lastdive_f = os.path.join(processed_path, "last_dive_pressure_offset.txt")
+    with open(lastdive_f, "w+") as f:
+        f.write("     MERMAID                 LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
+        for mfloat in sorted(mfloats):
+            ld = lastdive[mfloat]
+            warn_str = ''
+            if ld.p2t_offset_corrected > 100:
+                warn_str = '!!!'
+                print("\n\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing !!!"
+                      .format(mfloat, ld.p2t_offset_corrected))
+                print("!!! The corrected external pressure must stay below 300 mbar !!!")
+                print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...' !!!\n\n"
+                      .format(mfloat))
+            f.write(lastdive_fmt_spec.format(mfloat,
+                                             ld.surface_date,
+                                             ld.log_name,
+                                             ld.p2t_offset_measurement,
+                                             ld.p2t_offset_param,
+                                             ld.p2t_offset_corrected,
+                                             warn_str))
+
+
+    # with open(os.path.join(processed_path, "MerDives.pydata"), 'wb') as f:
+    #     pickle.dump(datasave, f)
 
         # for dive in mdives[:-1]: # on ne regarde pas la derniere plongee qui n'a pas ete interpolee
         #    if dive.is_complete_dive: # on ne regarde que les vraies plongees (pas les tests faits a terre)

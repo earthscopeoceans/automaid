@@ -4,9 +4,8 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
-import setup
 import glob
 import os
 import re
@@ -15,6 +14,7 @@ import plotly.offline as plotly
 import utils
 from obspy import UTCDateTime
 import gps
+import setup
 from pdb import set_trace as keyboard
 
 # Get current version number.
@@ -22,46 +22,51 @@ version = setup.get_version()
 
 # Log class to manipulate log files
 class Dive:
-    log_name = None
-    next_dive_log_name = None
-    base_path = None
-    directory_name = None
-    export_path = None
-    start_date = None
-    dive_date = None
-    end_date = None
-    dive_length = None
-    is_init = None
-    is_dive = None
-    is_complete_dive = None
-    gps_list = None
-    gps_before_dive = None
-    gps_after_dive = None
-    gps_after_dive_incl_next_dive = None
-    surface_date = None
-    log_content = None
-    mmd_environment_name = None
-    next_dive_mmd_environment_name = None
-    mmd_environment = None
-    events = None
-    station_name = None
-    station_number = None
-    surface_leave_loc = None
-    surface_reach_loc = None
-    great_depth_reach_loc = None
-    great_depth_leave_loc = None
-    p2t_offset_param = 0
-    p2t_offset_measurement = 0
-    mmd_bytes_received = None
-    mmd_bytes_expected = None
-    mmd_file_is_complete = None
-    dive_id = None
-    next_dive_exists = False
-
-    def __init__(self, base_path, log_name, events):
+    def __init__(self, base_path=None, log_name=None, events=None):
         self.base_path = base_path
         self.log_name = log_name
         self.__version__ = version
+
+        # Defaults (this class does a lot...)
+        self.directory_name = None
+        self.export_path = None
+        self.station_name = None
+        self.station_number = None
+
+        self.log_content = None
+        self.start_date = None
+        self.dive_date = None
+        self.surface_date = None
+        self.end_date = None
+        self.dive_length = None
+
+        self.mer_environment_name = None
+        self.mer_environment = None
+        self.mer_bytes_received = None
+        self.mer_bytes_expected = None
+
+        self.gps_list = None
+        self.gps_before_dive = None
+        self.gps_after_dive = None
+        self.gps_after_dive_incl_next_dive = None
+
+        self.surface_leave_loc = None
+        self.great_depth_reach_loc = None
+        self.great_depth_leave_loc = None
+        self.surface_reach_loc = None
+
+        self.p2t_offset_param = None
+        self.p2t_offset_measurement = None
+
+        self.is_init = False
+        self.is_dive = False
+        self.is_complete_dive = False
+        self.is_complete_mer_file = False
+        self.dive_id = None
+
+        self.next_dive_exists = False
+        self.next_dive_log_name = None
+        self.next_dive_mer_environment_name = None
 
         # Get the date from the file name -- the hexadecimal component of the
         # .LOG file name is the same Unix Epoch time as the first line of the
@@ -83,13 +88,11 @@ class Dive:
         self.dive_length = self.end_date - self.start_date # seconds
 
         # Check if the log correspond to the float initialization
-        self.is_init = False
         match = re.search("\[TESTMD,\d{3}\]\"yes\"", self.log_content)
         if "Enter in test mode?" in self.log_content and not match:
             self.is_init = True
 
         # Check if the log correspond to a dive
-        self.is_dive = False
         if "[DIVING," in self.log_content:
             self.is_dive = True
             # Hold on to the date of the dive to parse the entire dive's GPS
@@ -97,7 +100,6 @@ class Dive:
             self.dive_date = utils.find_timestamped_values("\[DIVING, *\d+\]", self.log_content)[0][1]
 
         # Check if the log correspond to a complete dive
-        self.is_complete_dive = False
         if self.is_dive:
             catch = utils.find_timestamped_values("\[MAIN *, *\d+\]surface", self.log_content)
             if catch:
@@ -126,7 +128,7 @@ class Dive:
         # Find the .MER file of the ascent
         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
         if len(catch) > 0:
-            self.mmd_environment_name = catch[-1].replace("/", "_")
+            self.mer_environment_name = catch[-1].replace("/", "_")
 
         # If the dive wrote a .MER file then retrieve its corresponding
         # environment because those GPS fixes DO relate to start/end of the
@@ -139,34 +141,33 @@ class Dive:
         # back corresponding to a single dive, it may take multiple surfacings
         # to finally transmit them all).
         self.events = list()
-        if self.mmd_environment_name:
+        if self.mer_environment_name:
             # Verify that the number of bytes purported to be in the .MER file
             # are actually in the .MER file (the .LOG prints the expectation)
             bytes_expected = re.search("](\d+) bytes in " \
-                                       + self.mmd_environment_name.replace("_", "/"), self.log_content)
-            self.mmd_bytes_expected = int(bytes_expected.group(1))
+                                       + self.mer_environment_name.replace("_", "/"), self.log_content)
+            self.mer_bytes_expected = int(bytes_expected.group(1))
 
-            mer_fullfile_name = self.base_path + self.mmd_environment_name
-            self.mmd_bytes_received = os.path.getsize(mer_fullfile_name)
+            mer_fullfile_name = self.base_path + self.mer_environment_name
+            self.mer_bytes_received = os.path.getsize(mer_fullfile_name)
 
-            self.mmd_file_is_complete = False
-            if self.mmd_bytes_received == self.mmd_bytes_expected:
-                self.mmd_file_is_complete = True
+            if self.mer_bytes_received == self.mer_bytes_expected:
+                self.is_complete_mer_file = True
 
             # Warning if .MER transmission is incomplete
-            if not self.mmd_file_is_complete:
+            if not self.is_complete_mer_file:
                 print("WARNING: {:s} file transmission is incomplete" \
-                      .format(self.mmd_environment_name))
+                      .format(self.mer_environment_name))
                 print("         Expected {:>6d} bytes (according to {:s})\n         Received {:>6d} bytes"\
-                      .format(self.mmd_bytes_expected, self.log_name, self.mmd_bytes_received))
+                      .format(self.mer_bytes_expected, self.log_name, self.mer_bytes_received))
 
             # Read the Mermaid environment associated to the dive
             with open(mer_fullfile_name, "r") as f:
                 content = f.read()
-            self.mmd_environment = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)[0]
+            self.mer_environment = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)[0]
 
             # Get dive ID according to .MER (can these be reset?)
-            dive_id = re.search("<DIVE ID=(\d+)", self.mmd_environment)
+            dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
             self.dive_id = int(dive_id.group(1))
 
             # Get list of events associated with this .MER files environment
@@ -177,7 +178,7 @@ class Dive:
             # For each event
             for event in self.events:
                 # 1 Set the environment information
-                event.set_environment(self.mmd_environment)
+                event.set_environment(self.mer_environment_name, self.mer_environment)
                 # 2 Find true sampling frequency
                 event.find_measured_sampling_frequency()
                 # 3 Correct events date
@@ -186,28 +187,36 @@ class Dive:
                 event.invert_transform()
 
         # Collect all GPS fixes taken in both the .LOG  and .MER file
-        self.gps_list, self.gps_from_log, self.gps_from_mmd_env \
-            = gps.get_gps_list(self.log_name, self.log_content,  self.mmd_environment_name, self.mmd_environment)
+        self.gps_list, self.gps_from_log, self.gps_from_mer_environment \
+            = gps.get_gps_list(self.log_name, self.log_content,  self.mer_environment_name, self.mer_environment)
 
         # Split the GPS list into before/after dive sublists
         if self.is_dive:
             self.gps_before_dive = [x for x in self.gps_list if x.date < self.dive_date]
             if not self.gps_before_dive:
                 print "WARNING: No GPS synchronization before diving for \"" \
-                    + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                    + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
 
         if self.is_complete_dive:
             self.gps_after_dive = [x for x in self.gps_list if x.date > self.surface_date]
             if not self.gps_after_dive:
                 print "WARNING: No GPS synchronization after surfacing for \"" \
-                    + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                    + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
 
-        # Find the pressure offset
+        # Find external pressure offset
         if self.is_complete_dive:
+            # Commanded as "p2t qm!offset ??? "in .cmd file
+            # Reported as "...p2t37: ??x????s, offset ???mbar" in .LOG file
             catch = re.findall("offset (-?\d+)mbar", self.log_content)
             self.p2t_offset_param = int(catch[0])
+
+            # Reported as "Pext ???mbar" in .LOG file, this does not include any
+            # offset correction (self.p2t_offset_param)
             catch = re.findall("Pext (-?\d+)mbar", self.log_content)
             self.p2t_offset_measurement = int(catch[0])
+
+            # Compute the corrected pressure offset
+            self.p2t_offset_corrected =  self.p2t_offset_measurement - self.p2t_offset_param
 
     def generate_datetime_log(self):
         # Check if file exist
@@ -222,17 +231,17 @@ class Dive:
 
     def generate_mermaid_environment_file(self):
         # Check if there is a Mermaid file
-        if self.mmd_environment_name is None:
+        if self.mer_environment_name is None:
             return
 
         # Check if file exist
-        export_path = self.export_path + self.log_name + "." + self.mmd_environment_name + ".env"
+        export_path = self.export_path + self.log_name + "." + self.mer_environment_name + ".env"
         if os.path.exists(export_path):
             return
 
         # Write file
         with open(export_path, "w") as f:
-            f.write(self.mmd_environment)
+            f.write(self.mer_environment)
 
     def generate_dive_plotly(self):
         # Check if file exist
@@ -312,7 +321,7 @@ class Dive:
                     filename=export_path,
                     auto_open=False)
 
-    def correct_events_clock_drift(self):
+    def correct_events_clockdrift(self):
         # Return if there is no events
         if len(self.events) == 0:
             return
@@ -320,41 +329,46 @@ class Dive:
         # Compute clock drift
         if not self.is_dive:
             print "WARNING: Events are not part of a dive, don't do clock drift correction for \""\
-                + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if not self.is_complete_dive:
             print "WARNING: Events are not part of a complete dive, do not correct clock drift for \""\
-                + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if not self.gps_before_dive or not self.gps_after_dive:
             print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
-                + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if self.gps_before_dive[-1].clockfreq <= 0:
             print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
-                + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if self.gps_after_dive[0].clockfreq <= 0:
             print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
-                + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Correct clock drift
         for event in self.events:
-            event.correct_clock_drift(self.gps_before_dive[-1], self.gps_after_dive[0])
+            event.correct_clockdrift(self.gps_before_dive[-1], self.gps_after_dive[0])
 
     def compute_events_station_location(self, next_dive):
         # Keep tabs on the MER/LOG files that affect the current dive's gps
         # interpolation (don't set self.next_dive = next_dive because
         # that creates highly recursive data structures)
-        self.next_dive_exists = True
+        if isinstance(next_dive, Dive):
+            self.next_dive_exists = True
+        else:
+            print("Warning: next dive not given")
+            return
+
         self.next_dive_log_name = next_dive.log_name
-        self.next_dive_mmd_environment_name = next_dive.mmd_environment_name
+        self.next_dive_mer_environment_name = next_dive.mer_environment_name
 
         # Check if the dive is complete
         if not self.is_complete_dive:
             # print "WARNING: The dive is not complete, do not compute event location estimation for \""\
-            #       + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+            #       + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Ensure the next dive contains GPS fixes before the float actually dove
@@ -363,7 +377,7 @@ class Dive:
         if not next_dive.gps_list:
             print "WARNING: The next dive doesn't contain enough GPS fixes,""" \
                 + " do not compute event location estimation for \"" \
-                + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # By default every .MER and .LOG prints a handful of GPS fixes BEFORE
@@ -386,18 +400,18 @@ class Dive:
         if len(self.gps_before_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
             print "WARNING: The next dive doesn't contain enough GPS fixes,""" \
                 + " do not compute event location estimation for \"" \
-                + str(self.mmd_environment_name) + "\", \"" + str(self.log_name) + "\""
+                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Find location when float leave the surface
-        surface_leave_date = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
-        surface_leave_date = surface_leave_date[0][1]
-        self.surface_leave_loc = gps.linear_interpolation(self.gps_before_dive, surface_leave_date)
+        self.surface_leave_date = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
+        self.surface_leave_date = self.surface_leave_date[0][1]
+        self.surface_leave_loc = gps.linear_interpolation(self.gps_before_dive, self.surface_leave_date)
 
         # Find location when float reach the surface
-        surface_reach_date = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
-        surface_reach_date = surface_reach_date[-1][1]
-        self.surface_reach_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive , surface_reach_date)
+        self.surface_reach_date = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
+        self.surface_reach_date = self.surface_reach_date[-1][1]
+        self.surface_reach_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive , self.surface_reach_date)
 
         # Location is determined when the float reach the mixed layer depth
         mixed_layer_depth_m = 50
@@ -427,7 +441,7 @@ class Dive:
             d1 = pressure_date[i-1]
             p1 = pressure_val[i-1]
         else:
-            d1 = surface_leave_date
+            d1 = self.surface_leave_date
             p1 = 0
 
         # compute when the float pass under the mixed layer
@@ -446,7 +460,7 @@ class Dive:
             d2 = pressure_date[i+1]
             p2 = pressure_val[i+1]
         else:
-            d2 = surface_reach_date
+            d2 = self.surface_reach_date
             p2 = 0
 
         # compute when the float pass above the mixed layer
@@ -484,18 +498,18 @@ class Dive:
     def print_dive_gps(self, next_dive):
         # By definition 1 .LOG == 1 "dive," so there is always a .log file but
         # not necessarily an associated .MER (e.g., test or init I think?)
-        if self.mmd_environment_name is not None:
+        if self.mer_environment_name is not None:
             print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
-                  .format(self.mmd_environment_name, self.log_name))
+                  .format(self.mer_environment_name, self.log_name))
         else:
             print("    GPS: {:s} [this dive]".format(self.log_name))
 
         # Repeat printout for the following dive, whose data affect the gps
         # interpolation of the current dive
         if self.next_dive_exists:
-            if self.next_dive_mmd_environment_name is not None:
+            if self.next_dive_mer_environment_name is not None:
                 print("         {:s} (</ENVIRONMENT>) & {:s} [next dive]" \
-                      .format(self.next_dive_mmd_environment_name, self.next_dive_log_name))
+                      .format(self.next_dive_mer_environment_name, self.next_dive_log_name))
             else:
                 print("         {:s} [next dive]".format(self.next_dive_log_name))
         else:
@@ -508,10 +522,10 @@ class Dive:
             for e in self.events:
                 if e.station_loc is None:
                     print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mmd_data_name))
+                          .format(e.get_export_file_name(), e.mer_binary_name))
                 else:
                     print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mmd_data_name))
+                          .format(e.get_export_file_name(), e.mer_binary_name))
 
 # Create dives object
 def get_dives(path, events):
@@ -555,22 +569,22 @@ def concatenate_log_files(path):
                     fl.write(logstring)
                 logstring = ""
 
-def attach_mmd_is_complete_to_dive_events(dive_list):
+def attach_is_complete_mer_to_dive_events(dive_list):
     """Prior to automaid v1.4.0 this method was used to determine which .MER files
     had to be skipped (if the file was incomplete, all events contained in the
     .MER file were ignored).  However, events.py now verifies that each
     individual event block (<EVENT> ... int32 ... </EVENT>) contains the
     expected number of bytes, per that event's header.  Therefore, individual
     events in an incomplete .MER file may be converted before the entire .MER
-    file has been transmitted.  Therefore, while this method may still have some
+    file has been transmitted.  As such, hile this method may still have some
     future utility, it is no longer used to determine which events to make.
 
     Original description:
-    Intakes a list of Dive instances and updates their events.mmd_file_is_complete
+    Intakes a list of Dive instances and updates their events.is_complete_mer_file
     field (events is a list of events associated with each dive).
 
     More verbose: each Dive instance is associated with a single .MER file via
-    dive.mmd_environment_name in the sense that this is the .MER file whose
+    dive.mer_environment_name in the sense that this is the .MER file whose
     environment is associated with that dive (the GPS fixes in the environment
     are similar to the corresponding .LOG file, in dive.log_name).  However, the
     events (a separate list) attached to this dive may have had their .MER
@@ -581,15 +595,15 @@ def attach_mmd_is_complete_to_dive_events(dive_list):
     """
 
     # Generate lists of:
-    # (1) all mmd (.MER) files processed
+    # (1) all mer (.MER) files processed
     # (2) the completeness (or lack thereof) of those same files
     # and zip them into dictionary for easy reference
-    mmd_environment_names = [d.mmd_environment_name for d in dive_list]
-    mmd_files_are_complete = [d.mmd_file_is_complete for d in dive_list]
-    mmd_dict = dict(zip(mmd_environment_names, mmd_files_are_complete))
+    mer_environment_names = [d.mer_environment_name for d in dive_list]
+    mer_files_are_complete = [d.is_complete_mer_file for d in dive_list]
+    mer_dict = dict(zip(mer_environment_names, mer_files_are_complete))
 
     # Attach completeness metric to each event
     for d in dive_list:
         for e in d.events:
-            if e.mmd_data_name is not None:
-                e.mmd_file_is_complete = mmd_dict[e.mmd_data_name]
+            if e.mer_binary_name is not None:
+                e.is_complete_mer_file = mer_dict[e.mer_binary_name]

@@ -4,26 +4,20 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 15-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
-import setup
 import re
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
+import setup
 from pdb import set_trace as keyboard
 
 # Get current version number.
 version = setup.get_version()
 
 class GPS:
-    date = None
-    latitude = None
-    longitude = None
-    clockdrift = None
-    clockfreq = None
-    source = None
-
-    def __init__(self, date, latitude, longitude, clockdrift, clockfreq, hdop, vdop, source):
+    def __init__(self, date=None, latitude=None, longitude=None,
+                 clockdrift=None, clockfreq=None, hdop=None, vdop=None, source=None):
         self.date = date
         self.latitude = latitude
         self.longitude = longitude
@@ -32,6 +26,7 @@ class GPS:
         self.hdop = hdop
         self.vdop = vdop
         self.source = source
+        self.__version__ = version
 
 def linear_interpolation(gps_list, date):
     gpsl = gps_list
@@ -87,28 +82,28 @@ def linear_interpolation(gps_list, date):
 
 
 # Find GPS fix in log files and Mermaid files
-def get_gps_list(log_name, log_content, mmd_environment_name, mmd_environment):
-    gps_from_log = get_gps_from_log(log_name, log_content)
-    gps_from_mmd_env = get_gps_from_mermaid_environment(mmd_environment_name, mmd_environment)
+def get_gps_list(log_name, log_content, mer_environment_name, mer_environment):
+    gps_from_log = get_gps_from_log_content(log_name, log_content)
+    gps_from_mer_environment = get_gps_from_mer_environment(mer_environment_name, mer_environment)
 
     # Concatenate GPS lists
-    gps_list = gps_from_log + gps_from_mmd_env
+    gps_list = gps_from_log + gps_from_mer_environment
 
     # Order based on date
     gps_list = sorted(gps_list, key=lambda x: x.date)
 
-    return gps_list, gps_from_log, gps_from_mmd_env
+    return gps_list, gps_from_log, gps_from_mer_environment
 
 
-def get_gps_from_mermaid_environment(mmd_name, mmd_environment):
+def get_gps_from_mer_environment(mer_environment_name, mer_environment):
     gps = list()
 
     # Mermaid environment can be empty
-    if mmd_environment is None:
+    if mer_environment is None:
         return gps
 
     # get gps information in the mermaid environment
-    gps_tag_list = mmd_environment.split("</ENVIRONMENT>")[0].split("<GPSINFO")[1:]
+    gps_tag_list = mer_environment.split("</ENVIRONMENT>")[0].split("<GPSINFO")[1:]
     for gps_tag in gps_tag_list:
         fixdate = re.findall(" DATE=(\d+-\d+-\d+T\d+:\d+:\d+)", gps_tag)
         if len(fixdate) > 0:
@@ -179,7 +174,7 @@ def get_gps_from_mermaid_environment(mmd_name, mmd_environment):
 
         # Check if there is an error of clock synchronization
         if clockfreq <= 0:
-            err_msg = "WARNING: Error with clock synchronization in file \"" + mmd_name + "\"" \
+            err_msg = "WARNING: Error with clock synchronization in file \"" + mer_environment_name + "\"" \
                    + " at " + fixdate.isoformat() + ", clockfreq = " + str(clockfreq) + "Hz"
             print err_msg
 
@@ -190,14 +185,14 @@ def get_gps_from_mermaid_environment(mmd_name, mmd_environment):
         # Add date to the list
         if fixdate is not None and latitude is not None and longitude is not None \
                 and clockdrift is not None and clockfreq is not None:
-            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, mmd_name))
+            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, mer_environment_name))
         else:
             raise ValueError
 
     return gps
 
 
-def get_gps_from_log(log_name, log_content):
+def get_gps_from_log_content(log_name, log_content):
     gps = list()
 
     gps_log_list = log_content.split("GPS fix...")[1:]
