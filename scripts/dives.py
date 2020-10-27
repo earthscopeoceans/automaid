@@ -435,9 +435,9 @@ class Dive:
             depth1 = 0
 
         # Compute when the float leaves the surface and reaches the mixed layer
-        descent_velocity = (depth2 - depth1) / (time2 - time1)
+        descent_vel = (depth2 - depth1) / (time2 - time1)
         descent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
-        descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_velocity
+        descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
         self.reach_mixed_layer_date = time1 + descent_time_to_mixed_layer
 
         self.mixed_layer_reach_loc = gps.linear_interpolation(self.gps_before_dive, self.reach_mixed_layer_date)
@@ -460,9 +460,9 @@ class Dive:
             depth2 = 0
 
         # Compute when the float leaves the mixed layer and reaches the surface
-        ascent_velocity = (depth2 - depth1) / (time2 - time1)
+        ascent_vel = (depth2 - depth1) / (time2 - time1)
         ascent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
-        ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_velocity
+        ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
         self.leave_mixed_layer_date = time1 + ascent_time_to_mixed_layer
 
         self.mixed_layer_leave_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, self.leave_mixed_layer_date)
