@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 27-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -82,6 +82,9 @@ class Events:
 
                 if actual_binary_length == expected_binary_length:
                     self.events.append(Event(mer_binary_name, header, binary))
+
+            # Sort by date the list of events contained in this .MER file
+            self.events.sort(key=lambda x: x.date)
 
     def get_events_between(self, begin, end):
         catched_events = list()
