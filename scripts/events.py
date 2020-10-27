@@ -2,9 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-# Current maintainer: Dr. Joel D. Simon (JDS)
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 26-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -28,12 +28,13 @@ from pdb import set_trace as keyboard
 version = setup.get_version()
 
 class Events:
+    '''The Events (plural) class references a SINGLE .MER file, and all events that
+     live within it, which may be associated with the environments of multiple
+     other .MER files
 
-    ## The Events (plural) class references a SINGLE .MER file, and all events
-    ## that live within it, which may be associated with the environments of
-    ## multiple other .MER files
-    ##
-    ## Multiple events (event binary blocks) may exist in a single Events.mer_name
+     Multiple events (event binary blocks) may exist in a single Events.mer_name
+
+    '''
 
     def __init__(self, base_path=None, mer_name=None):
         self.mer_name = mer_name
@@ -91,12 +92,16 @@ class Events:
 
 
 class Event:
+    '''The Event (singular) class references TWO .MER files, which may be the same,
+    through Event.mer_binary_name (.MER file containing the </EVENT> binary
+    data), and Event.mer_environment_name (.MER file containing the
+    </ENVIRONMENT> metadata (e.g., GPS, clock drift, sampling freq. etc.)
+    associated with that event)
 
-    ## The Event (singular) class references TWO .MER files, which may be the
-    ## same, through Event.mer_binary_name and Event.mer_environment_name
+    Only a SINGLE event (event binary block) is referenced by
+    Event.mer_binary_name and Event.mer_environment_name
 
-    ## Only a single event (event binary block) is referenced by
-    ## Event.mer_binary_name and Event.mer_environment_name
+    '''
 
     def __init__(self, mer_binary_name=None, header=None, binary=None):
         self.mer_binary_name = mer_binary_name
@@ -288,10 +293,10 @@ class Event:
                 + "     SNR = " + str(self.snr)
         return title
 
-    def plotly(self, export_path):
+    def plotly(self, export_path, force_redo=False):
         # Check if file exist
-        export_path = export_path + self.get_export_file_name() + ".html"
-        if os.path.exists(export_path):
+        export_path_html = export_path + self.get_export_file_name() + ".html"
+        if not force_redo and os.path.exists(export_path_html):
             return
 
         # Add acoustic values to the graph
@@ -311,14 +316,15 @@ class Event:
                               )
 
         plotly.plot({'data': data, 'layout': layout},
-                    filename=export_path,
+                    filename=export_path_html,
                     auto_open=False)
 
-    def plot_png(self, export_path):
+    def plot_png(self, export_path, force_redo=False):
         # Check if file exist
-        export_path = export_path + self.get_export_file_name() + ".png"
-        if os.path.exists(export_path):
+        export_path_png = export_path + self.get_export_file_name() + ".png"
+        if not force_redo and os.path.exists(export_path_png):
             return
+
         data = [d/(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000) for d in self.data]
 
         # Plot frequency image
@@ -331,11 +337,11 @@ class Event:
         plt.ylabel("Pascal", fontsize=12)
         plt.tight_layout()
         plt.grid()
-        plt.savefig(export_path)
+        plt.savefig(export_path_png)
         plt.clf()
         plt.close()
 
-    def to_mseed(self, export_path, station_number, force_without_loc=False):
+    def to_mseed(self, export_path, station_number, force_without_loc=False, force_redo=False):
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
             #print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
@@ -346,7 +352,7 @@ class Event:
 
         # Check if file exist
         export_path_msd = export_path + self.get_export_file_name() + ".mseed"
-        if os.path.exists(export_path_msd):
+        if not force_redo and os.path.exists(export_path_msd):
             return
 
         # Get stream object
@@ -355,10 +361,10 @@ class Event:
         # Save stream object
         stream.write(export_path_msd, format='MSEED')
 
-    def to_sac(self, export_path, station_number, force_without_loc=False):
+    def to_sac(self, export_path, station_number, force_without_loc=False, force_redo=False):
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
-            print self.get_export_file_name() + ": Skip sac generation, wait the next ascent to compute location"
+            #print self.get_export_file_name() + ": Skip sac generation, wait the next ascent to compute location"
             return
 
         # This binary data attached to this event may be converted to SAC
@@ -366,7 +372,7 @@ class Event:
 
         # Check if file exist
         export_path_sac = export_path + self.get_export_file_name() + ".sac"
-        if os.path.exists(export_path_sac):
+        if not force_redo and os.path.exists(export_path_sac):
             return
 
         # Get stream object
@@ -376,15 +382,8 @@ class Event:
         stream.write(export_path_sac, format='SAC')
 
     def get_stream(self, export_path, station_number, force_without_loc=False):
-        # Check if file exist
-        export_path_sac = export_path + self.get_export_file_name() + ".sac"
-        export_path_msd = export_path + self.get_export_file_name() + ".mseed"
-        if os.path.exists(export_path_sac) and os.path.exists(export_path_msd):
-            return
-
-        # Check if the station location have been calculated
+       # Check if an interpolated station location exists
         if self.station_loc is None and not force_without_loc:
-            print self.get_export_file_name() + ": Skip sac/mseed generation, wait the next ascent to compute location"
             return
 
         # Fill header info
@@ -401,10 +400,7 @@ class Event:
         stats.sac["user0"] = self.snr
         stats.sac["user1"] = self.criterion
         stats.sac["user2"] = self.trig # samples
-        if self.clockdrift_correction is not None:
-            stats.sac["user3"] = self.clockdrift_correction # seconds
-        else:
-            stats.sac["user3"] = -12345.0 # undefined default
+        stats.sac["user3"] = self.clockdrift_correction # seconds
         stats.sac["kuser0"] = self.__version__
         stats.sac["iztype"] = 9  # 9 == IB in sac format
 
@@ -415,3 +411,18 @@ class Event:
         stream = Stream(traces=[trace])
 
         return stream
+
+
+def write_traces_txt(mdives, processed_path, mfloat_path, mfloat):
+    fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
+    traces_file = os.path.join(processed_path, mfloat_path, mfloat+"_traces.txt")
+    event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.can_generate_sac)
+    with open(traces_file, "w+") as f:
+        f.write("            	         SAC_MSEED_TRACE            BIN_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format())
+        for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
+            f.write(fmt_spec.format(e.get_export_file_name(),
+                                    e.mer_binary_name,
+                                    d.log_name,
+                                    d.mer_environment_name,
+                                    d.next_dive_log_name,
+                                    d.next_dive_mer_environment_name))

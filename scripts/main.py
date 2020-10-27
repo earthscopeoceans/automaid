@@ -6,7 +6,6 @@
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
-import setup
 import os
 import argparse
 import shutil
@@ -16,9 +15,10 @@ import dives
 import events
 import vitals
 import kml
+import gps
+import setup
 import re
 import utils
-import pickle
 from pdb import set_trace as keyboard
 
 # Get current version number.
@@ -28,7 +28,7 @@ version = setup.get_version()
 automaid_path = os.environ["AUTOMAID"]
 def_mermaid_path = os.environ["MERMAID"]
 def_server_path = os.path.join(def_mermaid_path, "server")
-def_processed_path = os.path.join(def_mermaid_path, "processed")
+def_processed_path = os.path.join(def_mermaid_path, "test_processed")
 
 # Parse (optional) command line inputs to override default paths
 parser = argparse.ArgumentParser()
@@ -59,22 +59,22 @@ filterDate = {
     "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
     "452.020-P-07": (datetime.datetime(2018, 6, 27), datetime.datetime(2100, 1, 1)),
-    "452.020-P-08": (datetime.datetime(2018, 8, 5), datetime.datetime(2100, 1, 1)),
-    "452.020-P-09": (datetime.datetime(2018, 8, 6), datetime.datetime(2100, 1, 1)),
-    "452.020-P-10": (datetime.datetime(2018, 8, 7), datetime.datetime(2100, 1, 1)),
-    "452.020-P-11": (datetime.datetime(2018, 8, 9), datetime.datetime(2100, 1, 1)),
-    "452.020-P-12": (datetime.datetime(2018, 8, 10), datetime.datetime(2100, 1, 1)),
-    "452.020-P-13": (datetime.datetime(2018, 8, 31), datetime.datetime(2100, 1, 1)),
-    "452.020-P-16": (datetime.datetime(2018, 9, 3), datetime.datetime(2100, 1, 1)),
-    "452.020-P-17": (datetime.datetime(2018, 9, 4), datetime.datetime(2100, 1, 1)),
-    "452.020-P-18": (datetime.datetime(2018, 9, 5), datetime.datetime(2100, 1, 1)),
-    "452.020-P-19": (datetime.datetime(2018, 9, 6), datetime.datetime(2100, 1, 1)),
-    "452.020-P-20": (datetime.datetime(2018, 9, 8), datetime.datetime(2100, 1, 1)),
-    "452.020-P-21": (datetime.datetime(2018, 9, 9), datetime.datetime(2100, 1, 1)),
-    "452.020-P-22": (datetime.datetime(2018, 9, 10), datetime.datetime(2100, 1, 1)),
-    "452.020-P-23": (datetime.datetime(2018, 9, 12), datetime.datetime(2100, 1, 1)),
-    "452.020-P-24": (datetime.datetime(2018, 9, 13), datetime.datetime(2100, 1, 1)),
-    "452.020-P-25": (datetime.datetime(2018, 9, 14), datetime.datetime(2100, 1, 1)),
+    "452.020-P-08": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-09": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-10": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-11": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-12": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-13": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-16": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-17": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-18": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-19": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-20": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-21": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-22": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-23": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-24": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+    "452.020-P-25": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
     "452.020-P-0050": (datetime.datetime(2019, 8, 11), datetime.datetime(2100, 1, 1)),
     "452.020-P-0051": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
     "452.020-P-0052": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
@@ -83,7 +83,7 @@ filterDate = {
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = True
+redo = False
 
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
@@ -93,7 +93,7 @@ events_sac = True
 events_png = False
 
 # Dictionary to save data in a file
-datasave = dict()
+dives_dict = dict()
 
 def main():
     # Set working directory in "scripts"
@@ -210,51 +210,19 @@ def main():
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
 
 
-        # Concatenate all GPS fixes from every .LOG and .MER for every dive
-        gps_list_full = [g for d in mdives for g in d.gps_list]
-        gps_list_full.sort(key=lambda x: x.date)
+        # Write textfile containing all GPS fixes from .LOG and .MER
+        gps.write_gps_txt(mdives, processed_path, mfloat_path, mfloat)
 
-        # Write GPS text file
-        g_fmt_spec = "{:>27s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}    {:>15s}\n"
-        gps_f = os.path.join(processed_path, mfloat_path, mfloat+"_GPS.txt")
-        with open(gps_f, "w+") as f:
-            f.write("MERMAID: {:s}\n".format(mfloat))
-            f.write("COLUMN:                   1             2              3         4         5                    6                  7\n".format())
-            f.write("DESCRIPTION:       GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME             SOURCE\n".format())
-            for g in gps_list_full:
-                # Replace missing hdop/vdop (not printed in .MER files) values
-                # with NaNs for printing purposes (those attributes will remain
-                # None in their associated GPS instances; this is just for the
-                # purposes of this final flat list)
-                if g.hdop is None:
-                    g.hdop = float("NaN")
-                if g.vdop is None:
-                    g.vdop = float("NaN")
+        # Write helpful printout detailing every dive, and how .LOG and .MER
+        # files connect
+        dives.generate_printout(mdives, mfloat_serial)
 
-                f.write(g_fmt_spec.format(g.date, g.latitude, g.longitude, g.hdop, g.vdop, g.clockdrift, g.source))
+        # Write the same info just printout do stdout to textfile
+        dives.write_dives_txt(mdives, processed_path, mfloat_path, mfloat)
 
-        # Generate printout detailing how everything connects
-        print ""
-        i = 0
-        for d in mdives:
-            # For every dive...
-            if d.is_dive:
-                print("  .DIVE. {:s}".format(mfloat_serial))
-            else:
-                print("  .NO DIVE. {:s}".format(mfloat_serial))
-            d.print_dive_length()
-            d.print_dive_gps(mdives[i+1])
-            d.print_dive_events()
-            print ""
-
-        print("    {:s} total: {:d} SAC & miniSEED files\n" \
-              .format(mfloat_serial, sum(e.can_generate_sac for d in mdives for e in d.events)))
-
-        # Hold onto final dive instance outside local scope to write "last dive" text file
-        for d in reversed(mdives):
-            if d.is_complete_dive:
-                lastdive[mfloat] = d
-                break
+        # Write a text file relating all SAC and mSEED to their associated .LOG
+        # and .MER files
+        events.write_traces_txt(mdives, processed_path, mfloat_path, mfloat)
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
@@ -262,46 +230,18 @@ def main():
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER"):
             os.remove(f)
 
-        # Put dive in a variable that will be saved in a file
-        datasave[mfloat] = mdives
+        # Add dives to growing dict
+        dives_dict[mfloat] = mdives
 
 
+    # Done looping through all dives for each float
     #______________________________________________________________________________________#
-    lastdive_fmt_spec = "{:>12s}    {:>27s}    {:>15s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
-    lastdive_f = os.path.join(processed_path, "last_dive_pressure_offset.txt")
-    with open(lastdive_f, "w+") as f:
-        f.write("     MERMAID                 LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
-        for mfloat in sorted(mfloats):
-            ld = lastdive[mfloat]
-            warn_str = ''
-            if ld.p2t_offset_corrected > 100:
-                warn_str = '!!!'
-                print("\n\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing !!!"
-                      .format(mfloat, ld.p2t_offset_corrected))
-                print("!!! The corrected external pressure must stay below 300 mbar !!!")
-                print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...' !!!\n\n"
-                      .format(mfloat))
-            f.write(lastdive_fmt_spec.format(mfloat,
-                                             ld.surface_date,
-                                             ld.log_name,
-                                             ld.p2t_offset_measurement,
-                                             ld.p2t_offset_param,
-                                             ld.p2t_offset_corrected,
-                                             warn_str))
 
+    # Print a text file of corrected external pressures measured on the final
+    # dive, and warn if any are approaching the limit of 300 mbar (at which
+    # point adjustment is required)
+    vitals.write_corrected_pressure_offset(dives_dict, processed_path)
 
-    # with open(os.path.join(processed_path, "MerDives.pydata"), 'wb') as f:
-    #     pickle.dump(datasave, f)
-
-        # for dive in mdives[:-1]: # on ne regarde pas la derniere plongee qui n'a pas ete interpolee
-        #    if dive.is_complete_dive: # on ne regarde que les vraies plongees (pas les tests faits a terre)
-        #        print dive.log_name
-        #        for gps in dive.gps_list[0:-1]: # point GPS avant de descendre
-        #            print gps.date
-        #        print dive.surface_leave_loc.date
-        #        print dive.great_depth_reach_loc.date
-        #        print dive.great_depth_leave_loc.date
-        #        print dive.gps_list[-1].date # point GPS en arrivant en surface
 
 if __name__ == "__main__":
     main()

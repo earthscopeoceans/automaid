@@ -6,15 +6,16 @@
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
+import utils
+import gps
+import setup
+import sys
 import glob
 import os
 import re
+from obspy import UTCDateTime
 import plotly.graph_objs as graph
 import plotly.offline as plotly
-import utils
-from obspy import UTCDateTime
-import gps
-import setup
 from pdb import set_trace as keyboard
 
 # Get current version number.
@@ -38,7 +39,8 @@ class Dive:
         self.dive_date = None
         self.surface_date = None
         self.end_date = None
-        self.dive_length = None
+        self.len_secs = None
+        self.len_days = None
 
         self.mer_environment_name = None
         self.mer_environment = None
@@ -85,7 +87,7 @@ class Dive:
         # until next surfacing to rerun automaid until a fix is found
         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
         self.end_date = UTCDateTime(int(ed))
-        self.dive_length = self.end_date - self.start_date # seconds
+        self.len_secs = self.end_date - self.start_date
 
         # Check if the log correspond to the float initialization
         match = re.search("\[TESTMD,\d{3}\]\"yes\"", self.log_content)
@@ -155,11 +157,11 @@ class Dive:
                 self.is_complete_mer_file = True
 
             # Warning if .MER transmission is incomplete
-            if not self.is_complete_mer_file:
-                print("WARNING: {:s} file transmission is incomplete" \
-                      .format(self.mer_environment_name))
-                print("         Expected {:>6d} bytes (according to {:s})\n         Received {:>6d} bytes"\
-                      .format(self.mer_bytes_expected, self.log_name, self.mer_bytes_received))
+            # if not self.is_complete_mer_file:
+                # print("WARNING: {:s} file transmission is incomplete" \
+                #       .format(self.mer_environment_name))
+                # print("         Expected {:>6d} bytes (according to {:s})\n         Received {:>6d} bytes"\
+                #       .format(self.mer_bytes_expected, self.log_name, self.mer_bytes_received))
 
             # Read the Mermaid environment associated to the dive
             with open(mer_fullfile_name, "r") as f:
@@ -193,15 +195,15 @@ class Dive:
         # Split the GPS list into before/after dive sublists
         if self.is_dive:
             self.gps_before_dive = [x for x in self.gps_list if x.date < self.dive_date]
-            if not self.gps_before_dive:
-                print "WARNING: No GPS synchronization before diving for \"" \
-                    + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # if not self.gps_before_dive:
+                # print "WARNING: No GPS synchronization before diving for \"" \
+                #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
 
         if self.is_complete_dive:
             self.gps_after_dive = [x for x in self.gps_list if x.date > self.surface_date]
-            if not self.gps_after_dive:
-                print "WARNING: No GPS synchronization after surfacing for \"" \
-                    + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # if not self.gps_after_dive:
+            #     print "WARNING: No GPS synchronization after surfacing for \"" \
+            #         + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
 
         # Find external pressure offset
         if self.is_complete_dive:
@@ -328,24 +330,24 @@ class Dive:
 
         # Compute clock drift
         if not self.is_dive:
-            print "WARNING: Events are not part of a dive, don't do clock drift correction for \""\
-                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # print "WARNING: Events are not part of a dive, don't do clock drift correction for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if not self.is_complete_dive:
-            print "WARNING: Events are not part of a complete dive, do not correct clock drift for \""\
-                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # print "WARNING: Events are not part of a complete dive, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if not self.gps_before_dive or not self.gps_after_dive:
-            print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
-                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if self.gps_before_dive[-1].clockfreq <= 0:
-            print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
-                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
         if self.gps_after_dive[0].clockfreq <= 0:
-            print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
-                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Correct clock drift
@@ -359,7 +361,7 @@ class Dive:
         if isinstance(next_dive, Dive):
             self.next_dive_exists = True
         else:
-            print("Warning: next dive not given")
+            sys.err("Next dive not given")
             return
 
         self.next_dive_log_name = next_dive.log_name
@@ -375,9 +377,9 @@ class Dive:
         # again (we do probably do not want to interpolate the location for the
         # current dive using next_dive.gps_after_dive)
         if not next_dive.gps_list:
-            print "WARNING: The next dive doesn't contain enough GPS fixes,""" \
-                + " do not compute event location estimation for \"" \
-                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # print "WARNING: The next dive doesn't contain enough GPS fixes,""" \
+            #     + " do not compute event location estimation for \"" \
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # By default every .MER and .LOG prints a handful of GPS fixes BEFORE
@@ -392,15 +394,17 @@ class Dive:
             # correspond to a dive, though it still contained legit GPS points;
             # alternatively a total failure of GPS before the next normal dive
             # is not good, but I'd rather have a bad interpolated location than
-            # no interpolated location
+            # no interpolated location at all
             self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_list
+
+        # Re-sort the expanded GPS list
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
 
         # Final check: interpolation requires at least two points before/after diving
         if len(self.gps_before_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
-            print "WARNING: The next dive doesn't contain enough GPS fixes,""" \
-                + " do not compute event location estimation for \"" \
-                + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            # print "WARNING: Not enough GPS fixes,""" \
+            #     + " do not compute event location estimation for \"" \
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # Find location when float leave the surface
@@ -490,10 +494,10 @@ class Dive:
         for event in self.events:
             event.to_mseed(self.export_path, self.station_number, force_without_loc=False)
 
-    def print_dive_length(self):
-        dive_length_days = self.dive_length / (60*60*24)
-        print("   Date: {:s} -> {:s} ({:.1f} days; first/last line of {:s})" \
-              .format(str(self.start_date)[0:19], str(self.end_date)[0:19], dive_length_days, self.log_name))
+    def print_len(self):
+        self.len_days = self.len_secs / (60*60*24)
+        print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
+              .format(str(self.start_date)[0:19], str(self.end_date)[0:19], self.len_days, self.log_name))
 
     def print_dive_gps(self, next_dive):
         # By definition 1 .LOG == 1 "dive," so there is always a .log file but
@@ -568,6 +572,41 @@ def concatenate_log_files(path):
                 with open(path + log_file, "w") as fl:
                     fl.write(logstring)
                 logstring = ""
+
+
+def generate_printout(mdives, mfloat_serial):
+    print ""
+    i = 0
+    for d in sorted(mdives, key=lambda x: x.start_date):
+        # For every dive...
+        if d.is_dive:
+            print("  .DIVE. {:s}".format(mfloat_serial))
+        else:
+            print("  .NO DIVE. {:s}".format(mfloat_serial))
+        d.print_len()
+        d.print_dive_gps(mdives[i+1])
+        d.print_dive_events()
+        print ""
+
+    print("    {:s} total: {:d} SAC & miniSEED files\n" \
+          .format(mfloat_serial, sum(e.can_generate_sac for d in mdives for e in d.events)))
+
+
+def write_dives_txt(mdives, processed_path, mfloat_path, mfloat):
+    fmt_spec = "{:>20s}    {:>20s}    {:>6.3f}    {:>15s}    {:>15s}\n"
+    dives_file = os.path.join(processed_path, mfloat_path, mfloat+"_dives.txt")
+
+    with open(dives_file, "w+") as f:
+	f.write("	  DIVE_START                DIVE_END  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format())
+        # 1 .LOG == 1 dive
+        for d in sorted(mdives, key=lambda x: x.start_date):
+            mer_environment_name = d.mer_environment_name if d.mer_environment_name else "nan"
+
+            f.write(fmt_spec.format(str(d.start_date)[:19] + 'Z',
+                                    str(d.end_date)[:19] + 'Z',
+                                    d.len_days,
+                                    d.log_name,
+                                    mer_environment_name))
 
 def attach_is_complete_mer_to_dive_events(dive_list):
     """Prior to automaid v1.4.0 this method was used to determine which .MER files

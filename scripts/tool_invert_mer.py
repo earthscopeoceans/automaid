@@ -1,4 +1,4 @@
-/# Part of automaid -- a Python package to process MERMAID files
+# Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Usage: python tool_invert_mer.py [.MER file]
@@ -26,15 +26,18 @@ from pdb import set_trace as keyboard
 # Get current version number.
 version = setup.get_version()
 
+# Parse input
 fullpath_file_name = os.path.abspath(sys.argv[1])
 mer_file_name = os.path.basename(fullpath_file_name)
 mer_file_path = os.path.join(os.path.dirname(fullpath_file_name), "")
 
 def invert_main():
-
     # Pull all events from this .MER file
     mevents = events.Events(mer_file_path, mer_file_name)
     fullpath_mer_name = os.path.join(mer_file_path, mer_file_name)
+
+    # Get station number
+    station_number = mer_file_name.split('_')[0]
 
     # Collect header block from this .MER file
     with open(fullpath_mer_name, 'r') as f:
@@ -56,10 +59,10 @@ def invert_main():
         event.find_measured_sampling_frequency()
         event.correct_date()
         event.invert_transform()
-        event.to_sac(mer_file_path, station_number="00", force_without_loc=True)
-        event.to_mseed(mer_file_path, station_number="00", force_without_loc=True)
-        event.plotly(mer_file_path)
-        event.plot_png(mer_file_path)
+        event.to_sac(mer_file_path, station_number, force_without_loc=True, force_redo=True)
+        event.to_mseed(mer_file_path, station_number, force_without_loc=True, force_redo=True)
+        event.plotly(mer_file_path, force_redo=True)
+        event.plot_png(mer_file_path, force_redo=True)
 
 if __name__ == "__main__":
     invert_main()

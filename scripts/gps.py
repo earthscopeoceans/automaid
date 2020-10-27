@@ -7,9 +7,10 @@
 # Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
+import setup
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
-import setup
+import os
 from pdb import set_trace as keyboard
 
 # Get current version number.
@@ -27,6 +28,7 @@ class GPS:
         self.vdop = vdop
         self.source = source
         self.__version__ = version
+
 
 def linear_interpolation(gps_list, date):
     gpsl = gps_list
@@ -173,10 +175,10 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment):
             clockfreq = None
 
         # Check if there is an error of clock synchronization
-        if clockfreq <= 0:
-            err_msg = "WARNING: Error with clock synchronization in file \"" + mer_environment_name + "\"" \
-                   + " at " + fixdate.isoformat() + ", clockfreq = " + str(clockfreq) + "Hz"
-            print err_msg
+        # if clockfreq <= 0:
+            # err_msg = "WARNING: Error with clock synchronization in file \"" + mer_environment_name + "\"" \
+            #        + " at " + fixdate.isoformat() + ", clockfreq = " + str(clockfreq) + "Hz"
+            # print err_msg
 
         # .MER files do not include hdop or vdop.
         hdop = None
@@ -269,3 +271,22 @@ def get_gps_from_log_content(log_name, log_content):
             gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, log_name))
 
     return gps
+
+
+def write_gps_txt(mdives, processed_path, mfloat_path, mfloat):
+    gps_genexp = (gps for dive in mdives for gps in dive.gps_list)
+
+    gps_fmt_spec = "{:>19s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}    {:>15s}\n"
+    gps_file = os.path.join(processed_path, mfloat_path, mfloat+"_gps.txt")
+
+    with open(gps_file, "w+") as f:
+        f.write("            GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME             SOURCE\n".format())
+
+        for g in sorted(gps_genexp, key=lambda x: x.date):
+            if g.hdop is None:
+                g.hdop = float("NaN")
+            if g.vdop is None:
+                g.vdop = float("NaN")
+
+            f.write(gps_fmt_spec.format(str(g.date)[:19] + 'Z', g.latitude, g.longitude, g.hdop, g.vdop, g.clockdrift, g.source))
+

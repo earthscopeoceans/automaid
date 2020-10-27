@@ -2,12 +2,13 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-# Current maintainer: Dr. Joel D. Simon (JDS)
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 26-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import re
+import os
 from obspy import UTCDateTime
 import plotly.graph_objs as graph
 import plotly.offline as plotly
@@ -223,3 +224,41 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
                 auto_open=False)
 
     return
+
+def write_corrected_pressure_offset(dives_dict, processed_path):
+    '''Writes:
+
+    [processed_path]/last_dive_pressure_offset.txt
+
+    given a dict of whose keys are float serial numbers and whose values are
+    lists of their associated Dive instances
+
+    '''
+
+    lastdive_fmt_spec = "{:>12s}    {:>19s}    {:>15s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
+    lastdive_f = os.path.join(processed_path, "last_dive_pressure_offset.txt")
+    with open(lastdive_f, "w+") as f:
+        f.write("     MERMAID         LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
+
+        for mfloat in dives_dict.keys():
+            for d in reversed(dives_dict[mfloat]):
+                if d.is_complete_dive:
+                    lastdive = d
+                    break
+
+            warn_str = ''
+            if lastdive.p2t_offset_corrected > 200:
+                warn_str = '!!!'
+                print("\n\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing !!!"
+                      .format(mfloat, lastdive.p2t_offset_corrected))
+                print("!!! The corrected external pressure must stay below 300 mbar !!!")
+                print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...' !!!\n\n"
+                      .format(mfloat))
+
+            f.write(lastdive_fmt_spec.format(mfloat,
+                                             str(lastdive.surface_date)[0:19],
+                                             lastdive.log_name,
+                                             lastdive.p2t_offset_measurement,
+                                             lastdive.p2t_offset_param,
+                                             lastdive.p2t_offset_corrected,
+                                             warn_str))
