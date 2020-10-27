@@ -2,9 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-# Current maintainer: Dr. Joel D. Simon (JDS)
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 27-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
 import setup
@@ -39,7 +39,9 @@ def linear_interpolation(gps_list, date):
             return gps
 
     if date < gpsl[0].date:
-        # if date is before any gps fix compute drift from the two first gps fix
+        # In this case: gpsl[i] is the FIRST GPS fix AFTER the requested date,
+
+        # If date is before any gps fix compute drift from the two first gps fix
         i = 0
         j = 1
         # Try to get a minimum time between two gps fix of 10 minutes
@@ -50,8 +52,11 @@ def linear_interpolation(gps_list, date):
                                gpsl[i].latitude, gpsl[i].longitude)[0] < 20 and j < len(gpsl)-1:
             j += 1
 
+
     elif date > gpsl[-1].date:
-        # if date is after any gps fix compute drift from the two last gps fix
+        # In this case gpsl[i] is the LAST GPS fix BEFORE the requested date,
+
+        # If date is after any gps fix compute drift from the two last gps fix
         i = -1
         j = -2
         # Try to get a minimum time between two gps fix of 10 minutes
@@ -63,24 +68,56 @@ def linear_interpolation(gps_list, date):
             j -= 1
 
     else:
-        # if date is between two gps fix find the appropriate gps fix
+        # If date is between two gps fix find the appropriate gps fix
         i = 0
         j = 1
         while not gpsl[i].date < date < gpsl[j].date and j < len(gpsl)-1:
             i += 1
             j += 1
 
-    # If the distance between the two GPS points retained is less than 20 m, don't interpolate just pick one
-    if gps2dist_azimuth(gpsl[j].latitude, gpsl[j].longitude, gpsl[i].latitude, gpsl[i].longitude)[0] < 20:
-        latitude = gpsl[i].latitude
-        longitude = gpsl[i].longitude
-    else:
-        latitude = gpsl[i].latitude
-        latitude += (date - gpsl[i].date) * (gpsl[j].latitude - gpsl[i].latitude) / (gpsl[j].date - gpsl[i].date)
-        longitude = gpsl[i].longitude
-        longitude += (date - gpsl[i].date) * (gpsl[j].longitude - gpsl[i].longitude) / (gpsl[j].date - gpsl[i].date)
+    # What we know we have
+    gps_drift_dist_m = gps2dist_azimuth(gpsl[j].latitude, gpsl[j].longitude, gpsl[i].latitude, gpsl[i].longitude)[0]
 
-    return GPS(date, latitude, longitude, None, None, None, None, "interpolated")
+    gps_drift_time = gpsl[j].date - gpsl[i].date
+    gps_drift_vel_ms = gps_drift_dist_m / gps_drift_time
+
+    gps_lat_drift_dist_deg = gpsl[j].latitude - gpsl[i].latitude
+    gps_lat_drift_vel_degs = gps_lat_drift_dist_deg / gps_drift_time
+
+    gps_lon_drift_dist_deg = gpsl[j].longitude - gpsl[i].longitude
+    gps_lon_drift_vel_degs = gps_lon_drift_dist_deg / gps_drift_time
+
+    # What we are trying to interpolate
+    interp_drift_time = date - gpsl[i].date
+    # interp
+
+
+    # If the distance between the two GPS points retained is less than 20 m, don't interpolate just pick one
+    if gps_drift_dist_m < 20:
+        interp_lat = gpsl[i].latitude
+        interp_lon = gpsl[i].longitude
+        interp_drift_time = None
+
+        interp_lat_drift_dist = None
+        interp_lon_drift_dist = None
+
+        interp_drift_dist_m = None
+
+    else:
+        interp_lat_drift_dist_deg = gps_lat_drift_vel_degs * interp_drift_time
+        interp_lat = gpsl[i].latitude + interp_lat_drift_dist_deg
+
+        interp_lon_drift_dist_deg = gps_lon_drift_vel_degs * interp_drift_time
+        interp_lon = gpsl[i].longitude + interp_lon_drift_dist_deg
+
+        # Here's a check --
+        interp_drift_dist_m = gps2dist_azimuth(interp_lat, interp_lon, gpsl[i].latitude, gpsl[i].longitude)[0]
+        interp_drift_vel_ms = interp_drift_dist_m / interp_drift_time
+        if (abs(interp_drift_vel_ms) - abs(gps_drift_vel_ms)) > 1/100.:
+            print(abs(interp_drift_vel_ms) - abs(gps_drift_vel_ms))
+            keyboard()
+
+    return GPS(date, interp_lat, interp_lon, None, None, None, None, "interpolated")
 
 
 # Find GPS fix in log files and Mermaid files
@@ -289,4 +326,3 @@ def write_gps_txt(mdives, processed_path, mfloat_path, mfloat):
                 g.vdop = float("NaN")
 
             f.write(gps_fmt_spec.format(str(g.date)[:19] + 'Z', g.latitude, g.longitude, g.hdop, g.vdop, g.clockdrift, g.source))
-
