@@ -2,9 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-# Current maintainer: Dr. Joel D. Simon (JDS)
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 27-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -282,9 +282,9 @@ def interpolated_point_marker(dives):
                 </Point>
             </Placemark>"""
 
-        if dive.great_depth_reach_loc:
-            pos = str(dive.great_depth_reach_loc.longitude) + "," + str(dive.great_depth_reach_loc.latitude) + ",0"
-            posstr = dive.great_depth_reach_loc.date.strftime(dfmt)
+        if dive.mixed_layer_reach_loc:
+            pos = str(dive.mixed_layer_reach_loc.longitude) + "," + str(dive.mixed_layer_reach_loc.latitude) + ",0"
+            posstr = dive.mixed_layer_reach_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -295,9 +295,9 @@ def interpolated_point_marker(dives):
                 </Point>
             </Placemark>"""
 
-        if dive.great_depth_leave_loc:
-            pos = str(dive.great_depth_leave_loc.longitude) + "," + str(dive.great_depth_leave_loc.latitude) + ",0"
-            posstr = dive.great_depth_leave_loc.date.strftime(dfmt)
+        if dive.mixed_layer_leave_loc:
+            pos = str(dive.mixed_layer_leave_loc.longitude) + "," + str(dive.mixed_layer_leave_loc.latitude) + ",0"
+            posstr = dive.mixed_layer_leave_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -357,9 +357,9 @@ def complex_trajectory(mfloat_name, dives):
         # Use the surface drift of the end of the precedent dive
         if i > 1:
             dive = dives[i-1]
-            if dive.great_depth_leave_loc is not None:
-                pos += str(dive.great_depth_leave_loc.longitude) + ","\
-                       + str(dive.great_depth_leave_loc.latitude) + ",0\n"
+            if dive.mixed_layer_leave_loc is not None:
+                pos += str(dive.mixed_layer_leave_loc.longitude) + ","\
+                       + str(dive.mixed_layer_leave_loc.latitude) + ",0\n"
             if dive.surface_reach_loc is not None:
                 pos += str(dive.surface_reach_loc.longitude) + "," + str(dive.surface_reach_loc.latitude) + ",0\n"
             if len(dive.gps_list) > 0:
@@ -370,8 +370,8 @@ def complex_trajectory(mfloat_name, dives):
             pos += str(gps.longitude) + "," + str(gps.latitude) + ",0\n"
         if dives[i].surface_leave_loc is not None:
             pos += str(dive.surface_leave_loc.longitude) + "," + str(dive.surface_leave_loc.latitude) + ",0\n"
-        if dive.great_depth_reach_loc is not None:
-            pos += str(dive.great_depth_reach_loc.longitude) + "," + str(dive.great_depth_reach_loc.latitude) + ",0\n"
+        if dive.mixed_layer_reach_loc is not None:
+            pos += str(dive.mixed_layer_reach_loc.longitude) + "," + str(dive.mixed_layer_reach_loc.latitude) + ",0\n"
 
         pos = pos.strip("\n")
 
@@ -390,13 +390,13 @@ def complex_trajectory(mfloat_name, dives):
         pos = pos.split("\n")[-1] + "\n"
 
         # Descent position
-        if dive.great_depth_reach_loc is not None:
-            pos += str(dive.great_depth_reach_loc.longitude) + "," + str(dive.great_depth_reach_loc.latitude) + ",0\n"
+        if dive.mixed_layer_reach_loc is not None:
+            pos += str(dive.mixed_layer_reach_loc.longitude) + "," + str(dive.mixed_layer_reach_loc.latitude) + ",0\n"
         elif dive.surface_leave_loc is not None:
             pos += str(dive.surface_leave_loc.longitude) + "," + str(dive.surface_leave_loc.latitude) + ",0\n"
         # Ascent position
-        if dive.great_depth_leave_loc is not None:
-            pos += str(dive.great_depth_leave_loc.longitude) + "," + str(dive.great_depth_leave_loc.latitude) + ",0\n"
+        if dive.mixed_layer_leave_loc is not None:
+            pos += str(dive.mixed_layer_leave_loc.longitude) + "," + str(dive.mixed_layer_leave_loc.latitude) + ",0\n"
         elif dive.surface_reach_loc is not None:
             pos += str(dive.surface_reach_loc.longitude) + "," + str(dive.surface_reach_loc.latitude) + ",0\n"
 

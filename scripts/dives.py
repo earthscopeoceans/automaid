@@ -2,9 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-# Current maintainer: Dr. Joel D. Simon (JDS)
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 27-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -53,8 +53,8 @@ class Dive:
         self.gps_after_dive_incl_next_dive = None
 
         self.surface_leave_loc = None
-        self.great_depth_reach_loc = None
-        self.great_depth_leave_loc = None
+        self.mixed_layer_reach_loc = None
+        self.mixed_layer_leave_loc = None
         self.surface_reach_loc = None
 
         self.p2t_offset_param = None
@@ -367,47 +367,30 @@ class Dive:
         self.next_dive_log_name = next_dive.log_name
         self.next_dive_mer_environment_name = next_dive.mer_environment_name
 
-        # Check if the dive is complete
+        # No dive means no events
         if not self.is_complete_dive:
-            # print "WARNING: The dive is not complete, do not compute event location estimation for \""\
-            #       + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return
-
-        # Ensure the next dive contains GPS fixes before the float actually dove
-        # again (we do probably do not want to interpolate the location for the
-        # current dive using next_dive.gps_after_dive)
-        if not next_dive.gps_list:
-            # print "WARNING: The next dive doesn't contain enough GPS fixes,""" \
-            #     + " do not compute event location estimation for \"" \
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
         # By default every .MER and .LOG prints a handful of GPS fixes BEFORE
         # the dive, but only a single one AFTER the dive; thus to get a good
-        # interpolated location we need to append the NEXT dive's GPS list
-        # (ideally, before it dove again)
-        if next_dive.gps_before_dive:
-            self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_before_dive
-
-        else:
-            # Perhaps there was an error/reset that caused this .LOG not to
-            # correspond to a dive, though it still contained legit GPS points;
-            # alternatively a total failure of GPS before the next normal dive
-            # is not good, but I'd rather have a bad interpolated location than
-            # no interpolated location at all
-            self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_list
+        # interpolated location we need to append the NEXT dive's GPS list.  If
+        # the next .LOG file contains a "DIVE" then use the GPS before that
+        # dive; otherwise the .LOG file may be contain an ERR/emergency/reboot
+        # in which case it may still have valid GPS points that we can use
+        if next_dive.gps_list:
+            if next_dive.gps_before_dive:
+                self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_before_dive
+            else:
+                self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_list
 
         # Re-sort the expanded GPS list
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
 
         # Final check: interpolation requires at least two points before/after diving
         if len(self.gps_before_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
-            # print "WARNING: Not enough GPS fixes,""" \
-            #     + " do not compute event location estimation for \"" \
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
             return
 
-        # Find location when float leave the surface
+        # Find location when float left the surface
         self.surface_leave_date = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
         self.surface_leave_date = self.surface_leave_date[0][1]
         self.surface_leave_loc = gps.linear_interpolation(self.gps_before_dive, self.surface_leave_date)
@@ -423,60 +406,70 @@ class Dive:
         # Find pressure values
         pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
         pressure_date = [p[1] for p in pressure]
+
+        # Convert pressure values from mbar to m (really, this converts to dbar,
+        # but 1 bar ~= 1 m)
         pressure_val = [int(p[0])/100. for p in pressure]
 
-        # Return if there is the max value doesn't reach the mixed layer depth
+        # Compute location of events from surface position if MERMAID does not
+        # reach mixed layer
         if max(pressure_val) < mixed_layer_depth_m:
-            # compute location of events from surface position
             for event in self.events:
                 event.compute_station_location(self.surface_leave_loc, self.surface_reach_loc)
             return
 
-        # loop until to reach a depth greater than mixed_layer_depth
+        # Loop through pressure readings until we've exited surface and passed into the mixed layer
         i = 0
         while pressure_val[i] < mixed_layer_depth_m and i < len(pressure_val):
             i += 1
 
         # d1,p1 = last reading BEFORE DESCENDING through mixed layer depth
-        # d2,p2 = first reading AFTER DESCENDING through mixed layer depth
-        d2 = pressure_date[i]
-        p2 = pressure_val[i]
+        # time2,depth2 = first reading AFTER DESCENDING through mixed layer depth
+        time2 = pressure_date[i]
+        depth2 = pressure_val[i]
         if i > 0:
-            d1 = pressure_date[i-1]
-            p1 = pressure_val[i-1]
+            time1 = pressure_date[i-1]
+            depth1 = pressure_val[i-1]
         else:
-            d1 = self.surface_leave_date
-            p1 = 0
+            time1 = self.surface_leave_date
+            depth1 = 0
 
-        # compute when the float pass under the mixed layer
-        reach_great_depth_date = d1 + (mixed_layer_depth_m - p1) * (d2 - d1) / (p2 - p1)
+        # Compute when the float leaves the surface and reaches the mixed layer
+        descent_velocity = (depth2 - depth1) / (time2 - time1)
+        descent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
+        descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_velocity
+        self.reach_mixed_layer_date = time1 + descent_time_to_mixed_layer
 
-        # loop until to reach a depth higher than mixed_layer_depth bur for in the ascent phase
+        self.mixed_layer_reach_loc = gps.linear_interpolation(self.gps_before_dive, self.reach_mixed_layer_date)
+
+        # Loop through pressure readings until we've exited mixed layer and
+        # passed into surface
         i = len(pressure_val)-1
         while pressure_val[i] < mixed_layer_depth_m and i > 0:
             i -= 1
 
-        # d1,p1 = last reading BEFORE ASCENDING through mixed layer depth
-        # d2,p2 = first reading AFTER ASCENDING through mixed layer depth
-        d1 = pressure_date[i]
-        p1 = pressure_val[i]
+        # time1,depth1 = last reading BEFORE ASCENDING through mixed layer depth
+        # time2,depth2 = first reading AFTER ASCENDING through mixed layer depth
+        time1 = pressure_date[i]
+        depth1 = pressure_val[i]
         if i < len(pressure_val)-1:
-            d2 = pressure_date[i+1]
-            p2 = pressure_val[i+1]
+            time2 = pressure_date[i+1]
+            depth2 = pressure_val[i+1]
         else:
-            d2 = self.surface_reach_date
-            p2 = 0
+            time2 = self.surface_reach_date
+            depth2 = 0
 
-        # compute when the float pass above the mixed layer
-        leave_great_depth_date = d1 + (mixed_layer_depth_m - p1) * (d2 - d1) / (p2 - p1)
+        # Compute when the float leaves the mixed layer and reaches the surface
+        ascent_velocity = (depth2 - depth1) / (time2 - time1)
+        ascent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
+        ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_velocity
+        self.leave_mixed_layer_date = time1 + ascent_time_to_mixed_layer
 
-        # compute location with linear interpolation
-        self.great_depth_reach_loc = gps.linear_interpolation(self.gps_before_dive, reach_great_depth_date)
-        self.great_depth_leave_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, leave_great_depth_date)
+        self.mixed_layer_leave_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, self.leave_mixed_layer_date)
 
-        # compute location of events
+        # Compute event locations between interpolated locations of exit and re-entry of surface waters
         for event in self.events:
-            event.compute_station_location(self.great_depth_reach_loc, self.great_depth_leave_loc)
+            event.compute_station_location(self.mixed_layer_reach_loc, self.mixed_layer_leave_loc)
 
     def generate_events_plotly(self):
         for event in self.events:
