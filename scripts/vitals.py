@@ -256,7 +256,7 @@ def write_corrected_pressure_offset(dives_dict, processed_path):
                       .format(mfloat))
 
             f.write(lastdive_fmt_spec.format(mfloat,
-                                             str(lastdive.surface_date)[0:19],
+                                             str(lastdive.surface_reach_date)[0:19],
                                              lastdive.log_name,
                                              lastdive.p2t_offset_measurement,
                                              lastdive.p2t_offset_param,

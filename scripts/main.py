@@ -104,7 +104,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*.vit")
+    vitfile_path = os.path.join(server_path, "*25.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # Initialize empty dict to hold the instance of every last complete dive for
@@ -186,7 +186,7 @@ def main():
         # the algorithm use gps information in the next dive to estimate surface drift
         i = 0
         while i < len(mdives)-1:
-            mdives[i].compute_events_station_location(mdives[i+1])
+            mdives[i].compute_station_locations(mdives[i+1])
             i += 1
 
         # Generate plots, SAC, and miniSEED files
@@ -233,7 +233,8 @@ def main():
         # Add dives to growing dict
         dives_dict[mfloat] = mdives
 
-
+        keyboard()
+        
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
 

@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 27-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 28-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -23,6 +23,18 @@ version = setup.get_version()
 
 # Log class to manipulate log files
 class Dive:
+    ''' The Dive class references a single .LOG file.
+
+    1 .LOG file == 1 Dive instance
+
+    Any single dive only references a single .LOG file (dive.log_name) and the
+    ENVIRONMENT block of a single .MER (dive.mer_environment_name) file, though
+    it may contain multiple Event instances which reference zero or more
+    (possibly different) .MER files that contain the event data that was
+    recorded during this dive.
+
+    '''
+
     def __init__(self, base_path=None, log_name=None, events=None):
         self.base_path = base_path
         self.log_name = log_name
@@ -36,8 +48,6 @@ class Dive:
 
         self.log_content = None
         self.start_date = None
-        self.dive_date = None
-        self.surface_date = None
         self.end_date = None
         self.len_secs = None
         self.len_days = None
@@ -52,9 +62,16 @@ class Dive:
         self.gps_after_dive = None
         self.gps_after_dive_incl_next_dive = None
 
+        self.surface_leave_date = None
         self.surface_leave_loc = None
+
+        self.mixed_layer_reach_date = None
         self.mixed_layer_reach_loc = None
+
+        self.mixed_layer_leave_date = None
         self.mixed_layer_leave_loc = None
+
+        self.surface_reach_date = None
         self.surface_reach_loc = None
 
         self.p2t_offset_param = None
@@ -94,19 +111,16 @@ class Dive:
         if "Enter in test mode?" in self.log_content and not match:
             self.is_init = True
 
-        # Check if the log correspond to a dive
-        if "[DIVING," in self.log_content:
+        # Check if the .LOGS corresponds to a dive
+        diving = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
+        if diving:
+            self.surface_leave_date = diving[0][1]
             self.is_dive = True
-            # Hold on to the date of the dive to parse the entire dive's GPS
-            # list into into before dive/after dive sublists
-            self.dive_date = utils.find_timestamped_values("\[DIVING, *\d+\]", self.log_content)[0][1]
 
-        # Check if the log correspond to a complete dive
-        if self.is_dive:
-            catch = utils.find_timestamped_values("\[MAIN *, *\d+\]surface", self.log_content)
-            if catch:
+            surfin = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
+            if surfin:
+                self.surface_reach_date = surfin[-1][-1]
                 self.is_complete_dive = True
-                self.surface_date = UTCDateTime(catch[0][1])
 
         # Generate the directory name
         self.directory_name = self.start_date.strftime("%Y%m%d-%Hh%Mm%Ss")
@@ -194,13 +208,13 @@ class Dive:
 
         # Split the GPS list into before/after dive sublists
         if self.is_dive:
-            self.gps_before_dive = [x for x in self.gps_list if x.date < self.dive_date]
+            self.gps_before_dive = [x for x in self.gps_list if x.date < self.surface_leave_date]
             # if not self.gps_before_dive:
                 # print "WARNING: No GPS synchronization before diving for \"" \
                 #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
 
         if self.is_complete_dive:
-            self.gps_after_dive = [x for x in self.gps_list if x.date > self.surface_date]
+            self.gps_after_dive = [x for x in self.gps_list if x.date > self.surface_reach_date]
             # if not self.gps_after_dive:
             #     print "WARNING: No GPS synchronization after surfacing for \"" \
             #         + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
@@ -219,6 +233,10 @@ class Dive:
 
             # Compute the corrected pressure offset
             self.p2t_offset_corrected =  self.p2t_offset_measurement - self.p2t_offset_param
+
+
+    def __repr__(self):
+        return "Dive('{}', '{}', {})".format(self.base_path, self.log_name, self.events)
 
     def generate_datetime_log(self):
         # Check if file exist
@@ -354,7 +372,13 @@ class Dive:
         for event in self.events:
             event.correct_clockdrift(self.gps_before_dive[-1], self.gps_after_dive[0])
 
-    def compute_events_station_location(self, next_dive):
+    def compute_station_locations(self, next_dive):
+        '''Fills attributes detailing interpolated locations of MERMAID at various
+        points during a Dive (i.e., when it left the surface, reached the mixed
+        layer, etc.)
+
+        '''
+
         # Keep tabs on the MER/LOG files that affect the current dive's gps
         # interpolation (don't set self.next_dive = next_dive because
         # that creates highly recursive data structures)
@@ -377,6 +401,7 @@ class Dive:
         # the next .LOG file contains a "DIVE" then use the GPS before that
         # dive; otherwise the .LOG file may be contain an ERR/emergency/reboot
         # in which case it may still have valid GPS points that we can use
+        self.gps_after_dive_incl_next_dive = self.gps_after_dive
         if next_dive.gps_list:
             if next_dive.gps_before_dive:
                 self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_before_dive
@@ -390,14 +415,10 @@ class Dive:
         if len(self.gps_before_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
             return
 
-        # Find location when float left the surface
-        self.surface_leave_date = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
-        self.surface_leave_date = self.surface_leave_date[0][1]
+        # Find when & where the float left the surface
         self.surface_leave_loc = gps.linear_interpolation(self.gps_before_dive, self.surface_leave_date)
 
-        # Find location when float reach the surface
-        self.surface_reach_date = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
-        self.surface_reach_date = self.surface_reach_date[-1][1]
+        # Find when & where the float reached the surface
         self.surface_reach_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive , self.surface_reach_date)
 
         # Location is determined when the float reach the mixed layer depth
@@ -438,9 +459,8 @@ class Dive:
         descent_vel = (depth2 - depth1) / (time2 - time1)
         descent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
         descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
-        self.reach_mixed_layer_date = time1 + descent_time_to_mixed_layer
-
-        self.mixed_layer_reach_loc = gps.linear_interpolation(self.gps_before_dive, self.reach_mixed_layer_date)
+        self.mixed_layer_reach_date = time1 + descent_time_to_mixed_layer
+        self.mixed_layer_reach_loc = gps.linear_interpolation(self.gps_before_dive, self.mixed_layer_reach_date)
 
         # Loop through pressure readings until we've exited mixed layer and
         # passed into surface
@@ -463,9 +483,8 @@ class Dive:
         ascent_vel = (depth2 - depth1) / (time2 - time1)
         ascent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
         ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
-        self.leave_mixed_layer_date = time1 + ascent_time_to_mixed_layer
-
-        self.mixed_layer_leave_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, self.leave_mixed_layer_date)
+        self.mixed_layer_leave_date = time1 + ascent_time_to_mixed_layer
+        self.mixed_layer_leave_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, self.mixed_layer_leave_date)
 
         # Compute event locations between interpolated locations of exit and re-entry of surface waters
         for event in self.events:
@@ -582,7 +601,7 @@ def generate_printout(mdives, mfloat_serial):
         print ""
 
     print("    {:s} total: {:d} SAC & miniSEED files\n" \
-          .format(mfloat_serial, sum(e.can_generate_sac for d in mdives for e in d.events)))
+          .format(mfloat_serial, sum(bool(e.station_loc) for d in mdives for e in d.events)))
 
 
 def write_dives_txt(mdives, processed_path, mfloat_path, mfloat):
