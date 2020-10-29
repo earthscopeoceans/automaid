@@ -104,7 +104,7 @@ class Dive:
         # until next surfacing to rerun automaid until a fix is found
         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
         self.end_date = UTCDateTime(int(ed))
-        self.len_secs = self.end_date - self.start_date
+        self.len_secs = int(self.end_date - self.start_date)
 
         # Check if the log correspond to the float initialization
         match = re.search("\[TESTMD,\d{3}\]\"yes\"", self.log_content)
@@ -507,7 +507,7 @@ class Dive:
             event.to_mseed(self.export_path, self.station_number, force_without_loc=False)
 
     def print_len(self):
-        self.len_days = self.len_secs / (60*60*24)
+        self.len_days = self.len_secs / (60*60*24.)
         print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
               .format(str(self.start_date)[0:19], str(self.end_date)[0:19], self.len_days, self.log_name))
 
@@ -605,20 +605,21 @@ def generate_printout(mdives, mfloat_serial):
 
 
 def write_dives_txt(mdives, processed_path, mfloat_path, mfloat):
-    fmt_spec = "{:>20s}    {:>20s}    {:>6.3f}    {:>15s}    {:>15s}\n"
+    fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
     dives_file = os.path.join(processed_path, mfloat_path, mfloat+"_dives.txt")
 
     with open(dives_file, "w+") as f:
-	f.write("	  DIVE_START                DIVE_END  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format())
+	f.write("DIVE_ID              DIVE_START                DIVE_END   LEN_SECS  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format())
         # 1 .LOG == 1 dive
         for d in sorted(mdives, key=lambda x: x.start_date):
-            mer_environment_name = d.mer_environment_name if d.mer_environment_name else "nan"
-
-            f.write(fmt_spec.format(str(d.start_date)[:19] + 'Z',
+            #mer_environment_name = d.mer_environment_name if d.mer_environment_name else "nan"
+            f.write(fmt_spec.format(str(d.dive_id),
+                                    str(d.start_date)[:19] + 'Z',
                                     str(d.end_date)[:19] + 'Z',
+                                    int(d.len_secs),
                                     d.len_days,
                                     d.log_name,
-                                    mer_environment_name))
+                                    d.mer_environment_name))
 
 def attach_is_complete_mer_to_dive_events(dive_list):
     """Prior to automaid v1.4.0 this method was used to determine which .MER files
