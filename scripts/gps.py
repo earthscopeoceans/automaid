@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 28-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 30-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
 import setup
@@ -17,9 +17,8 @@ from pdb import set_trace as keyboard
 version = setup.get_version()
 
 class GPS:
-    def __init__(self, date=None, latitude=None, longitude=None,
-                 clockdrift=None, clockfreq=None, hdop=None, vdop=None,
-                 source=None, interp_dict=None):
+    def __init__(self, date=None, latitude=None, longitude=None, clockdrift=None, clockfreq=None,
+                 hdop=None, vdop=None, source=None, interp_dict=None):
         self.date = date
         self.latitude = latitude
         self.longitude = longitude
@@ -86,13 +85,13 @@ def linear_interpolation(gps_list, date):
 
     # If the distance between the two GPS points retained is less than 20 m, don't interpolate just pick one
     if gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, gps_list[i].latitude, gps_list[i].longitude)[0] < 20:
-        gps_drift_dist_m = None
-        gps_drift_time = None
-        gps_drift_vel_ms = None
-        gps_lat_drift_dist_deg = None
-        gps_lat_drift_vel_degs = None
-        gps_lon_drift_dist_deg = None
-        gps_lon_drift_vel_degs = None
+        input_drift_dist_m = None
+        input_drift_time = None
+        input_drift_vel_ms = None
+        input_lat_drift_dist_deg = None
+        input_lat_drift_vel_degs = None
+        input_lon_drift_dist_deg = None
+        input_lon_drift_vel_degs = None
 
         interp_drift_time = None
         interp_lat_drift_dist_deg = None
@@ -102,22 +101,32 @@ def linear_interpolation(gps_list, date):
         interp_drift_dist_m = None
         interp_drift_vel_ms = None
     else:
-        gps_drift_dist_m = gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, \
+        input_drift_dist_m = gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, \
                                             gps_list[i].latitude, gps_list[i].longitude)[0]
-        gps_drift_time = gps_list[j].date - gps_list[i].date
-        gps_drift_vel_ms = gps_drift_dist_m / gps_drift_time
-        gps_lat_drift_dist_deg = gps_list[j].latitude - gps_list[i].latitude
-        gps_lat_drift_vel_degs = gps_lat_drift_dist_deg / gps_drift_time
-        gps_lon_drift_dist_deg = gps_list[j].longitude - gps_list[i].longitude
-        gps_lon_drift_vel_degs = gps_lon_drift_dist_deg / gps_drift_time
+        input_drift_time = gps_list[j].date - gps_list[i].date
+        input_drift_vel_ms = input_drift_dist_m / input_drift_time
+
+        input_lat_drift_dist_deg = gps_list[j].latitude - gps_list[i].latitude
+        input_lat_drift_vel_degs = input_lat_drift_dist_deg / input_drift_time
+
+        # This is a bit of a cheat because it assumes an longitude lines are equally spaced on the
+        # sphere, which they are not
+        input_lon_drift_dist_deg = gps_list[j].longitude - gps_list[i].longitude
+        input_lon_drift_vel_degs = input_lon_drift_dist_deg / input_drift_time
 
         interp_drift_time = date - gps_list[i].date
-        interp_lat_drift_dist_deg = gps_lat_drift_vel_degs * interp_drift_time
+        interp_lat_drift_dist_deg = input_lat_drift_vel_degs * interp_drift_time
         interp_lat = gps_list[i].latitude + interp_lat_drift_dist_deg
-        interp_lon_drift_dist_deg = gps_lon_drift_vel_degs * interp_drift_time
+        interp_lon_drift_dist_deg = input_lon_drift_vel_degs * interp_drift_time
         interp_lon = gps_list[i].longitude + interp_lon_drift_dist_deg
+
+        # This is a bit of flub -- the interpolated drift distance computed here is using our (ever
+        # so slightly) incorrect longitude, so when projected on a sphere we get a slightly
+        # different distance than in our equal-box lat/lon projection; as such, the interpolated
+        # drift velocity, which in reality must equal the drift velocity computed from the input,
+        # will be slightly different
         interp_drift_dist_m = gps2dist_azimuth(interp_lat, interp_lon, gps_list[i].latitude, gps_list[i].longitude)[0]
-        interp_drift_vel_ms = interp_drift_dist_m / interp_drift_time # abs(.) == abs(gps_drift_vel_ms)
+        interp_drift_vel_ms = interp_drift_dist_m / interp_drift_time
 
     # Throw all local variables into dictionary so that I may later reference
     # these interpolation parameters -- this is not ideal because it creates
@@ -337,3 +346,7 @@ def write_gps_txt(mdives, processed_path, mfloat_path, mfloat):
                 g.vdop = float("NaN")
 
             f.write(gps_fmt_spec.format(str(g.date)[:19] + 'Z', g.latitude, g.longitude, g.hdop, g.vdop, g.clockdrift, g.source))
+
+
+def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
+    pass
