@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 28-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 30-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -64,6 +64,8 @@ class Dive:
 
         self.descent_leave_surface_date = None
         self.descent_leave_surface_loc = None
+
+        self.mixed_layer_depth_m = None
 
         self.descent_leave_surface_layer_date = None
         self.descent_leave_surface_layer_loc = None
@@ -372,7 +374,7 @@ class Dive:
         for event in self.events:
             event.correct_clockdrift(self.gps_before_dive[-1], self.gps_after_dive[0])
 
-    def compute_station_locations(self, next_dive):
+    def compute_station_locations(self, next_dive, mixed_layer_depth_m):
         '''Fills attributes detailing interpolated locations of MERMAID at various
         points during a Dive (i.e., when it left the surface, reached the mixed
         layer, etc.)
@@ -421,9 +423,6 @@ class Dive:
         # Find when & where the float reached the surface
         self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive , self.ascent_reach_surface_date)
 
-        # Location is determined when the float reach the mixed layer depth
-        mixed_layer_depth_m = 50
-
         # Find pressure values
         pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
         pressure_date = [p[1] for p in pressure]
@@ -432,63 +431,87 @@ class Dive:
         # but 1 bar ~= 1 m)
         pressure_val = [int(p[0])/100. for p in pressure]
 
-        # Compute location of events from surface position if MERMAID does not
-        # reach mixed layer
-        if max(pressure_val) < mixed_layer_depth_m:
-            for event in self.events:
-                event.compute_station_location(self.descent_leave_surface_loc, self.ascent_reach_surface_loc)
-            return
+        # Compute location of events from surface position if MERMAID does not reach mixed layer
+        if max(pressure_val) > mixed_layer_depth_m:
 
-        # Loop through pressure readings until we've exited surface and passed into the mixed layer
-        i = 0
-        while pressure_val[i] < mixed_layer_depth_m and i < len(pressure_val):
-            i += 1
+            # Interpolate for location that MERMAID passed from the surface layer to the mixed layer
+            # on the descent
 
-        # d1,p1 = last reading BEFORE DESCENDING through mixed layer depth
-        # time2,depth2 = first reading AFTER DESCENDING through mixed layer depth
-        time2 = pressure_date[i]
-        depth2 = pressure_val[i]
-        if i > 0:
-            time1 = pressure_date[i-1]
-            depth1 = pressure_val[i-1]
+            # Loop through pressure readings until we've exited surface layer and passed into the
+            # mixed layer -- this assumes we don't bob in and out of the mixed layer, and it only
+            # retains the date of the first crossing
+            i = 0
+            while pressure_val[i] < mixed_layer_depth_m and i < len(pressure_val):
+                i += 1
+
+            descent_date_in_mixed_layer = pressure_date[i]
+            descent_depth_in_mixed_layer = pressure_val[i]
+
+            if i > 0:
+                descent_date_in_surface_layer = pressure_date[i-1]
+                descent_depth_in_surface_layer = pressure_val[i-1]
+            else:
+                # On the descent: we have pressure readings in the mixed layer but not in the
+                # surface layer -- just interpolate using the last-known (diving) location
+                descent_date_in_surface_layer = self.descent_leave_surface_date
+                descent_depth_in_surface_layer = 0
+
+            # Compute when the float leaves the surface and reaches the mixed layer
+            descent_vel = (descent_depth_in_mixed_layer - descent_depth_in_surface_layer) / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
+            descent_dist_to_mixed_layer = mixed_layer_depth_m - descent_depth_in_surface_layer
+            descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
+            descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
+
+            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, descent_leave_surface_layer_date)
+
+            #______________________________________________________________________________________#
+
+            # Interpolate for location that MERMAID passed from the mixed layer to the surface layer
+            # on the ascent
+
+            # Loop through pressure readings until we've exited mixed layer and passed into the
+            # surface layer -- this assumes we don't bob in and out of the mixed layer, and it only
+            # retains the date of the final crossing
+            i = len(pressure_val)-1
+            while pressure_val[i] < mixed_layer_depth_m and i > 0:
+                i -= 1
+
+            ascent_date_in_mixed_layer = pressure_date[i]
+            ascent_depth_in_mixed_layer = pressure_val[i]
+
+            if i < len(pressure_val)-1:
+                ascent_date_in_surface_layer = pressure_date[i+1]
+                ascent_depth_in_surface_layer = pressure_val[i+1]
+            else:
+                # On the ascent: we have pressure readings in the mixed layer but not the surface
+                # layer -- just interpolate using next-know (surfacing) location
+                ascent_date_in_surface_layer = self.ascent_reach_surface_date
+                ascent_depth_in_surface_layer = 0
+
+            # Compute when the float leaves the mixed layer and reaches the surface (flipped
+            # subtraction order so that ascent is velocity is positive)
+            ascent_vel = (ascent_depth_in_mixed_layer - ascent_depth_in_surface_layer) / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
+            ascent_dist_to_mixed_layer = ascent_depth_in_mixed_layer - mixed_layer_depth_m
+            ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
+            ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
+
+            self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, ascent_reach_surface_layer_date)
+
+            #______________________________________________________________________________________#
+
+            # MERMAID passed through the surface layer and into the mixed layer -- interpolate the
+            # location of the recorded event assuming a multi-layer (surface and mixed) ocean
+            last_descent_loc_before_event = self.descent_leave_surface_layer_loc
+            first_ascent_loc_after_event = self.ascent_reach_surface_layer_loc
         else:
-            time1 = self.descent_leave_surface_date
-            depth1 = 0
-
-        # Compute when the float leaves the surface and reaches the mixed layer
-        descent_vel = (depth2 - depth1) / (time2 - time1)
-        descent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
-        descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
-        self.descent_leave_surface_layer_date = time1 + descent_time_to_mixed_layer
-        self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, self.descent_leave_surface_layer_date)
-
-        # Loop through pressure readings until we've exited mixed layer and
-        # passed into surface
-        i = len(pressure_val)-1
-        while pressure_val[i] < mixed_layer_depth_m and i > 0:
-            i -= 1
-
-        # time1,depth1 = last reading BEFORE ASCENDING through mixed layer depth
-        # time2,depth2 = first reading AFTER ASCENDING through mixed layer depth
-        time1 = pressure_date[i]
-        depth1 = pressure_val[i]
-        if i < len(pressure_val)-1:
-            time2 = pressure_date[i+1]
-            depth2 = pressure_val[i+1]
-        else:
-            time2 = self.ascent_reach_surface_date
-            depth2 = 0
-
-        # Compute when the float leaves the mixed layer and reaches the surface
-        ascent_vel = (depth2 - depth1) / (time2 - time1)
-        ascent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
-        ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
-        self.ascent_reach_surface_layer_date = time1 + ascent_time_to_mixed_layer
-        self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, self.ascent_reach_surface_layer_date)
+            # MERMAID never passed through the surface layer and into the mixed layer -- interpolate
+            # the location of the recorded event assuming a single-layer ocean
+            last_descent_loc_before_event = self.descent_leave_surface_loc
+            first_ascent_loc_after_event = self.ascent_reach_surface_loc
 
         # Compute event locations between interpolated locations of exit and re-entry of surface waters
         for event in self.events:
-            event.compute_station_location(self.descent_leave_surface_layer_loc, self.ascent_reach_surface_layer_loc)
+            event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
 
     def generate_events_plotly(self):
         for event in self.events:
@@ -622,27 +645,25 @@ def write_dives_txt(mdives, processed_path, mfloat_path, mfloat):
                                     d.mer_environment_name))
 
 def attach_is_complete_mer_to_dive_events(dive_list):
-    """Prior to automaid v1.4.0 this method was used to determine which .MER files
-    had to be skipped (if the file was incomplete, all events contained in the
-    .MER file were ignored).  However, events.py now verifies that each
-    individual event block (<EVENT> ... int32 ... </EVENT>) contains the
-    expected number of bytes, per that event's header.  Therefore, individual
-    events in an incomplete .MER file may be converted before the entire .MER
-    file has been transmitted.  As such, hile this method may still have some
-    future utility, it is no longer used to determine which events to make.
+    """Prior to automaid v1.4.0 this method was used to determine which .MER files had to be skipped (if
+    the file was incomplete, all events contained in the .MER file were ignored).  However,
+    events.py now verifies that each individual event block (<EVENT> ... int32 ... </EVENT>)
+    contains the expected number of bytes, per that event's header.  Therefore, individual events in
+    an incomplete .MER file may be converted before the entire .MER file has been transmitted.  As
+    such, while this method may still have some future utility, it is no longer used to determine
+    which events to make.
 
     Original description:
-    Intakes a list of Dive instances and updates their events.is_complete_mer_file
-    field (events is a list of events associated with each dive).
+    Intakes a list of Dive instances and updates their events.is_complete_mer_file field (events is
+    a list of events associated with each dive).
 
     More verbose: each Dive instance is associated with a single .MER file via
-    dive.mer_environment_name in the sense that this is the .MER file whose
-    environment is associated with that dive (the GPS fixes in the environment
-    are similar to the corresponding .LOG file, in dive.log_name).  However, the
-    events (a separate list) attached to this dive may have had their .MER
-    binary data written to a different .MER file.  I.e., the .MER environment
-    does not necessarily correspond to the same file's event data records, and
-    thus .MER data does not necessarily correspond to the last dive.
+    dive.mer_environment_name in the sense that this is the .MER file whose environment is
+    associated with that dive (the GPS fixes in the environment are similar to the corresponding
+    .LOG file, in dive.log_name).  However, the events (a separate list) attached to this dive may
+    have had their .MER binary data written to a different .MER file.  I.e., the .MER environment
+    does not necessarily correspond to the same file's event data records, and thus .MER data does
+    not necessarily correspond to the last dive.
 
     """
 

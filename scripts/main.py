@@ -2,9 +2,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-# Current maintainer: Dr. Joel D. Simon (JDS)
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 30-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import argparse
@@ -23,6 +23,9 @@ from pdb import set_trace as keyboard
 
 # Get current version number.
 version = setup.get_version()
+
+# Set depth of mixed layer (in meters) for drift interpolation
+mixed_layer_depth_m = 50
 
 # Set default paths
 automaid_path = os.environ["AUTOMAID"]
@@ -83,7 +86,7 @@ filterDate = {
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = False
+redo = True
 
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
@@ -104,7 +107,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*25.vit")
+    vitfile_path = os.path.join(server_path, "*.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # Initialize empty dict to hold the instance of every last complete dive for
@@ -130,7 +133,8 @@ def main():
         if not os.path.exists(mfloat_path):
             os.mkdir(mfloat_path)
 
-        # Remove existing files in the processed directory (if the script have been interrupted the time before)
+        # Remove existing files in the processed directory (the script may have been previously
+        # executed, copied the files, then failed)
         for f in glob.glob(mfloat_path + "*.*"):
             os.remove(f)
 
@@ -186,7 +190,7 @@ def main():
         # the algorithm use gps information in the next dive to estimate surface drift
         i = 0
         while i < len(mdives)-1:
-            mdives[i].compute_station_locations(mdives[i+1])
+            mdives[i].compute_station_locations(mdives[i+1], mixed_layer_depth_m)
             i += 1
 
         # Generate plots, SAC, and miniSEED files
@@ -210,14 +214,14 @@ def main():
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
 
 
-        # Write textfile containing all GPS fixes from .LOG and .MER
+        # Write text file containing all GPS fixes from .LOG and .MER
         gps.write_gps_txt(mdives, processed_path, mfloat_path, mfloat)
 
         # Write helpful printout detailing every dive, and how .LOG and .MER
         # files connect
         dives.generate_printout(mdives, mfloat_serial)
 
-        # Write the same info just printout do stdout to textfile
+        # Write the same info just printout do stdout to text file
         dives.write_dives_txt(mdives, processed_path, mfloat_path, mfloat)
 
         # Write a text file relating all SAC and mSEED to their associated .LOG
@@ -233,8 +237,6 @@ def main():
         # Add dives to growing dict
         dives_dict[mfloat] = mdives
 
-        keyboard()
-        
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
 
