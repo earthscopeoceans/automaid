@@ -269,9 +269,9 @@ def interpolated_point_marker(dives):
     dfmt = "%d/%m/%y %H:%M"
     string = ""
     for dive in dives[1:]:
-        if dive.surface_leave_loc:
-            pos = str(dive.surface_leave_loc.longitude) + "," + str(dive.surface_leave_loc.latitude) + ",0"
-            posstr = dive.surface_leave_loc.date.strftime(dfmt)
+        if dive.descent_leave_surface_loc:
+            pos = str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0"
+            posstr = dive.descent_leave_surface_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -282,9 +282,9 @@ def interpolated_point_marker(dives):
                 </Point>
             </Placemark>"""
 
-        if dive.mixed_layer_reach_loc:
-            pos = str(dive.mixed_layer_reach_loc.longitude) + "," + str(dive.mixed_layer_reach_loc.latitude) + ",0"
-            posstr = dive.mixed_layer_reach_loc.date.strftime(dfmt)
+        if dive.descent_leave_surface_layer_loc:
+            pos = str(dive.descent_leave_surface_layer_loc.longitude) + "," + str(dive.descent_leave_surface_layer_loc.latitude) + ",0"
+            posstr = dive.descent_leave_surface_layer_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -295,9 +295,9 @@ def interpolated_point_marker(dives):
                 </Point>
             </Placemark>"""
 
-        if dive.mixed_layer_leave_loc:
-            pos = str(dive.mixed_layer_leave_loc.longitude) + "," + str(dive.mixed_layer_leave_loc.latitude) + ",0"
-            posstr = dive.mixed_layer_leave_loc.date.strftime(dfmt)
+        if dive.ascent_reach_surface_layer_loc:
+            pos = str(dive.ascent_reach_surface_layer_loc.longitude) + "," + str(dive.ascent_reach_surface_layer_loc.latitude) + ",0"
+            posstr = dive.ascent_reach_surface_layer_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -308,9 +308,9 @@ def interpolated_point_marker(dives):
                 </Point>
             </Placemark>"""
 
-        if dive.surface_reach_loc:
-            pos = str(dive.surface_reach_loc.longitude) + "," + str(dive.surface_reach_loc.latitude) + ",0"
-            posstr = dive.surface_reach_loc.date.strftime(dfmt)
+        if dive.ascent_reach_surface_loc:
+            pos = str(dive.ascent_reach_surface_loc.longitude) + "," + str(dive.ascent_reach_surface_loc.latitude) + ",0"
+            posstr = dive.ascent_reach_surface_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -357,21 +357,21 @@ def complex_trajectory(mfloat_name, dives):
         # Use the surface drift of the end of the precedent dive
         if i > 1:
             dive = dives[i-1]
-            if dive.mixed_layer_leave_loc is not None:
-                pos += str(dive.mixed_layer_leave_loc.longitude) + ","\
-                       + str(dive.mixed_layer_leave_loc.latitude) + ",0\n"
-            if dive.surface_reach_loc is not None:
-                pos += str(dive.surface_reach_loc.longitude) + "," + str(dive.surface_reach_loc.latitude) + ",0\n"
+            if dive.ascent_reach_surface_layer_loc is not None:
+                pos += str(dive.ascent_reach_surface_layer_loc.longitude) + ","\
+                       + str(dive.ascent_reach_surface_layer_loc.latitude) + ",0\n"
+            if dive.ascent_reach_surface_loc is not None:
+                pos += str(dive.ascent_reach_surface_loc.longitude) + "," + str(dive.ascent_reach_surface_loc.latitude) + ",0\n"
             if len(dive.gps_list) > 0:
                 pos += str(dive.gps_list[-1].longitude) + "," + str(dive.gps_list[-1].latitude) + ",0\n"
         # Surface drift of the beginning of the current dive
         dive = dives[i]
         for gps in dive.gps_list[:-1]:
             pos += str(gps.longitude) + "," + str(gps.latitude) + ",0\n"
-        if dives[i].surface_leave_loc is not None:
-            pos += str(dive.surface_leave_loc.longitude) + "," + str(dive.surface_leave_loc.latitude) + ",0\n"
-        if dive.mixed_layer_reach_loc is not None:
-            pos += str(dive.mixed_layer_reach_loc.longitude) + "," + str(dive.mixed_layer_reach_loc.latitude) + ",0\n"
+        if dives[i].descent_leave_surface_loc is not None:
+            pos += str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0\n"
+        if dive.descent_leave_surface_layer_loc is not None:
+            pos += str(dive.descent_leave_surface_layer_loc.longitude) + "," + str(dive.descent_leave_surface_layer_loc.latitude) + ",0\n"
 
         pos = pos.strip("\n")
 
@@ -390,15 +390,15 @@ def complex_trajectory(mfloat_name, dives):
         pos = pos.split("\n")[-1] + "\n"
 
         # Descent position
-        if dive.mixed_layer_reach_loc is not None:
-            pos += str(dive.mixed_layer_reach_loc.longitude) + "," + str(dive.mixed_layer_reach_loc.latitude) + ",0\n"
-        elif dive.surface_leave_loc is not None:
-            pos += str(dive.surface_leave_loc.longitude) + "," + str(dive.surface_leave_loc.latitude) + ",0\n"
+        if dive.descent_leave_surface_layer_loc is not None:
+            pos += str(dive.descent_leave_surface_layer_loc.longitude) + "," + str(dive.descent_leave_surface_layer_loc.latitude) + ",0\n"
+        elif dive.descent_leave_surface_loc is not None:
+            pos += str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0\n"
         # Ascent position
-        if dive.mixed_layer_leave_loc is not None:
-            pos += str(dive.mixed_layer_leave_loc.longitude) + "," + str(dive.mixed_layer_leave_loc.latitude) + ",0\n"
-        elif dive.surface_reach_loc is not None:
-            pos += str(dive.surface_reach_loc.longitude) + "," + str(dive.surface_reach_loc.latitude) + ",0\n"
+        if dive.ascent_reach_surface_layer_loc is not None:
+            pos += str(dive.ascent_reach_surface_layer_loc.longitude) + "," + str(dive.ascent_reach_surface_layer_loc.latitude) + ",0\n"
+        elif dive.ascent_reach_surface_loc is not None:
+            pos += str(dive.ascent_reach_surface_loc.longitude) + "," + str(dive.ascent_reach_surface_loc.latitude) + ",0\n"
 
         pos = pos.strip("\n")
 

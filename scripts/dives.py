@@ -62,17 +62,17 @@ class Dive:
         self.gps_after_dive = None
         self.gps_after_dive_incl_next_dive = None
 
-        self.surface_leave_date = None
-        self.surface_leave_loc = None
+        self.descent_leave_surface_date = None
+        self.descent_leave_surface_loc = None
 
-        self.mixed_layer_reach_date = None
-        self.mixed_layer_reach_loc = None
+        self.descent_leave_surface_layer_date = None
+        self.descent_leave_surface_layer_loc = None
 
-        self.mixed_layer_leave_date = None
-        self.mixed_layer_leave_loc = None
+        self.ascent_reach_surface_layer_date = None
+        self.ascent_reach_surface_layer_loc = None
 
-        self.surface_reach_date = None
-        self.surface_reach_loc = None
+        self.ascent_reach_surface_date = None
+        self.ascent_reach_surface_loc = None
 
         self.p2t_offset_param = None
         self.p2t_offset_measurement = None
@@ -114,12 +114,12 @@ class Dive:
         # Check if the .LOGS corresponds to a dive
         diving = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
         if diving:
-            self.surface_leave_date = diving[0][1]
+            self.descent_leave_surface_date = diving[0][1]
             self.is_dive = True
 
             surfin = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
             if surfin:
-                self.surface_reach_date = surfin[-1][-1]
+                self.ascent_reach_surface_date = surfin[-1][-1]
                 self.is_complete_dive = True
 
         # Generate the directory name
@@ -208,13 +208,13 @@ class Dive:
 
         # Split the GPS list into before/after dive sublists
         if self.is_dive:
-            self.gps_before_dive = [x for x in self.gps_list if x.date < self.surface_leave_date]
+            self.gps_before_dive = [x for x in self.gps_list if x.date < self.descent_leave_surface_date]
             # if not self.gps_before_dive:
                 # print "WARNING: No GPS synchronization before diving for \"" \
                 #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
 
         if self.is_complete_dive:
-            self.gps_after_dive = [x for x in self.gps_list if x.date > self.surface_reach_date]
+            self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
             # if not self.gps_after_dive:
             #     print "WARNING: No GPS synchronization after surfacing for \"" \
             #         + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
@@ -416,10 +416,10 @@ class Dive:
             return
 
         # Find when & where the float left the surface
-        self.surface_leave_loc = gps.linear_interpolation(self.gps_before_dive, self.surface_leave_date)
+        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive, self.descent_leave_surface_date)
 
         # Find when & where the float reached the surface
-        self.surface_reach_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive , self.surface_reach_date)
+        self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive , self.ascent_reach_surface_date)
 
         # Location is determined when the float reach the mixed layer depth
         mixed_layer_depth_m = 50
@@ -436,7 +436,7 @@ class Dive:
         # reach mixed layer
         if max(pressure_val) < mixed_layer_depth_m:
             for event in self.events:
-                event.compute_station_location(self.surface_leave_loc, self.surface_reach_loc)
+                event.compute_station_location(self.descent_leave_surface_loc, self.ascent_reach_surface_loc)
             return
 
         # Loop through pressure readings until we've exited surface and passed into the mixed layer
@@ -452,15 +452,15 @@ class Dive:
             time1 = pressure_date[i-1]
             depth1 = pressure_val[i-1]
         else:
-            time1 = self.surface_leave_date
+            time1 = self.descent_leave_surface_date
             depth1 = 0
 
         # Compute when the float leaves the surface and reaches the mixed layer
         descent_vel = (depth2 - depth1) / (time2 - time1)
         descent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
         descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
-        self.mixed_layer_reach_date = time1 + descent_time_to_mixed_layer
-        self.mixed_layer_reach_loc = gps.linear_interpolation(self.gps_before_dive, self.mixed_layer_reach_date)
+        self.descent_leave_surface_layer_date = time1 + descent_time_to_mixed_layer
+        self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, self.descent_leave_surface_layer_date)
 
         # Loop through pressure readings until we've exited mixed layer and
         # passed into surface
@@ -476,19 +476,19 @@ class Dive:
             time2 = pressure_date[i+1]
             depth2 = pressure_val[i+1]
         else:
-            time2 = self.surface_reach_date
+            time2 = self.ascent_reach_surface_date
             depth2 = 0
 
         # Compute when the float leaves the mixed layer and reaches the surface
         ascent_vel = (depth2 - depth1) / (time2 - time1)
         ascent_dist_to_mixed_layer = mixed_layer_depth_m - depth1
         ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
-        self.mixed_layer_leave_date = time1 + ascent_time_to_mixed_layer
-        self.mixed_layer_leave_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, self.mixed_layer_leave_date)
+        self.ascent_reach_surface_layer_date = time1 + ascent_time_to_mixed_layer
+        self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, self.ascent_reach_surface_layer_date)
 
         # Compute event locations between interpolated locations of exit and re-entry of surface waters
         for event in self.events:
-            event.compute_station_location(self.mixed_layer_reach_loc, self.mixed_layer_leave_loc)
+            event.compute_station_location(self.descent_leave_surface_layer_loc, self.ascent_reach_surface_layer_loc)
 
     def generate_events_plotly(self):
         for event in self.events:
