@@ -11,6 +11,7 @@ import setup
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
 import os
+from pprint import pprint
 from pdb import set_trace as keyboard
 
 # Get current version number.
@@ -349,4 +350,61 @@ def write_gps_txt(mdives, processed_path, mfloat_path, mfloat):
 
 
 def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
-    pass
+    # Define function to pull interpolation parameters out of the interpolation dictionary attached to each GPS instance
+    def parse_interp_params(leg):
+        if leg['input_drift_time'] is not None:
+            params = [int(leg['input_drift_time']),
+                      leg['input_drift_time'] / 60.0,
+                      int(round(leg['input_drift_dist_m'])),
+                      leg['input_drift_dist_m'] /1000,
+                      leg['input_drift_vel_ms'],
+                      leg['input_drift_vel_ms'] * 3.6, # km/hr
+                      int(leg['interp_drift_time']),
+                      leg['interp_drift_time'] / 60,
+                      int(round(leg['interp_drift_dist_m'])),
+                      leg['input_drift_dist_m']  / 1000,
+                      leg['interp_drift_vel_ms'],
+                      leg['interp_drift_vel_ms'] * 3.6]
+            params = map(abs, params)
+        else:
+            # We used a single GPS point so all interpolation parameters are "None"
+            params = [None] * 12
+
+        return params
+
+    def format_interp_params(leg):
+        if leg['input_drift_time'] is not None:
+            # Format for floats and ints -- do half the list then repeat
+            fmt_spec = '{:>6d}        {:>7.1f}        {:>6d}        {:>4.1f}        {:>5.2f}        {:>7.2f}\n'
+
+        else:
+            # Format for null strings
+            fmt_spec = '{:>6s}        {:>7s}        {:>6s}        {:>4s}        {:>5s}        {:>7s}\n'
+
+        # Repeat format for interp parameters
+        fmt_spec += fmt_spec
+
+        return fmt_spec
+
+    dive_event_tup = ((dive, event) for dive in mdives for event in dive.events if event.station_loc)
+
+    gps_interp_file = os.path.join(processed_path, mfloat_path, mfloat+"_gps_interpolation.txt")
+    with open(gps_interp_file, "w+") as f:
+        f.write('TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR\n')
+        for dive, event in dive_event_tup:
+            descent = dive.descent_leave_surface_loc.interp_dict
+            drift = event.station_loc.interp_dict
+            ascent = dive.ascent_reach_surface_loc.interp_dict
+
+            interp_params = []
+            interp_fmt_spec = ''
+            for leg in descent, drift, ascent:
+                # Nicety: pprint(leg)
+                interp_params += parse_interp_params(leg)
+                interp_fmt_spec += format_interp_params(leg)
+
+            # Add an extra line between each dive block
+            interp_fmt_spec += '\n'
+
+            f.write(interp_fmt_spec.format(*interp_params))
+
