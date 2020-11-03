@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 02-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 03-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -59,6 +59,7 @@ class Dive:
 
         self.gps_list = None
         self.gps_before_dive = None
+        self.gps_before_dive_incl_prev_dive = None
         self.gps_after_dive = None
         self.gps_after_dive_incl_next_dive = None
 
@@ -119,6 +120,8 @@ class Dive:
             self.descent_leave_surface_date = diving[0][1]
             self.is_dive = True
 
+            # It's possible that MERMAID physically dove and returned to the surface but there was
+            # an error with the .LOG, so that information was not recorded (ex. 25_5B9CF6CF.LOG)
             surfin = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
             if surfin:
                 self.ascent_reach_surface_date = surfin[-1][-1]
@@ -374,7 +377,7 @@ class Dive:
         for event in self.events:
             event.correct_clockdrift(self.gps_before_dive[-1], self.gps_after_dive[0])
 
-    def compute_station_locations(self, next_dive, mixed_layer_depth_m):
+    def compute_station_locations(self, prev_dive, next_dive, mixed_layer_depth_m):
         '''Fills attributes detailing interpolated locations of MERMAID at various
         points during a Dive (i.e., when it left the surface, reached the mixed
         layer, etc.)
@@ -386,9 +389,6 @@ class Dive:
         # that creates highly recursive data structures)
         if isinstance(next_dive, Dive):
             self.next_dive_exists = True
-        else:
-            sys.err("Next dive not given")
-            return
 
         self.next_dive_log_name = next_dive.log_name
         self.next_dive_mer_environment_name = next_dive.mer_environment_name
@@ -397,28 +397,35 @@ class Dive:
         if not self.is_complete_dive:
             return
 
-        # By default every .MER and .LOG prints a handful of GPS fixes BEFORE
-        # the dive, but only a single one AFTER the dive; thus to get a good
-        # interpolated location we need to append the NEXT dive's GPS list.  If
-        # the next .LOG file contains a "DIVE" then use the GPS before that
-        # dive; otherwise the .LOG file may be contain an ERR/emergency/reboot
-        # in which case it may still have valid GPS points that we can use
+        # By default every .MER and .LOG prints a handful of GPS fixes BEFORE the dive, but only a
+        # single one AFTER the dive; thus to get a good interpolated location we need to append the
+        # NEXT dive's GPS list (we might as well append the previous dive's GPS list as well if case
+        # there were GPS errors before the dive as well)
+        self.gps_before_dive_incl_prev_dive = self.gps_before_dive
+        if prev_dive and prev_dive.gps_list:
+            if prev_dive.is_dive:
+                if prev_dive.gps_after_dive:
+                    self.gps_before_dive_incl_prev_dive = prev_dive.gps_after_dive + self.gps_before_dive_incl_prev_dive
+            else:
+                self.gps_before_dive_incl_prev_dive = prev_dive.gps_list + self.gps_before_dive_incl_prev_dive
+
         self.gps_after_dive_incl_next_dive = self.gps_after_dive
         if next_dive.gps_list:
-            if next_dive.gps_before_dive:
-                self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_before_dive
+            if next_dive.is_dive:
+                if next_dive.gps_before_dive:
+                    self.gps_after_dive_incl_next_dive = self.gps_after_dive_incl_next_dive + next_dive.gps_before_dive
             else:
-                self.gps_after_dive_incl_next_dive = self.gps_after_dive + next_dive.gps_list
+                self.gps_after_dive_incl_next_dive = self.gps_after_dive_incl_next_dive + next_dive.gps_list
 
         # Re-sort the expanded GPS list
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
 
         # Final check: interpolation requires at least two points before/after diving
-        if len(self.gps_before_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
+        if len(self.gps_before_dive_incl_prev_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
             return
 
         # Find when & where the float left the surface
-        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive, \
+        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive_incl_prev_dive, \
                                                                   self.descent_leave_surface_date)
 
         # Find when & where the float reached the surface
@@ -465,7 +472,7 @@ class Dive:
             descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
             descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
 
-            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, \
+            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive_incl_prev_dive, \
                                                                             descent_leave_surface_layer_date)
 
             #______________________________________________________________________________________#
