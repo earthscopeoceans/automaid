@@ -350,8 +350,25 @@ def write_gps_txt(mdives, processed_path, mfloat_path, mfloat):
 
 
 def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
-    # Define functions to parse input and interpolation parameters out of the interpolation
-    # dictionary attached to each GPS instance
+    '''Writes MERMAID GPS interpolation file, detailing GPS and interpolation parameters for the three
+    main regimes of each dive: descent and drift in the surface layer, drift in the mixed layer, and
+    ascent and drift in the surface layer
+
+    '''
+
+    # NB, the comments here assume a normal dive where all GPS fixes are obtained and MERMAID dives
+    # deeper than the mix layer depth; see especially dives.compute_station_locations and
+    # gps.linear_interpolation to understand of edge-cases where perhaps some GPS fixes are missing
+    # and/or MERMAID didn't dive into the mixed layer.  In all cases, GPS interpolation is still
+    # broken into three regimes: descent drift,"deep" drift, and ascent drift.  Descent drift uses
+    # the surface-drift velocity before the dive to interpolate forward in time for the location
+    # where MERMAID dove into the mixed layer (left the surface layer); ascent drift uses the
+    # surface-drift velocity after the dive to interpolate backward in time for the location where
+    # MERMAID ascended into the surface layer (left the mixed layer); "deep" drift uses the velocity
+    # of drift between those two points to estimate where MERMAID was when it recorded events while
+    # drifting in the mixed layer.
+
+    # "input" to gps_linear_interpolation are those GPS instances that we give the algorithm
     def parse_input_params(leg):
         if leg['input_drift_time'] is not None:
             input_params = [int(leg['input_drift_time'] ),
@@ -370,7 +387,8 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
 
         return (input_params, input_fmt_spec)
 
-
+    # "interp" from gps_linear_interpolation are those GPS instances the algorithm computes given
+    # the input
     def parse_interp_params(leg):
         if leg['input_drift_time'] is not None:
             interp_params = [int(leg['interp_drift_time'] ),
@@ -394,12 +412,15 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
     dive_list = list(dive_set)
     dive_list = sorted(dive_list, key=lambda x: x.start_date)
 
+    # Print GPS interpolation information for every dive that includes an event all three dive regimes
     gps_interp_file = os.path.join(processed_path, mfloat_path, mfloat+"_gps_interpolation.txt")
     with open(gps_interp_file, "w+") as f:
         for dive in dive_list:
+            # Write headers to each dive block
             f.write("DIVE ID: {:>4d}\n".format(dive.dive_id))
             f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z'))
             f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
+
             # Compute the percentage of the total interpolate distance for the three regimes:
             # (1) surface-layer drift during the descent
             #
@@ -408,39 +429,36 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
             #     .station.loc['input_dist_m'] is interpolated distance from leaving surface layer to returning to surface layer)
             #
             # (3) surface-layer drift during the ascent
-
             interp_dist_descent = dive.descent_leave_surface_loc.interp_dict['interp_drift_dist_m']
-            interp_dist_mixed = dive.events[0].station_loc.interp_dict['input_drift_dist_m']
+            input_dist_mixed = dive.events[0].station_loc.interp_dict['input_drift_dist_m']
             interp_dist_ascent = dive.ascent_reach_surface_loc.interp_dict['interp_drift_dist_m']
-            if all([interp_dist_descent, interp_dist_mixed, interp_dist_ascent]):
-                total_interp_dist = sum([interp_dist_descent, interp_dist_mixed, interp_dist_ascent])
+            if all([interp_dist_descent, input_dist_mixed, interp_dist_ascent]):
+                total_interp_dist = sum([interp_dist_descent, input_dist_mixed, interp_dist_ascent])
                 interp_perc_descent = (interp_dist_descent / total_interp_dist) * 100
-                interp_perc_mixed = (interp_dist_mixed / total_interp_dist) * 100
+                input_perc_mixed = (input_dist_mixed / total_interp_dist) * 100
                 interp_perc_ascent = (interp_dist_ascent / total_interp_dist) * 100
             else:
                 interp_perc_descent = float("nan")
-                interp_perc_mixed = float("nan")
+                input_perc_mixed = float("nan")
                 interp_perc_ascent = float("nan")
 
-            # Once for every dive: parse the GPS (input) and interpolated-components of surface drift before dive
+            # Parse the GPS ('input') components of surface drift before dive: these are actual GPS points
             gps_surface_descent, gps_fmt_spec = parse_input_params(dive.descent_leave_surface_loc.interp_dict)
             gps_fmt_spec = "gps_surface                " + gps_fmt_spec + "\n"
             f.write(gps_fmt_spec.format(*gps_surface_descent))
 
+            # Parse the interpolated components of surface drift before dive: between last GPS point
+            # and crossing into mixed layer
             interp_surface_descent, interp_fmt_spec = parse_interp_params(dive.descent_leave_surface_loc.interp_dict)
             interp_surface_descent.append(interp_perc_descent)
             interp_fmt_spec = "interp_surface             " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*interp_surface_descent))
 
-            # For every event recorded during the dive: parse just the interpolated component of
-            # the mixed-layer drift because there is no "GPS" drift component here; the
-            # interpolated mixed-layer drift is computed from two points, themselves
-            # interpolated locations of crossing the mixed layer or leaving the surface (or in
-            # extreme cases, perhaps just the final two GPS points)
+            # For every event recorded during the dive: parse the interpolated components of the
+            # mixed-layer drift from leaving the surface layer (passing into the "deep" or
+            # mixed-layer drift regime) and recording an event
             for event in dive.events:
                 interp_drift_to_event_mixed_layer, interp_fmt_spec = parse_interp_params(event.station_loc.interp_dict)
-
-                # Add field to include SAC/MSEED name
                 interp_drift_to_event_mixed_layer.append(event.get_export_file_name())
                 interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>40s}\n"
 
@@ -450,16 +468,18 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
             # last point of the ascent and the first point of the ascent -- is the same for every
             # event; just use the last event instance
             total_drift_mixed_layer, interp_fmt_spec = parse_input_params(event.station_loc.interp_dict)
-            total_drift_mixed_layer.append(interp_perc_mixed)
+            total_drift_mixed_layer.append(input_perc_mixed)
             interp_fmt_spec = "interp_mixed               " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*total_drift_mixed_layer))
 
-            # Parse the interpolated and GPS (input)-components of surface drift after dive
+            # Parse the interpolated components of surface drift after dive: crossing out of mixed
+            # layer and recording first GPS point
             interp_surface_ascent, interp_fmt_spec = parse_interp_params(dive.ascent_reach_surface_loc.interp_dict)
             interp_surface_ascent.append(interp_perc_ascent)
             interp_fmt_spec = "interp_surface             " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*interp_surface_ascent))
 
+            # Parse the GPS ('input') components of surface drift after dive: these are actual GPS points
             gps_surface_ascent, gps_fmt_spec = parse_input_params(dive.ascent_reach_surface_loc.interp_dict)
             gps_fmt_spec = "gps_surface                " + gps_fmt_spec + "\n\n\n"
             f.write(gps_fmt_spec.format(*gps_surface_ascent))
