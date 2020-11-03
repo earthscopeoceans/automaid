@@ -397,8 +397,9 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
     gps_interp_file = os.path.join(processed_path, mfloat_path, mfloat+"_gps_interpolation.txt")
     with open(gps_interp_file, "w+") as f:
         for dive in dive_list:
-            f.write("{:19s} --> {:19s} (DIVE ID {:>4d})\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z', dive.dive_id))
-            f.write("DRIFT_REGIME          TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
+            f.write("DIVE ID: {:>4d}\n".format(dive.dive_id))
+            f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z'))
+            f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
             # Compute the percentage of the total interpolate distance for the three regimes:
             # (1) surface-layer drift during the descent
             #
@@ -423,12 +424,12 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
 
             # Once for every dive: parse the GPS (input) and interpolated-components of surface drift before dive
             gps_surface_descent, gps_fmt_spec = parse_input_params(dive.descent_leave_surface_loc.interp_dict)
-            gps_fmt_spec = "gps_surface           " + gps_fmt_spec + "\n"
+            gps_fmt_spec = "gps_surface                " + gps_fmt_spec + "\n"
             f.write(gps_fmt_spec.format(*gps_surface_descent))
 
             interp_surface_descent, interp_fmt_spec = parse_interp_params(dive.descent_leave_surface_loc.interp_dict)
             interp_surface_descent.append(interp_perc_descent)
-            interp_fmt_spec = "interp_surface        " + interp_fmt_spec + "        {:>4.1f}\n"
+            interp_fmt_spec = "interp_surface             " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*interp_surface_descent))
 
             # For every event recorded during the dive: parse just the interpolated component of
@@ -441,7 +442,7 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
 
                 # Add field to include SAC/MSEED name
                 interp_drift_to_event_mixed_layer.append(event.get_export_file_name())
-                interp_fmt_spec = "interp_mixed_event    " + interp_fmt_spec + "                    {:>40s}\n"
+                interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>40s}\n"
 
                 f.write(interp_fmt_spec.format(*interp_drift_to_event_mixed_layer))
 
@@ -450,15 +451,15 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
             # event; just use the last event instance
             total_drift_mixed_layer, interp_fmt_spec = parse_input_params(event.station_loc.interp_dict)
             total_drift_mixed_layer.append(interp_perc_mixed)
-            interp_fmt_spec = "interp_mixed          " + interp_fmt_spec + "        {:>4.1f}\n"
+            interp_fmt_spec = "interp_mixed               " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*total_drift_mixed_layer))
 
             # Parse the interpolated and GPS (input)-components of surface drift after dive
             interp_surface_ascent, interp_fmt_spec = parse_interp_params(dive.ascent_reach_surface_loc.interp_dict)
             interp_surface_ascent.append(interp_perc_ascent)
-            interp_fmt_spec = "interp_surface        " + interp_fmt_spec + "        {:>4.1f}\n"
+            interp_fmt_spec = "interp_surface             " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*interp_surface_ascent))
 
             gps_surface_ascent, gps_fmt_spec = parse_input_params(dive.ascent_reach_surface_loc.interp_dict)
-            gps_fmt_spec = "gps_surface           " + gps_fmt_spec + "\n\n"
+            gps_fmt_spec = "gps_surface                " + gps_fmt_spec + "\n\n\n"
             f.write(gps_fmt_spec.format(*gps_surface_ascent))
