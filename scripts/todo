@@ -1,0 +1,9 @@
+get rid of next_dive gps list requirement: just make a textfile detailing all of
+the interpolation parameters!!!
+
+Look at implication of adding abs() to gps2dist_azimuth if statement concerning
+20 m
+
+Apply filter date just to SAC and MSEED file creation?
+
+*_interp_gps should have DIVE ID as the first column

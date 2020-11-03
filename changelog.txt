@@ -1,4 +1,37 @@
 Current:
+*v2.1.0: 02-Nov-2020
+  -- Attach interpolation dictionary to every GPS instance so that interpolation
+     parameters may be teased apart; write output *gps_interpolation.txt file to
+     explain the drifts computed in the three regimes (descent, drift, ascent)
+  -- Swap default class attributes for default instance attributes to avoid
+     unintended global overwrite of non-assigned class attributes:
+	 class SomeClass:
+	     cls_attr = foo
+		  def __init__():
+		      ...
+	 class SomeClass:
+	     def __init__():
+		 self.inst_attr = foo
+
+  -- Allow abbreviated '-s' and '-p' optional input flags
+
+  -- Rewrite interpolations in Dives and GPS in plain English -- this does not
+     change the algorithm at all (but it makes it much more verbose but
+     hopefully more readable and easier to debug?)
+  -- Add writing of last_dive_pressure_offset.txt to alert when (corrected)
+     external pressure is near/beyond the 300 mbar limit
+  -- Add writing of XXX.XXX-P-??_dives.txt, which contains the same info as the
+     printout that ends each float loop
+  -- Attach .mer_environment_name and .mer_binary_name to each Event instance
+     (which is also contained in the encapsulating Dive instance, but this make
+     access more explicit), and change .mmd_data_name to .mer_binary_name to
+     distinguish it from the .MER file associated with the environment (which
+     may be different)
+  -- Modify attribute names (e.g. "self.mmd..." for "self.mer..") for , which
+     should be fine at this point because automaid is still self contained, as
+     far as I'm aware
+
+Previous:
 *v2.0.0: 16-Oct-2020
   -- Utilize complete GPS list from both .LOG and .MER files to compute
      interpolated station locations (previously, the .MER was searched first, and
@@ -15,7 +48,6 @@ Current:
      increased number of GPS fixes now attached to each Dive instance and
      available for GPS interpolation
 
-Previous:
 *v1.4.0: 14-Oct-2020
   -- Check the actual byte length of each event contained in every .MER file,
      and only process those that are validated to be completed (this overrides
@@ -94,7 +126,7 @@ Previous:
   -- Base version, with minor modifications from Seb's listed in remote_diffs/
      (that directory of plain text files is slated for removal, but may be
      retrieved from that release)
-  -- Known issues(I0.1.0_1): P-25.vit does not process (GPS issue);
+  -- Known issues(I0.1.0_1): P-25.vit does not process (GPS issue)
 
 Todo:
   -- Reconcile READMEs across different remotes

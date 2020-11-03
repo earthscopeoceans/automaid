@@ -6,5 +6,5 @@
 # Last modified by JDS: 21-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
-    version = 'v2.0.0'
+    version = 'v2.1.0'
     return version
