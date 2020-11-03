@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 30-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 02-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -418,10 +418,12 @@ class Dive:
             return
 
         # Find when & where the float left the surface
-        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive, self.descent_leave_surface_date)
+        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive, \
+                                                                  self.descent_leave_surface_date)
 
         # Find when & where the float reached the surface
-        self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive , self.ascent_reach_surface_date)
+        self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
+                                                                  self.ascent_reach_surface_date)
 
         # Find pressure values
         pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
@@ -457,12 +459,14 @@ class Dive:
                 descent_depth_in_surface_layer = 0
 
             # Compute when the float leaves the surface and reaches the mixed layer
-            descent_vel = (descent_depth_in_mixed_layer - descent_depth_in_surface_layer) / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
+            descent_vel = (descent_depth_in_mixed_layer - descent_depth_in_surface_layer) \
+                          / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
             descent_dist_to_mixed_layer = mixed_layer_depth_m - descent_depth_in_surface_layer
             descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
             descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
 
-            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, descent_leave_surface_layer_date)
+            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, \
+                                                                            descent_leave_surface_layer_date)
 
             #______________________________________________________________________________________#
 
@@ -490,12 +494,14 @@ class Dive:
 
             # Compute when the float leaves the mixed layer and reaches the surface (flipped
             # subtraction order so that ascent is velocity is positive)
-            ascent_vel = (ascent_depth_in_mixed_layer - ascent_depth_in_surface_layer) / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
+            ascent_vel = (ascent_depth_in_mixed_layer - ascent_depth_in_surface_layer) \
+                         / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
             ascent_dist_to_mixed_layer = ascent_depth_in_mixed_layer - mixed_layer_depth_m
             ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
             ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
 
-            self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, ascent_reach_surface_layer_date)
+            self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
+                                                                           ascent_reach_surface_layer_date)
 
             #______________________________________________________________________________________#
 

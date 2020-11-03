@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 30-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 02-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import argparse
@@ -19,6 +19,7 @@ import gps
 import setup
 import re
 import utils
+from pprint import pprint
 from pdb import set_trace as keyboard
 
 # Get current version number.
@@ -86,12 +87,12 @@ filterDate = {
 }
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = True
+redo = False
 
 # Plot interactive figures in HTML format for acoustic events
 # WARNING: Plotly files takes a lot of memory so commented by default
 events_plotly = False
-events_mseed = False
+events_mseed = True
 events_sac = True
 events_png = False
 
@@ -217,6 +218,9 @@ def main():
         # Write text file containing all GPS fixes from .LOG and .MER
         gps.write_gps_txt(mdives, processed_path, mfloat_path, mfloat)
 
+        # Write text file detailing event-station location interpolation parameters
+        gps.write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat)
+
         # Write helpful printout detailing every dive, and how .LOG and .MER
         # files connect
         dives.generate_printout(mdives, mfloat_serial)
@@ -237,6 +241,7 @@ def main():
         # Add dives to growing dict
         dives_dict[mfloat] = mdives
 
+
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
 
@@ -244,7 +249,6 @@ def main():
     # dive, and warn if any are approaching the limit of 300 mbar (at which
     # point adjustment is required)
     vitals.write_corrected_pressure_offset(dives_dict, processed_path)
-
 
 if __name__ == "__main__":
     main()
