@@ -1,0 +1,35 @@
+Using automaid v2.1.0 -- 23-Oct-2020
+
+This tests tool_invert_mer.py cross-references the dates spanned in the .MER
+before attempting to invert binary event blocks contained in the same .MER file.
+
+Unlike the full automaid process, tool_invert_mer.py only accepts a single .MER
+file and no .LOG files as input; therefore, it cannot do GPS interpolation and it
+requires the .MER environment correspond to the events it contains -- it cannot
+go look at all other .MER environments and match the dates to the events like in
+the full automaid process.
+
+This example uses:
+
+25_5F84D5E5.MER
+25_XXXXXXXX.MER
+
+which are identical except that in the latter I artificially shifted the event
+date forward by one year (to 2021) to force tool_invert_mer.py to skip that
+event.
+
+______________________________________________________________________________________
+
+To run the examples from within this directory (zsh) --
+
+$ conda activate pymaid
+$ python $AUTOMAID/scripts/tool_invert_mer.py 25_5F84D5E5.MER
+$ python $AUTOMAID/scripts/tool_invert_mer.py 25_XXXXXXXX.MER
+
+______________________________________________________________________________________
+
+You will see that the first example produces output SAC files and plots, while
+the second produces nothing and instead ends with the following printout:
+
+Event at 2021-10-06T10:17:54.599456Z is not associated (date out of range) with 25_XXXXXXXX.MER environment...skipping
+
