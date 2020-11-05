@@ -32,7 +32,7 @@ mixed_layer_depth_m = 50
 automaid_path = os.environ["AUTOMAID"]
 def_mermaid_path = os.environ["MERMAID"]
 def_server_path = os.path.join(def_mermaid_path, "server")
-def_processed_path = os.path.join(def_mermaid_path, "test_processed")
+def_processed_path = os.path.join(def_mermaid_path, "processed")
 
 # Parse (optional) command line inputs to override default paths
 parser = argparse.ArgumentParser()

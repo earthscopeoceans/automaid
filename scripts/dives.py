@@ -53,6 +53,7 @@ class Dive:
         self.len_secs = None
         self.len_days = None
 
+        self.mer_environment_file_exists = False
         self.mer_environment_name = None
         self.mer_environment = None
         self.mer_bytes_received = None
@@ -155,28 +156,26 @@ class Dive:
         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
         if len(catch) > 0:
             self.mer_environment_name = catch[-1].replace("/", "_")
+            mer_fullfile_name = self.base_path + self.mer_environment_name
 
-        # If the dive wrote a .MER file then retrieve its corresponding
-        # environment because those GPS fixes DO relate to start/end of the
-        # dive. HOWEVER, the events (data) actually contained in that .MER file
-        # may correspond to a different dive (GPS fixes from a DIFFERENT .LOG
-        # and .MER environment), thus we must "get_events_between" to correlate
-        # the actual binary data in .MER files with their proper GPS fixes
-        # (usually the dates of the binary events in the .MER file correspond to
-        # the .MER file itself, however if there are a lot of events to send
-        # back corresponding to a single dive, it may take multiple surfacings
-        # to finally transmit them all).
-        self.events = list()
-        if self.mer_environment_name:
-            # Verify that the number of bytes purported to be in the .MER file
-            # are actually in the .MER file (the .LOG prints the expectation)
-            bytes_expected = re.search("](\d+) bytes in " \
-                                       + self.mer_environment_name.replace("_", "/"), self.log_content)
+            if os.path.exists(mer_fullfile_name):
+                self.mer_environment_file_exists = True
+
+        # If the dive wrote a .MER file then retrieve its corresponding environment because those
+        # GPS fixes DO relate to start/end of the dive. HOWEVER, the events (data) actually
+        # contained in that .MER file may correspond to a different dive (GPS fixes from a DIFFERENT
+        # .LOG and .MER environment), thus we must "get_events_between" to correlate the actual
+        # binary data in .MER files with their proper GPS fixes (usually the dates of the binary
+        # events in the .MER file correspond to the .MER file itself, however if there are a lot of
+        # events to send back corresponding to a single dive, it may take multiple surfacings to
+        # finally transmit them all).
+        if self.mer_environment_file_exists:
+            # Verify that the number of bytes purported to be in the .MER file are actually in the
+            # .MER file (the .LOG prints the expectation)
+            bytes_expected = re.search("](\d+) bytes in " + self.mer_environment_name.replace("_", "/"), self.log_content)
             self.mer_bytes_expected = int(bytes_expected.group(1))
 
-            mer_fullfile_name = self.base_path + self.mer_environment_name
             self.mer_bytes_received = os.path.getsize(mer_fullfile_name)
-
             if self.mer_bytes_received == self.mer_bytes_expected:
                 self.is_complete_mer_file = True
 
@@ -196,21 +195,21 @@ class Dive:
             dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
             self.dive_id = int(dive_id.group(1))
 
-            # Get list of events associated with this .MER files environment
-            # (the metadata header, which does not necessarily relate to the
-            # attached events and their binary data).
-            self.events = events.get_events_between(self.start_date, self.end_date)
+        # Get list of events associated with this .MER files environment
+        # (the metadata header, which does not necessarily relate to the
+        # attached events and their binary data).
+        self.events = events.get_events_between(self.start_date, self.end_date)
 
-            # For each event
-            for event in self.events:
-                # 1 Set the environment information
-                event.set_environment(self.mer_environment_name, self.mer_environment)
-                # 2 Find true sampling frequency
-                event.find_measured_sampling_frequency()
-                # 3 Correct events date
-                event.correct_date()
-                # 4 Invert wavelet transform of event
-                event.invert_transform()
+        # For each event
+        for event in self.events:
+            # 1 Set the environment information
+            event.set_environment(self.mer_environment_name, self.mer_environment)
+            # 2 Find true sampling frequency
+            event.find_measured_sampling_frequency()
+            # 3 Correct events date
+            event.correct_date()
+            # 4 Invert wavelet transform of event
+            event.invert_transform()
 
         # Collect all GPS fixes taken in both the .LOG  and .MER file
         self.gps_list, self.gps_from_log, self.gps_from_mer_environment \
@@ -261,7 +260,7 @@ class Dive:
 
     def generate_mermaid_environment_file(self):
         # Check if there is a Mermaid file
-        if self.mer_environment_name is None:
+        if self.mer_environment_name is None or not self.mer_environment_file_exists:
             return
 
         # Check if file exist
