@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 03-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 05-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -17,6 +17,7 @@ from obspy import UTCDateTime
 import plotly.graph_objs as graph
 import plotly.offline as plotly
 from pdb import set_trace as keyboard
+from pprint import pprint
 
 # Get current version number.
 version = setup.get_version()
@@ -85,6 +86,10 @@ class Dive:
         self.is_complete_dive = False
         self.is_complete_mer_file = False
         self.dive_id = None
+
+        self.prev_dive_exists = False
+        self.prev_dive_log_name = None
+        self.prev_dive_mer_environment_name = None
 
         self.next_dive_exists = False
         self.next_dive_log_name = None
@@ -384,14 +389,17 @@ class Dive:
 
         '''
 
-        # Keep tabs on the MER/LOG files that affect the current dive's gps
-        # interpolation (don't set self.next_dive = next_dive because
-        # that creates highly recursive data structures)
+        # Keep tabs on the MER/LOG files that affect the current dive's GPS interpolation (don't set
+        # self.next_dive = next_dive because that creates highly recursive data structures)
+        if isinstance(prev_dive, Dive):
+            self.prev_dive_exists = True
+            self.prev_dive_log_name = prev_dive.log_name
+            self.prev_dive_mer_environment_name = prev_dive.mer_environment_name
+
         if isinstance(next_dive, Dive):
             self.next_dive_exists = True
-
-        self.next_dive_log_name = next_dive.log_name
-        self.next_dive_mer_environment_name = next_dive.mer_environment_name
+            self.next_dive_log_name = next_dive.log_name
+            self.next_dive_mer_environment_name = next_dive.mer_environment_name
 
         # No dive means no events
         if not self.is_complete_dive:
@@ -417,10 +425,11 @@ class Dive:
             else:
                 self.gps_after_dive_incl_next_dive = self.gps_after_dive_incl_next_dive + next_dive.gps_list
 
-        # Re-sort the expanded GPS list
+        # Ensure sorting of the expanded GPS lists
+        self.gps_before_dive_incl_prev_dive.sort(key=lambda x: x.date)
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
 
-        # Final check: interpolation requires at least two points before/after diving
+        # Require at least two GPS points before and after each dive
         if len(self.gps_before_dive_incl_prev_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
             return
 
