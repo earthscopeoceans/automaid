@@ -88,7 +88,6 @@ class Dive:
         self.is_complete_mer_file = False
         self.dive_id = None
 
-        self.prev_dive_exists = False
         self.prev_dive_log_name = None
         self.prev_dive_mer_environment_name = None
 
@@ -391,7 +390,6 @@ class Dive:
         # Keep tabs on the MER/LOG files that affect the current dive's GPS interpolation (don't set
         # self.next_dive = next_dive because that creates highly recursive data structures)
         if isinstance(prev_dive, Dive):
-            self.prev_dive_exists = True
             self.prev_dive_log_name = prev_dive.log_name
             self.prev_dive_mer_environment_name = prev_dive.mer_environment_name
 
@@ -559,14 +557,22 @@ class Dive:
         print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
               .format(str(self.start_date)[0:19], str(self.end_date)[0:19], self.len_days, self.log_name))
 
-    def print_dive_gps(self, next_dive):
+    def print_dive_gps(self):
+        # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
+        # current dive
+        if self.prev_dive_mer_environment_name is not None:
+            print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
+                  .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
+        else:
+            print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
+
         # By definition 1 .LOG == 1 "dive," so there is always a .log file but
         # not necessarily an associated .MER (e.g., test or init I think?)
         if self.mer_environment_name is not None:
-            print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
+            print("         {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
                   .format(self.mer_environment_name, self.log_name))
         else:
-            print("    GPS: {:s} [this dive]".format(self.log_name))
+            print("         {:s} [this dive]".format(self.log_name))
 
         # Repeat printout for the following dive, whose data affect the gps
         # interpolation of the current dive
@@ -638,13 +644,16 @@ def generate_printout(mdives, mfloat_serial):
     print ""
     i = 0
     for d in sorted(mdives, key=lambda x: x.start_date):
-        # For every dive...
         if d.is_dive:
-            print("  .DIVE. {:s}".format(mfloat_serial))
+            if d.dive_id is not None:
+                print("  .DIVE. {:s} #{:>3d}".format(mfloat_serial, d.dive_id))
+            else:
+                # There is no .MER file associated with this dive
+                print("  .DIVE. {:s}".format(mfloat_serial))
         else:
             print("  .NO DIVE. {:s}".format(mfloat_serial))
         d.print_len()
-        d.print_dive_gps(mdives[i+1])
+        d.print_dive_gps()
         d.print_dive_events()
         print ""
 

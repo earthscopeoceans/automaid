@@ -197,6 +197,12 @@ def main():
             mdives[i].compute_station_locations(mdives[i-1], mdives[i+1], mixed_layer_depth_m)
             i += 1
 
+        # We skipped event computation for the last dive (awaiting the next dive's GPS) which also
+        # adds a reference to the previous dive; correct that here for the last Dive instance
+        if len(mdives) > 1:
+            mdives[-1].prev_dive_log_name = mdives[-2].log_name
+            mdives[-1].prev_dive_mer_environment_name = mdives[-2].mer_environment_name
+
         # Generate plots, SAC, and miniSEED files
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
         for dive in mdives:
@@ -216,7 +222,6 @@ def main():
         vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
         if len(mdives) > 1:
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
-
 
         # Write text file containing all GPS fixes from .LOG and .MER
         gps.write_gps_txt(mdives, processed_path, mfloat_path, mfloat)
