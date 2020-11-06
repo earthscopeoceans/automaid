@@ -1,0 +1,43 @@
+diff --git a/scripts/main.py b/scripts/main.py
+index 85eb3a9..548e550 100644
+--- a/scripts/main.py
++++ b/scripts/main.py
+@@ -4,7 +4,7 @@
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 02-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 05-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ import os
+ import argparse
+@@ -32,7 +32,7 @@ mixed_layer_depth_m = 50
+ automaid_path = os.environ["AUTOMAID"]
+ def_mermaid_path = os.environ["MERMAID"]
+ def_server_path = os.path.join(def_mermaid_path, "server")
+-def_processed_path = os.path.join(def_mermaid_path, "test_processed")
++def_processed_path = os.path.join(def_mermaid_path, "processed")
+ 
+ # Parse (optional) command line inputs to override default paths
+ parser = argparse.ArgumentParser()
+@@ -197,6 +197,12 @@ def main():
+             mdives[i].compute_station_locations(mdives[i-1], mdives[i+1], mixed_layer_depth_m)
+             i += 1
+ 
++        # We skipped event computation for the last dive (awaiting the next dive's GPS) which also
++        # adds a reference to the previous dive; correct that here for the last Dive instance
++        if len(mdives) > 1:
++            mdives[-1].prev_dive_log_name = mdives[-2].log_name
++            mdives[-1].prev_dive_mer_environment_name = mdives[-2].mer_environment_name
++
+         # Generate plots, SAC, and miniSEED files
+         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
+         for dive in mdives:
+@@ -217,7 +223,6 @@ def main():
+         if len(mdives) > 1:
+             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
+ 
+-
+         # Write text file containing all GPS fixes from .LOG and .MER
+         gps.write_gps_txt(mdives, processed_path, mfloat_path, mfloat)
+ 

@@ -1,4 +1,25 @@
 Current:
+*v3.1.0: 05-Nov-2020
+  -- Allow single GPS for surface-drift interpolation (previously,
+     gps.linear_interpolation failed if len < 2)
+  -- Validate .MER file reported in .LOG file exists before processing
+       (sometimes the .MER file hits the server much later than the associated
+       .LOG)
+  -- Add previous dive information to printout and output *traces.txt
+
+
+Previous:
+*v3.0.0: 03-Nov-2020
+   -- Make GPS list extension more strict: only appends previous(next) dive's
+      GPS list if that .LOG represents a complete dive AND the appropriate
+      after(before)-dive GPS list exists, OR the previous(next) .LOG does not
+      represent a dive (like an error or a reboot) but it still contains legit
+      GPS points that we can use (see especially commit
+      14f871e12194230e3d897bc5577ee65168c0f770 message); this avoids the
+      potential pitfall of v2.X.X where, for example, the GPS list before the
+      dive of the previous dive is attached, meaning we are attempting to
+      interpolate from two dives back in time
+
 *v2.1.0: 02-Nov-2020
   -- Attach interpolation dictionary to every GPS instance so that interpolation
      parameters may be teased apart; write output *gps_interpolation.txt file to
@@ -12,9 +33,7 @@ Current:
 	 class SomeClass:
 	     def __init__():
 		 self.inst_attr = foo
-
   -- Allow abbreviated '-s' and '-p' optional input flags
-
   -- Rewrite interpolations in Dives and GPS in plain English -- this does not
      change the algorithm at all (but it makes it much more verbose but
      hopefully more readable and easier to debug?)
@@ -28,10 +47,9 @@ Current:
      distinguish it from the .MER file associated with the environment (which
      may be different)
   -- Modify attribute names (e.g. "self.mmd..." for "self.mer..") for , which
-     should be fine at this point because automaid is still self contained, as
+v     should be fine at this point because automaid is still self contained, as
      far as I'm aware
 
-Previous:
 *v2.0.0: 16-Oct-2020
   -- Utilize complete GPS list from both .LOG and .MER files to compute
      interpolated station locations (previously, the .MER was searched first, and
