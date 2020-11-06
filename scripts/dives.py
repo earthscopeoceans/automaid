@@ -428,8 +428,12 @@ class Dive:
         self.gps_before_dive_incl_prev_dive.sort(key=lambda x: x.date)
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
 
-        # Require at least two GPS points before and after each dive
-        if len(self.gps_before_dive_incl_prev_dive) < 2 or len(self.gps_after_dive_incl_next_dive) < 2:
+        # Require at least a single GPS point before and after each dive; after all, we only have
+        # two points to interpolate for mixed-layer drift, which accounts for > 90% of the total
+        # drift (despite the higher drift velocities at the surface, the total the surface-drift
+        # components are generally not large because comparatively so little time is spent there --
+        # see *gps_interpolation.txt for percentages)
+        if len(self.gps_before_dive_incl_prev_dive) < 1 or len(self.gps_after_dive_incl_next_dive) < 1:
             return
 
         # Find when & where the float left the surface
