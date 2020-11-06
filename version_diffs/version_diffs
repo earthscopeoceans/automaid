@@ -1,11 +1,12 @@
 #! /bin/zsh
-# usage: version_diffs [COMMIT] [VERSION]
+# usage: version_diffs [OLD_COMMIT] [NEW_COMMIT] [VERSION]
 #
-# ex: version_diffs abdc12345 v2.1
+# ex: version_diffs abc123 def456 v2.1
 
-COMMIT=$1
-VERSION=$2
+OLD_COMMIT=$1
+NEW_COMMIT=$2
+VERSION=$3
 
 for pyfile in $AUTOMAID/scripts/*py; do
-    git diff $COMMIT -- $pyfile > $(basename $pyfile)_$VERSION.diff
+    git diff $OLD_COMMIT $NEW_COMMIT -- $pyfile > $(basename $pyfile)_$VERSION.diff
 done
