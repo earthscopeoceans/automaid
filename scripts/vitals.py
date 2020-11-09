@@ -249,10 +249,10 @@ def write_corrected_pressure_offset(dives_dict, processed_path):
             warn_str = ''
             if lastdive.p2t_offset_corrected > 200:
                 warn_str = '!!!'
-                print("\n\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing !!!"
+                print("\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing"
                       .format(mfloat, lastdive.p2t_offset_corrected))
-                print("!!! The corrected external pressure must stay below 300 mbar !!!")
-                print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...' !!!\n\n"
+                print("!!! The corrected external pressure must stay below 300 mbar")
+                print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...'\n"
                       .format(mfloat))
 
             f.write(lastdive_fmt_spec.format(mfloat,
