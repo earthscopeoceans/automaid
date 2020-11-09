@@ -224,21 +224,24 @@ def main():
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
 
         # Write text file containing all GPS fixes from .LOG and .MER
-        gps.write_gps_txt(mdives, processed_path, mfloat_path, mfloat)
+        gps.write_gps_txt(mdives, processed_path, mfloat_path)
 
         # Write text file detailing event-station location interpolation parameters
-        gps.write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat)
+        gps.write_gps_interpolation_txt(mdives, processed_path, mfloat_path)
 
         # Write helpful printout detailing every dive, and how .LOG and .MER
         # files connect
         dives.generate_printout(mdives, mfloat_serial)
 
         # Write the same info just printout do stdout to text file
-        dives.write_dives_txt(mdives, processed_path, mfloat_path, mfloat)
+        dives.write_dives_txt(mdives, processed_path, mfloat_path)
 
         # Write a text file relating all SAC and mSEED to their associated .LOG
         # and .MER files
-        events.write_traces_txt(mdives, processed_path, mfloat_path, mfloat)
+        events.write_traces_txt(mdives, processed_path, mfloat_path)
+
+        # Write a text file with out best-guess at the location of MERMAID at the time of recording
+        events.write_loc_txt(mdives, processed_path, mfloat_path)
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):

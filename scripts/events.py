@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 28-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 09-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -433,13 +433,14 @@ class Event:
         return stream
 
 
-def write_traces_txt(mdives, processed_path, mfloat_path, mfloat):
-    fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
-    traces_file = os.path.join(processed_path, mfloat_path, mfloat+"_traces.txt")
+def write_traces_txt(mdives, processed_path, mfloat_path):
+    traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
 
+    fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
     with open(traces_file, "w+") as f:
-        f.write("            	         SAC_MSEED_TRACE            BIN_MER      PREV_DIVE_LOG  PREV_DIVE_ENV_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format())
+        f.write("automaid {} ({})\n\n".format(setup.get_version(), setup.get_url()))
+        f.write("                               FILE_NAME            BIN_MER      PREV_DIVE_LOG  PREV_DIVE_ENV_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format())
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
             f.write(fmt_spec.format(e.get_export_file_name(),
@@ -450,3 +451,29 @@ def write_traces_txt(mdives, processed_path, mfloat_path, mfloat):
                                     d.mer_environment_name,
                                     d.next_dive_log_name,
                                     d.next_dive_mer_environment_name))
+
+
+def write_loc_txt(mdives, processed_path, mfloat_path):
+    '''Writes interpolated station locations at the time of event recording for all events for each
+    individual float
+
+    '''
+
+    loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
+
+    event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
+
+    fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>4.0f}\n"
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "                               FILE_NAME    INTERP_LAT     INTERP_LON    STDP\n"
+
+    with open(loc_file, "w+") as f:
+        f.write(version_line)
+        f.write(header_line)
+        for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
+            trace_name = e.get_export_file_name()
+            STDP = e.depth if e.depth else float("nan")
+            f.write(fmt_spec.format(trace_name,
+                                    e.station_loc.latitude,
+                                    e.station_loc.longitude,
+                                    STDP))

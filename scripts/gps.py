@@ -446,11 +446,11 @@ def get_gps_from_log_content(log_name, log_content):
     return gps
 
 
-def write_gps_txt(mdives, processed_path, mfloat_path, mfloat):
+def write_gps_txt(mdives, processed_path, mfloat_path):
     gps_genexp = (gps for dive in mdives for gps in dive.gps_list)
 
     gps_fmt_spec = "{:>19s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}  |  {:>15s}    {:>3s} {:<7s}    {:>4s} {:<7s}\n"
-    gps_file = os.path.join(processed_path, mfloat_path, mfloat+"_gps.txt")
+    gps_file = os.path.join(processed_path, mfloat_path, "gps.txt")
 
     with open(gps_file, "w+") as f:
         f.write("automaid {} ({})\n\n".format(setup.get_version(), setup.get_url()))
@@ -495,7 +495,7 @@ def write_gps_txt(mdives, processed_path, mfloat_path, mfloat):
                                         raw_lon_mn))
 
 
-def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
+def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
     '''Writes MERMAID GPS interpolation file, detailing GPS and interpolation parameters for the three
     main regimes of each dive: descent and drift in the surface layer, drift in the mixed layer, and
     ascent and drift in the surface layer
@@ -551,7 +551,7 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat):
     dive_list = sorted(dive_list, key=lambda x: x.start_date)
 
     # Print GPS interpolation information for every dive that includes an event all three dive regimes
-    gps_interp_file = os.path.join(processed_path, mfloat_path, mfloat+"_gps_interpolation.txt")
+    gps_interp_file = os.path.join(processed_path, mfloat_path, "gps_interpolation.txt")
     with open(gps_interp_file, "w+") as f:
         for dive in dive_list:
             # Write headers to each dive block
