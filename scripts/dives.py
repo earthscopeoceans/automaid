@@ -409,14 +409,20 @@ class Dive:
         self.gps_before_dive_incl_prev_dive = self.gps_before_dive
         if prev_dive and prev_dive.gps_list:
             if prev_dive.is_dive:
+                # DO NOT wrap this above into "and" statement (if previous dive exists, we ONLY want
+                # those GPS after it surfaced -- "and" will attach all GPS if either of those
+                # conditions fails)
                 if prev_dive.gps_after_dive:
                     self.gps_before_dive_incl_prev_dive = prev_dive.gps_after_dive + self.gps_before_dive_incl_prev_dive
             else:
                 self.gps_before_dive_incl_prev_dive = prev_dive.gps_list + self.gps_before_dive_incl_prev_dive
 
         self.gps_after_dive_incl_next_dive = self.gps_after_dive
-        if next_dive.gps_list:
+        if next_dive and next_dive.gps_list:
             if next_dive.is_dive:
+                # DO NOT wrap this above into "and" statement (if next dive exists, we ONLY want
+                # those GPS before it dove -- "and" will attach all GPS if either of those
+                # conditions fails)
                 if next_dive.gps_before_dive:
                     self.gps_after_dive_incl_next_dive = self.gps_after_dive_incl_next_dive + next_dive.gps_before_dive
             else:
