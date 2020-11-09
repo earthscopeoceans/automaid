@@ -4,8 +4,12 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 09-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
     version = 'v3.1.0'
     return version
+
+def get_url():
+    source_code = 'https://github.com/joelsimon/automaid'
+    return source_code
