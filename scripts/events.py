@@ -465,7 +465,7 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
 
     fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>4.0f}\n"
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               FILE_NAME    INTERP_LAT     INTERP_LON    STDP\n"
+    header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO    STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)
