@@ -567,11 +567,14 @@ class Dive:
     def print_dive_gps(self):
         # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
         # current dive
-        if self.prev_dive_mer_environment_name is not None:
-            print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
-                  .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
+        if self.prev_dive_log_name is not None:
+            if self.prev_dive_mer_environment_name is not None:
+                print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
+                      .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
+            else:
+                print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
         else:
-            print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
+            print("    GPS: (...no previous dive...)")
 
         # By definition 1 .LOG == 1 "dive," so there is always a .log file but
         # not necessarily an associated .MER (e.g., test or init I think?)
