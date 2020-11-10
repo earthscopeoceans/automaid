@@ -467,7 +467,7 @@ def write_gps_txt(mdives, processed_path, mfloat_path):
 
     with open(gps_file, "w+") as f:
         f.write("automaid {} ({})\n\n".format(setup.get_version(), setup.get_url()))
-        f.write("            GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME  |           SOURCE  LAT(deg min)    LON(deg min)\n".format())
+        f.write("            GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME  |           SOURCE   LAT(deg min)    LON(deg min)\n".format())
 
         for g in sorted(gps_genexp, key=lambda x: x.date):
             if g.hdop is None:
