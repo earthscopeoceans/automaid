@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 10-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -22,7 +22,7 @@ from pprint import pprint
 # Get current version number.
 version = setup.get_version()
 
-# Log class to manipulate log files
+# Class to manipulate log files
 class Dive:
     ''' The Dive class references a single .LOG file.
 
@@ -36,7 +36,7 @@ class Dive:
 
     '''
 
-    def __init__(self, base_path=None, log_name=None, events=None):
+    def __init__(self, base_path=None, log_name=None, events=None, begin=None, end=None):
         self.base_path = base_path
         self.log_name = log_name
         self.__version__ = version
@@ -212,7 +212,8 @@ class Dive:
 
         # Collect all GPS fixes taken in both the .LOG  and .MER file
         self.gps_list, self.gps_from_log, self.gps_from_mer_environment \
-            = gps.get_gps_list(self.log_name, self.log_content,  self.mer_environment_name, self.mer_environment)
+            = gps.get_gps_list(self.log_name, self.log_content,  self.mer_environment_name,
+                               self.mer_environment, begin, end)
 
         # Split the GPS list into before/after dive sublists
         if self.is_dive:
@@ -604,7 +605,7 @@ class Dive:
                           .format(e.get_export_file_name(), e.mer_binary_name))
 
 # Create dives object
-def get_dives(path, events):
+def get_dives(path, events, begin, end):
     # Concatenate log files that need it
     concatenate_log_files(path)
     # Get the list of log files
@@ -614,7 +615,7 @@ def get_dives(path, events):
     # Create Dive objects
     dives = list()
     for log_name in log_names:
-        dives.append(Dive(path, log_name, events))
+        dives.append(Dive(path, log_name, events, begin, end))
     return dives
 
 

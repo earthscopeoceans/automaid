@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 10-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import argparse
@@ -54,7 +54,15 @@ args = parser.parse_args()
 server_path = os.path.abspath(args.server)
 processed_path = os.path.abspath(args.processed)
 
-# Set a time range of analysis for a specific float
+# Bracket deployment date and death dates
+birth = 1
+death = 1
+
+# I found dates in the same range (~minutes before) as misalo and set these filterdates to the
+# actual date in the LOG. If the date did not match exactly I looked for the first date where the
+# clockdrift reset and the associated LOG recorded an actual dive.
+
+# Set an inclusive time range of analysis for a specific float
 filterDate = {
     "452.112-N-01": (datetime.datetime(2018, 12, 27), datetime.datetime(2100, 1, 1)),
     "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
@@ -63,22 +71,24 @@ filterDate = {
     "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
     "452.020-P-07": (datetime.datetime(2018, 6, 27), datetime.datetime(2100, 1, 1)),
-    "452.020-P-08": (datetime.datetime(2018, 8, 5), datetime.datetime(2100, 1, 1)),
-    "452.020-P-09": (datetime.datetime(2018, 8, 6), datetime.datetime(2100, 1, 1)),
-    "452.020-P-10": (datetime.datetime(2018, 8, 7), datetime.datetime(2100, 1, 1)),
-    "452.020-P-11": (datetime.datetime(2018, 8, 9), datetime.datetime(2100, 1, 1)),
-    "452.020-P-12": (datetime.datetime(2018, 8, 10), datetime.datetime(2100, 1, 1)),
-    "452.020-P-13": (datetime.datetime(2018, 8, 31), datetime.datetime(2100, 1, 1)),
-    "452.020-P-16": (datetime.datetime(2018, 9, 3), datetime.datetime(2100, 1, 1)),
-    "452.020-P-17": (datetime.datetime(2018, 9, 4), datetime.datetime(2100, 1, 1)),
-    "452.020-P-18": (datetime.datetime(2018, 9, 5), datetime.datetime(2100, 1, 1)),
-    "452.020-P-19": (datetime.datetime(2018, 9, 6), datetime.datetime(2100, 1, 1)),
-    "452.020-P-20": (datetime.datetime(2018, 9, 8), datetime.datetime(2100, 1, 1)),
-    "452.020-P-21": (datetime.datetime(2018, 9, 9), datetime.datetime(2100, 1, 1)),
-    "452.020-P-22": (datetime.datetime(2018, 9, 10), datetime.datetime(2100, 1, 1)),
-    "452.020-P-23": (datetime.datetime(2018, 9, 13), datetime.datetime(2100, 1, 1)),
-    "452.020-P-24": (datetime.datetime(2018, 9, 13), datetime.datetime(2100, 1, 1)),
-    "452.020-P-25": (datetime.datetime(2018, 9, 14), datetime.datetime(2100, 1, 1)),
+
+    "452.020-P-08": (datetime.datetime(2018, 8,  5, 13, 23, 14), datetime.datetime(2100, 1, 1)),
+    "452.020-P-09": (datetime.datetime(2018, 8,  6, 15, 21, 26), datetime.datetime(2100, 1, 1)),
+    "452.020-P-10": (datetime.datetime(2018, 8,  7, 12, 53, 42), datetime.datetime(2100, 1, 1)),
+    "452.020-P-11": (datetime.datetime(2018, 8,  9, 11,  2,  6), datetime.datetime(2100, 1, 1)),
+    "452.020-P-12": (datetime.datetime(2018, 8, 10, 19, 51, 31), datetime.datetime(2100, 1, 1)),
+    "452.020-P-13": (datetime.datetime(2018, 8, 31, 16, 50, 23), datetime.datetime(2100, 1, 1)),
+    "452.020-P-16": (datetime.datetime(2018, 9,  3), datetime.datetime(2100, 1, 1)),
+    "452.020-P-17": (datetime.datetime(2018, 9,  4, 11,  2, 54), datetime.datetime(2100, 1, 1)),
+    "452.020-P-18": (datetime.datetime(2018, 9,  5, 17, 38, 32), datetime.datetime(2100, 1, 1)),
+    "452.020-P-19": (datetime.datetime(2018, 9,  6, 20,  7, 30), datetime.datetime(2100, 1, 1)),
+    "452.020-P-20": (datetime.datetime(2018, 9,  8, 10, 32,  8), datetime.datetime(2100, 1, 1)),
+    "452.020-P-21": (datetime.datetime(2018, 9,  9, 17, 42, 36), datetime.datetime(2100, 1, 1)),
+    "452.020-P-22": (datetime.datetime(2018, 9, 10, 19,  7, 21), datetime.datetime(2100, 1, 1)),
+    "452.020-P-23": (datetime.datetime(2018, 9, 12,  2,  4, 14), datetime.datetime(2100, 1, 1)),
+    "452.020-P-24": (datetime.datetime(2018, 9, 13,  8, 52, 18), datetime.datetime(2100, 1, 1)),
+    "452.020-P-25": (datetime.datetime(2018, 9, 14, 11, 57, 12), datetime.datetime(2100, 1, 1)),
+
     "452.020-P-0050": (datetime.datetime(2019, 8, 11), datetime.datetime(2100, 1, 1)),
     "452.020-P-0051": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
     "452.020-P-0052": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
@@ -144,16 +154,10 @@ def main():
         extensions = ["000", "001", "002", "003", "004", "005", "LOG", "MER"]
         for extension in extensions:
             files_to_copy += glob.glob(os.path.join(server_path, mfloat_nb +  "*." + extension))
-        if mfloat in filterDate.keys():
-            begin = filterDate[mfloat][0]
-            end = filterDate[mfloat][1]
-            files_to_copy = [f for f in files_to_copy if begin <= utils.get_date_from_file_name(f) <= end]
-        else:
-            # keep all files
-            begin = datetime.datetime(1000, 1, 1)
-            end = datetime.datetime(3000, 1, 1)
 
-        # Add .vit and .out files
+        # Copy all the files; remove those GPS
+
+        #Add .vit and .out files
         files_to_copy += glob.glob(os.path.join(server_path, mfloat + "*"))
 
         # Copy files
@@ -161,19 +165,25 @@ def main():
             shutil.copy(f, mfloat_path)
 
 
-        # Build list of all mermaid events recorded by the float
+        # Really: collect all the .MER files (next we correlate their environments to .LOG files)
         print(" ...compiling a list of events from {:s} .MER files (GPS & seismic data)..." \
               .format(mfloat_serial))
         mevents = events.Events(mfloat_path)
 
-        # Correlate the list of events with each dive.
-        print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
-              .format(mfloat_serial))
+        # Determine the time range of analysis (generally; birth to death of a MERMAID)
+        if mfloat in filterDate.keys():
+            begin = filterDate[mfloat][0]
+            end = filterDate[mfloat][1]
+        else:
+            begin = datetime.datetime(1000, 1, 1)
+            end = datetime.datetime(3000, 1, 1)
 
         # Really: collect all the .LOG files in order (1 .LOG == 1 Dive)
-        mdives = dives.get_dives(mfloat_path, mevents)
+        print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
+              .format(mfloat_serial))
+        mdives = dives.get_dives(mfloat_path, mevents, begin, end)
 
-        # Compute files for each dive
+        # Generate logs and plots for each dive
         for dive in mdives:
             # Create the directory
             if not os.path.exists(dive.export_path):

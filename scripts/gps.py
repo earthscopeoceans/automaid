@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 09-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 10-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
 import setup
@@ -233,9 +233,13 @@ def linear_interpolation(gps_list, date):
 
 
 # Find GPS fix in log files and Mermaid files
-def get_gps_list(log_name, log_content, mer_environment_name, mer_environment):
-    gps_from_log = get_gps_from_log_content(log_name, log_content)
-    gps_from_mer_environment = get_gps_from_mer_environment(mer_environment_name, mer_environment)
+def get_gps_list(log_name, log_content, mer_environment_name, mer_environment, begin, end):
+    '''Collect GPS fixes from LOG and MER environments within an inclusive datetime range
+
+    '''
+
+    gps_from_log = get_gps_from_log_content(log_name, log_content, begin, end)
+    gps_from_mer_environment = get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, end)
 
     # Concatenate GPS lists
     gps_list = gps_from_log + gps_from_mer_environment
@@ -246,14 +250,17 @@ def get_gps_list(log_name, log_content, mer_environment_name, mer_environment):
     return gps_list, gps_from_log, gps_from_mer_environment
 
 
-def get_gps_from_mer_environment(mer_environment_name, mer_environment):
+def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, end):
+    '''Collect GPS fixes from MER environments within an inclusive datetime range
+
+    '''
     gps = list()
 
     # Mermaid environment can be empty
     if mer_environment is None:
         return gps
 
-    # get gps information in the mermaid environment
+    # Get gps information in the mermaid environment
     gps_mer_list = mer_environment.split("</ENVIRONMENT>")[0].split("<GPSINFO")[1:]
     for gps_mer in gps_mer_list:
         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
@@ -346,16 +353,21 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment):
         vdop = None
 
         # Add date to the list
-        if fixdate is not None and latitude is not None and longitude is not None \
-                and clockdrift is not None and clockfreq is not None:
-            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, mer_environment_name, rawstr_dict))
+        if fixdate is not None and latitude is not None and longitude is not None and clockdrift \
+           is not None and clockfreq is not None:
+            if begin <= fixdate <= end:
+                gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, mer_environment_name, rawstr_dict))
         else:
             raise ValueError
 
     return gps
 
 
-def get_gps_from_log_content(log_name, log_content):
+def get_gps_from_log_content(log_name, log_content, begin, end):
+    '''Collect GPS fixes from LOG files within an inclusive datetime range
+
+    '''
+
     gps = list()
 
     gps_log_list = log_content.split("GPS fix...")[1:]
@@ -441,7 +453,8 @@ def get_gps_from_log_content(log_name, log_content):
 
 
         if fixdate is not None and latitude is not None and longitude is not None:
-            gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, log_name, rawstr_dict))
+            if begin <= fixdate <= end:
+                gps.append(GPS(fixdate, latitude, longitude, clockdrift, clockfreq, hdop, vdop, log_name, rawstr_dict))
 
     return gps
 
