@@ -462,7 +462,7 @@ class Event:
         stats.sac["lovrok"] = False # TRUE if it is okay to overwrite this file on disk
 
         # To continue the thought above -- generally, I find that obspy fills in some SAC default
-        # headers as nan instead of -12345.
+        # headers as nan instead of -12345
 
         # Save data into a Stream object
         trace = Trace()
