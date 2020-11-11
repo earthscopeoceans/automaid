@@ -22,7 +22,6 @@ import utils
 import gps
 import sys
 import setup
-from pdb import set_trace as keyboard
 
 # Get current version number.
 version = setup.get_version()
@@ -367,7 +366,11 @@ class Event:
         plt.clf()
         plt.close()
 
-    def to_mseed(self, export_path, station_number, force_without_loc=False, force_redo=False):
+    def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
+        # NB, writes mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC", where "D" is the
+        # quality indicator, "D -- The state of quality control of the data is indeterminate" (SEED
+        # v2.4 manual pg. 108)
+
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
             #print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
@@ -379,12 +382,12 @@ class Event:
             return
 
         # Get stream object
-        stream = self.get_stream(export_path, station_number, force_without_loc)
+        stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
 
         # Save stream object
         stream.write(export_path_msd, format='MSEED')
 
-    def to_sac(self, export_path, station_number, force_without_loc=False, force_redo=False):
+    def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
             #print self.get_export_file_name() + ": Skip sac generation, wait the next ascent to compute location"
@@ -396,22 +399,27 @@ class Event:
             return
 
         # Get stream object
-        stream = self.get_stream(export_path, station_number, force_without_loc)
+        stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
 
         # Save stream object
         stream.write(export_path_sac, format='SAC')
 
-    def get_stream(self, export_path, station_number, force_without_loc=False):
-       # Check if an interpolated station location exists
+    def get_stream(self, export_path, kstnm, kinst, force_without_loc=False):
+        # Check if an interpolated station location exists
         if self.station_loc is None and not force_without_loc:
             return
 
-        # Fill SAC header info
+        # Fill metadata common to SAC and miniSEED formats
         stats = Stats()
-        stats.sampling_rate = self.decimated_fs
         stats.network = "MH"
-        stats.station = station_number
+        stats.station = kstnm
+        stats.location = ""
+        stats.channel = "BDH"  # SEED manual Appendix A
         stats.starttime = self.date
+        stats.sampling_rate = self.decimated_fs
+        stats.npts = len(self.data)
+
+        # Fill header info specific to SAC format
         stats.sac = dict()
         if not force_without_loc:
             stats.sac["stla"] = self.station_loc.latitude
@@ -421,6 +429,7 @@ class Event:
         stats.sac["user1"] = self.criterion
         stats.sac["user2"] = self.trig # samples
         stats.sac["user3"] = self.clockdrift_correction # seconds
+        stats.sac['kinst'] = kinst
         stats.sac["kuser0"] = self.__version__
         stats.sac["iztype"] = 9  # 9 == IB in sac format
 

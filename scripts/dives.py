@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 10-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -16,8 +16,6 @@ import re
 from obspy import UTCDateTime
 import plotly.graph_objs as graph
 import plotly.offline as plotly
-from pdb import set_trace as keyboard
-from pprint import pprint
 
 # Get current version number.
 version = setup.get_version()
@@ -46,6 +44,8 @@ class Dive:
         self.export_path = None
         self.station_name = None
         self.station_number = None
+        self.kstnm = None
+        self.kinst = None
 
         self.log_content = None
         self.start_date = None
@@ -150,6 +150,9 @@ class Dive:
                 self.station_name = re.findall("board (.+)", utils.split_log_lines(self.log_content)[1])
             self.station_name = self.station_name[0]
             self.station_number = self.station_name.split("-")[-1]
+
+            # Zero-pad the (unique part) of the station name so that it is five characters long
+            self.get_kstnm_kinst()
 
         # Find the .MER file of the ascent
         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
@@ -543,6 +546,28 @@ class Dive:
         for event in self.events:
             event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
 
+
+    def get_kstnm_kinst(self):
+        '''Attaches a five-character station name (KSTNM), zero-padded between the letter and number
+        defining the unique MERMAID (if required), and the "generic name of recording instrument"
+        (KINST), defined as the string which precedes the first hyphen in the Osean-defined names
+
+
+        452.112-N-01:   kinst, kstnm = '452.112', 'N0001'
+        452.020-P-08:   kinst, kstnm = '452.020', 'P0008'
+        452.020-P-0050: kinst, kstnm = '452.020', 'P0050'
+
+        Station names may be a max of five characters:
+        https://ds.iris.edu/ds/newsletter/vol1/no1/1/specification-of-seismograms-the-location-identifier/
+
+        '''
+
+        # Split at hyphens to separate kinst, kstnm and pad the middle of the latter
+        self.kinst, kstnm_char, kstnm_num = self.station_name.split('-')
+
+        num_zeros = 5 - len(kstnm_char + kstnm_num)
+        self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
+
     def generate_events_plotly(self):
         for event in self.events:
             event.plotly(self.export_path)
@@ -553,11 +578,11 @@ class Dive:
 
     def generate_events_sac(self):
         for event in self.events:
-            event.to_sac(self.export_path, self.station_number, force_without_loc=False)
+            event.to_sac(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
 
     def generate_events_mseed(self):
         for event in self.events:
-            event.to_mseed(self.export_path, self.station_number, force_without_loc=False)
+            event.to_mseed(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
 
     def print_len(self):
         self.len_days = self.len_secs / (60*60*24.)
