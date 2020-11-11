@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 09-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -421,17 +421,48 @@ class Event:
 
         # Fill header info specific to SAC format
         stats.sac = dict()
+
         if not force_without_loc:
             stats.sac["stla"] = self.station_loc.latitude
             stats.sac["stlo"] = self.station_loc.longitude
-        stats.sac["stdp"] = self.depth
-        stats.sac["user0"] = self.snr
-        stats.sac["user1"] = self.criterion
-        stats.sac["user2"] = self.trig # samples
-        stats.sac["user3"] = self.clockdrift_correction # seconds
+        else:
+            stats.sac["stla"] = -12345.0
+            stats.sac["stlo"] = -12345.0
+
+        # REQ events do not record their depth at the time of acquisition, nor the parameters that
+        # triggered the onboard detection algorithm
+        if not self.is_requested:
+            stats.sac["stdp"] = self.depth # meters (computed from external pressure sensor)
+            stats.sac["user0"] = self.snr
+            stats.sac["user1"] = self.criterion
+            stats.sac["user2"] = self.trig # sample index
+        else:
+            stats.sac["stdp"] = -12345.0
+            stats.sac["user0"] = -12345.0
+            stats.sac["user1"] = -12345.0
+            stats.sac["user2"] = -12345.0
+
+        # Clock drift is computed for both DET and REQ, unless prevented by GPS error
+        stats.sac["user3"] = self.clockdrift_correction if self.clockdrift_correction else -12345.0 # seconds
         stats.sac['kinst'] = kinst
         stats.sac["kuser0"] = self.__version__
-        stats.sac["iztype"] = 9  # 9 == IB in sac format
+
+        stats.sac["iftype"] = 1  # Type of file [required]: 1 == ITIME (time series file)
+        stats.sac["iztype"] = 9  # Reference time equivalence: 9 == IB (begin time)
+
+        # Logical header variables (False is undefined, or equivalent to -12345.0 for floats)
+        # http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
+        # I'm basing my decision to set all but "LEVEN" to False based on SAC files I've received from IRIS...
+        stats.sac["leven"]  = True # TRUE if data is evenly spaced [required]
+        stats.sac["lpspol"] = False # TRUE if station components have a positive polarity (left-hand rule)
+        stats.sac["lcalda"] = False # TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates
+        # ...but, LOVROK gets overwritten to True in obspy.io.sac.util because of
+        # https://github.com/obspy/obspy/issues/1204 (I disagree with setting it to True as default
+        # (should be False), but alas its a miscellaneous field), left here regardless for future?
+        stats.sac["lovrok"] = False # TRUE if it is okay to overwrite this file on disk
+
+        # To continue the thought above -- generally, I find that obspy fills in some SAC default
+        # headers as nan instead of -12345.
 
         # Save data into a Stream object
         trace = Trace()
