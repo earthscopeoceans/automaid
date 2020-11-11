@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 10-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import argparse
@@ -19,8 +19,6 @@ import gps
 import setup
 import re
 import utils
-from pprint import pprint
-from pdb import set_trace as keyboard
 
 # Get current version number.
 version = setup.get_version()
@@ -54,14 +52,6 @@ args = parser.parse_args()
 server_path = os.path.abspath(args.server)
 processed_path = os.path.abspath(args.processed)
 
-# Bracket deployment date and death dates
-birth = 1
-death = 1
-
-# I found dates in the same range (~minutes before) as misalo and set these filterdates to the
-# actual date in the LOG. If the date did not match exactly I looked for the first date where the
-# clockdrift reset and the associated LOG recorded an actual dive.
-
 # Set an inclusive time range of analysis for a specific float
 filterDate = {
     "452.112-N-01": (datetime.datetime(2018, 12, 27), datetime.datetime(2100, 1, 1)),
@@ -71,7 +61,7 @@ filterDate = {
     "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
     "452.020-P-07": (datetime.datetime(2018, 6, 27), datetime.datetime(2100, 1, 1)),
-
+    # *
     "452.020-P-08": (datetime.datetime(2018, 8,  5, 13, 23, 14), datetime.datetime(2100, 1, 1)),
     "452.020-P-09": (datetime.datetime(2018, 8,  6, 15, 21, 26), datetime.datetime(2100, 1, 1)),
     "452.020-P-10": (datetime.datetime(2018, 8,  7, 12, 53, 42), datetime.datetime(2100, 1, 1)),
@@ -88,13 +78,16 @@ filterDate = {
     "452.020-P-23": (datetime.datetime(2018, 9, 12,  2,  4, 14), datetime.datetime(2100, 1, 1)),
     "452.020-P-24": (datetime.datetime(2018, 9, 13,  8, 52, 18), datetime.datetime(2100, 1, 1)),
     "452.020-P-25": (datetime.datetime(2018, 9, 14, 11, 57, 12), datetime.datetime(2100, 1, 1)),
-
+    # *
     "452.020-P-0050": (datetime.datetime(2019, 8, 11), datetime.datetime(2100, 1, 1)),
     "452.020-P-0051": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
     "452.020-P-0052": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
     "452.020-P-0053": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
     "452.020-P-0054": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1))
 }
+# *I found dates in the same range (~minutes before) as misalo.txt and set these filterDates to the
+# actual corresponding date in the LOG; if the date did not match exactly I looked for the first
+# date where the clock drift reset and the associated LOG recorded an actual dive
 
 # Boolean set to true in order to delete every processed data and redo everything
 redo = False
@@ -155,15 +148,12 @@ def main():
         for extension in extensions:
             files_to_copy += glob.glob(os.path.join(server_path, mfloat_nb +  "*." + extension))
 
-        # Copy all the files; remove those GPS
-
-        #Add .vit and .out files
+        # Add .cmd, .out, and .vit files
         files_to_copy += glob.glob(os.path.join(server_path, mfloat + "*"))
 
         # Copy files
         for f in files_to_copy:
             shutil.copy(f, mfloat_path)
-
 
         # Really: collect all the .MER files (next we correlate their environments to .LOG files)
         print(" ...compiling a list of events from {:s} .MER files (GPS & seismic data)..." \
@@ -195,7 +185,7 @@ def main():
             # Generate dive plot
             dive.generate_dive_plotly()
 
-        # Compute clock drift correction for each event, and build list of GPS locations
+        # Compute clock drift correction for each event
         for dive in mdives:
             dive.correct_events_clockdrift()
 
@@ -213,7 +203,7 @@ def main():
             mdives[-1].prev_dive_log_name = mdives[-2].log_name
             mdives[-1].prev_dive_mer_environment_name = mdives[-2].mer_environment_name
 
-        # Generate plots, SAC, and miniSEED files
+        # Generate plots, SAC, and miniSEED files for each event
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
         for dive in mdives:
             if events_png:
