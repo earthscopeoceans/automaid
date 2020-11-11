@@ -697,14 +697,18 @@ def generate_printout(mdives, mfloat_serial):
 
 
 def write_dives_txt(mdives, processed_path, mfloat_path):
-    fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
     dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
+    fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
+
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "DIVE_ID              DIVE_START                DIVE_END   LEN_SECS  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format()
 
     with open(dives_file, "w+") as f:
-	f.write("DIVE_ID              DIVE_START                DIVE_END   LEN_SECS  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format())
+        f.write(version_line)
+	f.write(header_line)
+
         # 1 .LOG == 1 dive
         for d in sorted(mdives, key=lambda x: x.start_date):
-            #mer_environment_name = d.mer_environment_name if d.mer_environment_name else "nan"
             f.write(fmt_spec.format(str(d.dive_id),
                                     str(d.start_date)[:19] + 'Z',
                                     str(d.end_date)[:19] + 'Z',

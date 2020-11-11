@@ -451,11 +451,12 @@ class Event:
         stats.sac["iztype"] = 9  # Reference time equivalence: 9 == IB (begin time)
 
         # Logical header variables (False is undefined, or equivalent to -12345.0 for floats)
-        # http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
+        # (quoted inline comments below: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html)
         # I'm basing my decision to set all but "LEVEN" to False based on SAC files I've received from IRIS...
-        stats.sac["leven"]  = True # TRUE if data is evenly spaced [required]
-        stats.sac["lpspol"] = False # TRUE if station components have a positive polarity (left-hand rule)
-        stats.sac["lcalda"] = False # TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates
+        stats.sac["leven"]  = True # "TRUE if data is evenly spaced [required]"
+        stats.sac["lpspol"] = False # "TRUE if station components have a positive polarity (left-hand rule)"
+        stats.sac["lcalda"] = False # "TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates"
+
         # ...but, LOVROK gets overwritten to True in obspy.io.sac.util because of
         # https://github.com/obspy/obspy/issues/1204 (I disagree with setting it to True as default
         # (should be False), but alas its a miscellaneous field), left here regardless for future?
@@ -474,13 +475,17 @@ class Event:
 
 
 def write_traces_txt(mdives, processed_path, mfloat_path):
-    traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
 
+    traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
+
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "                               FILE_NAME            BIN_MER      PREV_DIVE_LOG  PREV_DIVE_ENV_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format()
+
     with open(traces_file, "w+") as f:
-        f.write("automaid {} ({})\n\n".format(setup.get_version(), setup.get_url()))
-        f.write("                               FILE_NAME            BIN_MER      PREV_DIVE_LOG  PREV_DIVE_ENV_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format())
+        f.write(version_line)
+        f.write(header_line)
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
             f.write(fmt_spec.format(e.get_export_file_name(),
@@ -498,21 +503,22 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
     individual float
 
     '''
-
-    loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
-
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
 
+    loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
     fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>4.0f}\n"
+
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
     header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO    STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)
         f.write(header_line)
+
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
             trace_name = e.get_export_file_name()
             STDP = e.depth if e.depth else float("nan")
+
             f.write(fmt_spec.format(trace_name,
                                     e.station_loc.latitude,
                                     e.station_loc.longitude,

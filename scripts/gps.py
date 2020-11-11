@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 10-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
 import setup
@@ -69,7 +69,7 @@ def linear_interpolation(gps_list, date):
     j = None
 
     # "input" -- difference between first and last locations retained (which may not even be actual
-    # GPS fixes in the cases when the input is already an interpolated point)
+    # GPS fixes in the cases when the inputs are already an interpolated points)
     input_drift_dist_m = None
     input_drift_time = None
     input_drift_vel_ms = None
@@ -463,9 +463,12 @@ def write_gps_txt(mdives, processed_path, mfloat_path):
     gps_fmt_spec = "{:>19s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}  |  {:>15s}    {:>3s} {:<7s}    {:>4s} {:<7s}\n"
     gps_file = os.path.join(processed_path, mfloat_path, "gps.txt")
 
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "            GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME  |           SOURCE   LAT(deg min)    LON(deg min)\n".format()
+
     with open(gps_file, "w+") as f:
-        f.write("automaid {} ({})\n\n".format(setup.get_version(), setup.get_url()))
-        f.write("            GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME  |           SOURCE   LAT(deg min)    LON(deg min)\n".format())
+        f.write(version_line)
+        f.write(header_line)
 
         for g in sorted(gps_genexp, key=lambda x: x.date):
             if g.hdop is None:
@@ -563,7 +566,11 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
 
     # Print GPS interpolation information for every dive that includes an event all three dive regimes
     gps_interp_file = os.path.join(processed_path, mfloat_path, "gps_interpolation.txt")
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+
     with open(gps_interp_file, "w+") as f:
+        f.write(version_line)
+
         for dive in dive_list:
             # Write headers to each dive block
             f.write("DIVE ID: {:>4d}\n".format(dive.dive_id))
@@ -631,7 +638,7 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
             total_drift_mixed_layer, interp_fmt_spec = parse_input_params(dive.events[0].station_loc.interp_dict)
             total_drift_mixed_layer.append(input_perc_mixed)
 
-            interp_fmt_spec = "interp_mixed               " + interp_fmt_spec + "        {:>4.1f}\n"
+            interp_fmt_spec = "interp_mixed(total)        " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*total_drift_mixed_layer))
 
             # Parse the interpolated components of surface drift after dive: crossing out of mixed
