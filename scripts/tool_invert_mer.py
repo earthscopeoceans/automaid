@@ -21,7 +21,6 @@ import sys
 import os
 import gps
 import setup
-from pdb import set_trace as keyboard
 
 # Get current version number.
 version = setup.get_version()

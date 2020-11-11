@@ -12,7 +12,6 @@ import os
 from obspy import UTCDateTime
 import plotly.graph_objs as graph
 import plotly.offline as plotly
-from pdb import set_trace as keyboard
 
 # Get current version number
 version = setup.get_version()

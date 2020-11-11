@@ -11,8 +11,6 @@ import setup
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
 import os
-from pprint import pprint
-from pdb import set_trace as keyboard
 
 # Get current version number.
 version = setup.get_version()
