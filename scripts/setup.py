@@ -11,5 +11,5 @@ def get_version():
     return version
 
 def get_url():
-    source_code = 'https://github.com/joelsimon/automaid'
+    source_code = 'https://github.com/earthscopeoceans/automaid'
     return source_code
