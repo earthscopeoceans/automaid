@@ -1,0 +1,178 @@
+diff --git a/scripts/main.py b/scripts/main.py
+index 548e550..3f6901f 100644
+--- a/scripts/main.py
++++ b/scripts/main.py
+@@ -4,7 +4,7 @@
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 05-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ import os
+ import argparse
+@@ -19,8 +19,6 @@ import gps
+ import setup
+ import re
+ import utils
+-from pprint import pprint
+-from pdb import set_trace as keyboard
+ 
+ # Get current version number.
+ version = setup.get_version()
+@@ -54,7 +52,7 @@ args = parser.parse_args()
+ server_path = os.path.abspath(args.server)
+ processed_path = os.path.abspath(args.processed)
+ 
+-# Set a time range of analysis for a specific float
++# Set an inclusive time range of analysis for a specific float
+ filterDate = {
+     "452.112-N-01": (datetime.datetime(2018, 12, 27), datetime.datetime(2100, 1, 1)),
+     "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
+@@ -63,28 +61,33 @@ filterDate = {
+     "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
+     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
+     "452.020-P-07": (datetime.datetime(2018, 6, 27), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-08": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-09": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-10": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-11": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-12": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-13": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-16": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-17": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-18": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-19": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-20": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-21": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-22": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-23": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-24": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
+-    "452.020-P-25": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
++    # *
++    "452.020-P-08": (datetime.datetime(2018, 8,  5, 13, 23, 14), datetime.datetime(2100, 1, 1)),
++    "452.020-P-09": (datetime.datetime(2018, 8,  6, 15, 21, 26), datetime.datetime(2100, 1, 1)),
++    "452.020-P-10": (datetime.datetime(2018, 8,  7, 12, 53, 42), datetime.datetime(2100, 1, 1)),
++    "452.020-P-11": (datetime.datetime(2018, 8,  9, 11,  2,  6), datetime.datetime(2100, 1, 1)),
++    "452.020-P-12": (datetime.datetime(2018, 8, 10, 19, 51, 31), datetime.datetime(2100, 1, 1)),
++    "452.020-P-13": (datetime.datetime(2018, 8, 31, 16, 50, 23), datetime.datetime(2100, 1, 1)),
++    "452.020-P-16": (datetime.datetime(2018, 9,  3), datetime.datetime(2100, 1, 1)),
++    "452.020-P-17": (datetime.datetime(2018, 9,  4, 11,  2, 54), datetime.datetime(2100, 1, 1)),
++    "452.020-P-18": (datetime.datetime(2018, 9,  5, 17, 38, 32), datetime.datetime(2100, 1, 1)),
++    "452.020-P-19": (datetime.datetime(2018, 9,  6, 20,  7, 30), datetime.datetime(2100, 1, 1)),
++    "452.020-P-20": (datetime.datetime(2018, 9,  8, 10, 32,  8), datetime.datetime(2100, 1, 1)),
++    "452.020-P-21": (datetime.datetime(2018, 9,  9, 17, 42, 36), datetime.datetime(2100, 1, 1)),
++    "452.020-P-22": (datetime.datetime(2018, 9, 10, 19,  7, 21), datetime.datetime(2100, 1, 1)),
++    "452.020-P-23": (datetime.datetime(2018, 9, 12,  2,  4, 14), datetime.datetime(2100, 1, 1)),
++    "452.020-P-24": (datetime.datetime(2018, 9, 13,  8, 52, 18), datetime.datetime(2100, 1, 1)),
++    "452.020-P-25": (datetime.datetime(2018, 9, 14, 11, 57, 12), datetime.datetime(2100, 1, 1)),
++    # *
+     "452.020-P-0050": (datetime.datetime(2019, 8, 11), datetime.datetime(2100, 1, 1)),
+     "452.020-P-0051": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
+     "452.020-P-0052": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
+     "452.020-P-0053": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
+     "452.020-P-0054": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1))
+ }
++# *I found dates in the same range (~minutes before) as misalo.txt and set these filterDates to the
++# actual corresponding date in the LOG; if the date did not match exactly I looked for the first
++# date where the clock drift reset and the associated LOG recorded an actual dive
+ 
+ # Boolean set to true in order to delete every processed data and redo everything
+ redo = False
+@@ -144,36 +147,33 @@ def main():
+         extensions = ["000", "001", "002", "003", "004", "005", "LOG", "MER"]
+         for extension in extensions:
+             files_to_copy += glob.glob(os.path.join(server_path, mfloat_nb +  "*." + extension))
+-        if mfloat in filterDate.keys():
+-            begin = filterDate[mfloat][0]
+-            end = filterDate[mfloat][1]
+-            files_to_copy = [f for f in files_to_copy if begin <= utils.get_date_from_file_name(f) <= end]
+-        else:
+-            # keep all files
+-            begin = datetime.datetime(1000, 1, 1)
+-            end = datetime.datetime(3000, 1, 1)
+ 
+-        # Add .vit and .out files
++        # Add .cmd, .out, and .vit files
+         files_to_copy += glob.glob(os.path.join(server_path, mfloat + "*"))
+ 
+         # Copy files
+         for f in files_to_copy:
+             shutil.copy(f, mfloat_path)
+ 
+-
+-        # Build list of all mermaid events recorded by the float
++        # Really: collect all the .MER files (next we correlate their environments to .LOG files)
+         print(" ...compiling a list of events from {:s} .MER files (GPS & seismic data)..." \
+               .format(mfloat_serial))
+         mevents = events.Events(mfloat_path)
+ 
+-        # Correlate the list of events with each dive.
+-        print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
+-              .format(mfloat_serial))
++        # Determine the time range of analysis (generally; birth to death of a MERMAID)
++        if mfloat in filterDate.keys():
++            begin = filterDate[mfloat][0]
++            end = filterDate[mfloat][1]
++        else:
++            begin = datetime.datetime(1000, 1, 1)
++            end = datetime.datetime(3000, 1, 1)
+ 
+         # Really: collect all the .LOG files in order (1 .LOG == 1 Dive)
+-        mdives = dives.get_dives(mfloat_path, mevents)
++        print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
++              .format(mfloat_serial))
++        mdives = dives.get_dives(mfloat_path, mevents, begin, end)
+ 
+-        # Compute files for each dive
++        # Generate logs and plots for each dive
+         for dive in mdives:
+             # Create the directory
+             if not os.path.exists(dive.export_path):
+@@ -185,7 +185,7 @@ def main():
+             # Generate dive plot
+             dive.generate_dive_plotly()
+ 
+-        # Compute clock drift correction for each event, and build list of GPS locations
++        # Compute clock drift correction for each event
+         for dive in mdives:
+             dive.correct_events_clockdrift()
+ 
+@@ -203,7 +203,7 @@ def main():
+             mdives[-1].prev_dive_log_name = mdives[-2].log_name
+             mdives[-1].prev_dive_mer_environment_name = mdives[-2].mer_environment_name
+ 
+-        # Generate plots, SAC, and miniSEED files
++        # Generate plots, SAC, and miniSEED files for each event
+         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
+         for dive in mdives:
+             if events_png:
+@@ -224,21 +224,24 @@ def main():
+             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
+ 
+         # Write text file containing all GPS fixes from .LOG and .MER
+-        gps.write_gps_txt(mdives, processed_path, mfloat_path, mfloat)
++        gps.write_gps_txt(mdives, processed_path, mfloat_path)
+ 
+         # Write text file detailing event-station location interpolation parameters
+-        gps.write_gps_interpolation_txt(mdives, processed_path, mfloat_path, mfloat)
++        gps.write_gps_interpolation_txt(mdives, processed_path, mfloat_path)
+ 
+         # Write helpful printout detailing every dive, and how .LOG and .MER
+         # files connect
+         dives.generate_printout(mdives, mfloat_serial)
+ 
+         # Write the same info just printout do stdout to text file
+-        dives.write_dives_txt(mdives, processed_path, mfloat_path, mfloat)
++        dives.write_dives_txt(mdives, processed_path, mfloat_path)
+ 
+         # Write a text file relating all SAC and mSEED to their associated .LOG
+         # and .MER files
+-        events.write_traces_txt(mdives, processed_path, mfloat_path, mfloat)
++        events.write_traces_txt(mdives, processed_path, mfloat_path)
++
++        # Write a text file with out best-guess at the location of MERMAID at the time of recording
++        events.write_loc_txt(mdives, processed_path, mfloat_path)
+ 
+         # Clean directories
+         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):

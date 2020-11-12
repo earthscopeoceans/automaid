@@ -1,0 +1,192 @@
+diff --git a/scripts/dives.py b/scripts/dives.py
+index 55703ab..e37d0f4 100644
+--- a/scripts/dives.py
++++ b/scripts/dives.py
+@@ -4,7 +4,7 @@
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 05-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ import utils
+ import gps
+@@ -16,13 +16,11 @@ import re
+ from obspy import UTCDateTime
+ import plotly.graph_objs as graph
+ import plotly.offline as plotly
+-from pdb import set_trace as keyboard
+-from pprint import pprint
+ 
+ # Get current version number.
+ version = setup.get_version()
+ 
+-# Log class to manipulate log files
++# Class to manipulate log files
+ class Dive:
+     ''' The Dive class references a single .LOG file.
+ 
+@@ -36,7 +34,7 @@ class Dive:
+ 
+     '''
+ 
+-    def __init__(self, base_path=None, log_name=None, events=None):
++    def __init__(self, base_path=None, log_name=None, events=None, begin=None, end=None):
+         self.base_path = base_path
+         self.log_name = log_name
+         self.__version__ = version
+@@ -46,6 +44,8 @@ class Dive:
+         self.export_path = None
+         self.station_name = None
+         self.station_number = None
++        self.kstnm = None
++        self.kinst = None
+ 
+         self.log_content = None
+         self.start_date = None
+@@ -151,6 +151,9 @@ class Dive:
+             self.station_name = self.station_name[0]
+             self.station_number = self.station_name.split("-")[-1]
+ 
++            # Zero-pad the (unique part) of the station name so that it is five characters long
++            self.get_kstnm_kinst()
++
+         # Find the .MER file of the ascent
+         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
+         if len(catch) > 0:
+@@ -212,7 +215,8 @@ class Dive:
+ 
+         # Collect all GPS fixes taken in both the .LOG  and .MER file
+         self.gps_list, self.gps_from_log, self.gps_from_mer_environment \
+-            = gps.get_gps_list(self.log_name, self.log_content,  self.mer_environment_name, self.mer_environment)
++            = gps.get_gps_list(self.log_name, self.log_content,  self.mer_environment_name,
++                               self.mer_environment, begin, end)
+ 
+         # Split the GPS list into before/after dive sublists
+         if self.is_dive:
+@@ -409,14 +413,20 @@ class Dive:
+         self.gps_before_dive_incl_prev_dive = self.gps_before_dive
+         if prev_dive and prev_dive.gps_list:
+             if prev_dive.is_dive:
++                # DO NOT wrap this above into "and" statement (if previous dive exists, we ONLY want
++                # those GPS after it surfaced -- "and" will attach all GPS if either of those
++                # conditions fails)
+                 if prev_dive.gps_after_dive:
+                     self.gps_before_dive_incl_prev_dive = prev_dive.gps_after_dive + self.gps_before_dive_incl_prev_dive
+             else:
+                 self.gps_before_dive_incl_prev_dive = prev_dive.gps_list + self.gps_before_dive_incl_prev_dive
+ 
+         self.gps_after_dive_incl_next_dive = self.gps_after_dive
+-        if next_dive.gps_list:
++        if next_dive and next_dive.gps_list:
+             if next_dive.is_dive:
++                # DO NOT wrap this above into "and" statement (if next dive exists, we ONLY want
++                # those GPS before it dove -- "and" will attach all GPS if either of those
++                # conditions fails)
+                 if next_dive.gps_before_dive:
+                     self.gps_after_dive_incl_next_dive = self.gps_after_dive_incl_next_dive + next_dive.gps_before_dive
+             else:
+@@ -536,6 +546,28 @@ class Dive:
+         for event in self.events:
+             event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
+ 
++
++    def get_kstnm_kinst(self):
++        '''Attaches a five-character station name (KSTNM), zero-padded between the letter and number
++        defining the unique MERMAID (if required), and the "generic name of recording instrument"
++        (KINST), defined as the string which precedes the first hyphen in the Osean-defined names
++
++
++        452.112-N-01:   kinst, kstnm = '452.112', 'N0001'
++        452.020-P-08:   kinst, kstnm = '452.020', 'P0008'
++        452.020-P-0050: kinst, kstnm = '452.020', 'P0050'
++
++        Station names may be a max of five characters:
++        https://ds.iris.edu/ds/newsletter/vol1/no1/1/specification-of-seismograms-the-location-identifier/
++
++        '''
++
++        # Split at hyphens to separate kinst, kstnm and pad the middle of the latter
++        self.kinst, kstnm_char, kstnm_num = self.station_name.split('-')
++
++        num_zeros = 5 - len(kstnm_char + kstnm_num)
++        self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
++
+     def generate_events_plotly(self):
+         for event in self.events:
+             event.plotly(self.export_path)
+@@ -546,11 +578,11 @@ class Dive:
+ 
+     def generate_events_sac(self):
+         for event in self.events:
+-            event.to_sac(self.export_path, self.station_number, force_without_loc=False)
++            event.to_sac(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
+ 
+     def generate_events_mseed(self):
+         for event in self.events:
+-            event.to_mseed(self.export_path, self.station_number, force_without_loc=False)
++            event.to_mseed(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
+ 
+     def print_len(self):
+         self.len_days = self.len_secs / (60*60*24.)
+@@ -560,11 +592,14 @@ class Dive:
+     def print_dive_gps(self):
+         # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
+         # current dive
+-        if self.prev_dive_mer_environment_name is not None:
+-            print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
+-                  .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
++        if self.prev_dive_log_name is not None:
++            if self.prev_dive_mer_environment_name is not None:
++                print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
++                      .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
++            else:
++                print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
+         else:
+-            print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
++            print("    GPS: (...no previous dive...)")
+ 
+         # By definition 1 .LOG == 1 "dive," so there is always a .log file but
+         # not necessarily an associated .MER (e.g., test or init I think?)
+@@ -598,7 +633,7 @@ class Dive:
+                           .format(e.get_export_file_name(), e.mer_binary_name))
+ 
+ # Create dives object
+-def get_dives(path, events):
++def get_dives(path, events, begin, end):
+     # Concatenate log files that need it
+     concatenate_log_files(path)
+     # Get the list of log files
+@@ -608,7 +643,7 @@ def get_dives(path, events):
+     # Create Dive objects
+     dives = list()
+     for log_name in log_names:
+-        dives.append(Dive(path, log_name, events))
++        dives.append(Dive(path, log_name, events, begin, end))
+     return dives
+ 
+ 
+@@ -661,15 +696,19 @@ def generate_printout(mdives, mfloat_serial):
+           .format(mfloat_serial, sum(bool(e.station_loc) for d in mdives for e in d.events)))
+ 
+ 
+-def write_dives_txt(mdives, processed_path, mfloat_path, mfloat):
++def write_dives_txt(mdives, processed_path, mfloat_path):
++    dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
+     fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
+-    dives_file = os.path.join(processed_path, mfloat_path, mfloat+"_dives.txt")
++
++    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
++    header_line = "DIVE_ID              DIVE_START                DIVE_END   LEN_SECS  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format()
+ 
+     with open(dives_file, "w+") as f:
+-	f.write("DIVE_ID              DIVE_START                DIVE_END   LEN_SECS  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format())
++        f.write(version_line)
++	f.write(header_line)
++
+         # 1 .LOG == 1 dive
+         for d in sorted(mdives, key=lambda x: x.start_date):
+-            #mer_environment_name = d.mer_environment_name if d.mer_environment_name else "nan"
+             f.write(fmt_spec.format(str(d.dive_id),
+                                     str(d.start_date)[:19] + 'Z',
+                                     str(d.end_date)[:19] + 'Z',

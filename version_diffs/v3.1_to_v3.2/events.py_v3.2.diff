@@ -1,0 +1,187 @@
+diff --git a/scripts/events.py b/scripts/events.py
+index 3e803e1..4ebf11e 100644
+--- a/scripts/events.py
++++ b/scripts/events.py
+@@ -4,7 +4,7 @@
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 28-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ import os
+ import glob
+@@ -22,7 +22,6 @@ import utils
+ import gps
+ import sys
+ import setup
+-from pdb import set_trace as keyboard
+ 
+ # Get current version number.
+ version = setup.get_version()
+@@ -367,7 +366,11 @@ class Event:
+         plt.clf()
+         plt.close()
+ 
+-    def to_mseed(self, export_path, station_number, force_without_loc=False, force_redo=False):
++    def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
++        # NB, writes mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC", where "D" is the
++        # quality indicator, "D -- The state of quality control of the data is indeterminate" (SEED
++        # v2.4 manual pg. 108)
++
+         # Check if the station location has been calculated
+         if self.station_loc is None and not force_without_loc:
+             #print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
+@@ -379,12 +382,12 @@ class Event:
+             return
+ 
+         # Get stream object
+-        stream = self.get_stream(export_path, station_number, force_without_loc)
++        stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
+ 
+         # Save stream object
+         stream.write(export_path_msd, format='MSEED')
+ 
+-    def to_sac(self, export_path, station_number, force_without_loc=False, force_redo=False):
++    def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
+         # Check if the station location has been calculated
+         if self.station_loc is None and not force_without_loc:
+             #print self.get_export_file_name() + ": Skip sac generation, wait the next ascent to compute location"
+@@ -396,33 +399,71 @@ class Event:
+             return
+ 
+         # Get stream object
+-        stream = self.get_stream(export_path, station_number, force_without_loc)
++        stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
+ 
+         # Save stream object
+         stream.write(export_path_sac, format='SAC')
+ 
+-    def get_stream(self, export_path, station_number, force_without_loc=False):
+-       # Check if an interpolated station location exists
++    def get_stream(self, export_path, kstnm, kinst, force_without_loc=False):
++        # Check if an interpolated station location exists
+         if self.station_loc is None and not force_without_loc:
+             return
+ 
+-        # Fill SAC header info
++        # Fill metadata common to SAC and miniSEED formats
+         stats = Stats()
+-        stats.sampling_rate = self.decimated_fs
+         stats.network = "MH"
+-        stats.station = station_number
++        stats.station = kstnm
++        stats.location = ""
++        stats.channel = "BDH"  # SEED manual Appendix A
+         stats.starttime = self.date
++        stats.sampling_rate = self.decimated_fs
++        stats.npts = len(self.data)
++
++        # Fill header info specific to SAC format
+         stats.sac = dict()
++
+         if not force_without_loc:
+             stats.sac["stla"] = self.station_loc.latitude
+             stats.sac["stlo"] = self.station_loc.longitude
+-        stats.sac["stdp"] = self.depth
+-        stats.sac["user0"] = self.snr
+-        stats.sac["user1"] = self.criterion
+-        stats.sac["user2"] = self.trig # samples
+-        stats.sac["user3"] = self.clockdrift_correction # seconds
++        else:
++            stats.sac["stla"] = -12345.0
++            stats.sac["stlo"] = -12345.0
++
++        # REQ events do not record their depth at the time of acquisition, nor the parameters that
++        # triggered the onboard detection algorithm
++        if not self.is_requested:
++            stats.sac["stdp"] = self.depth # meters (computed from external pressure sensor)
++            stats.sac["user0"] = self.snr
++            stats.sac["user1"] = self.criterion
++            stats.sac["user2"] = self.trig # sample index
++        else:
++            stats.sac["stdp"] = -12345.0
++            stats.sac["user0"] = -12345.0
++            stats.sac["user1"] = -12345.0
++            stats.sac["user2"] = -12345.0
++
++        # Clock drift is computed for both DET and REQ, unless prevented by GPS error
++        stats.sac["user3"] = self.clockdrift_correction if self.clockdrift_correction else -12345.0 # seconds
++        stats.sac['kinst'] = kinst
+         stats.sac["kuser0"] = self.__version__
+-        stats.sac["iztype"] = 9  # 9 == IB in sac format
++
++        stats.sac["iftype"] = 1  # Type of file [required]: 1 == ITIME (time series file)
++        stats.sac["iztype"] = 9  # Reference time equivalence: 9 == IB (begin time)
++
++        # Logical header variables (False is undefined, or equivalent to -12345.0 for floats)
++        # (quoted inline comments below: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html)
++        # I'm basing my decision to set all but "LEVEN" to False based on SAC files I've received from IRIS...
++        stats.sac["leven"]  = True # "TRUE if data is evenly spaced [required]"
++        stats.sac["lpspol"] = False # "TRUE if station components have a positive polarity (left-hand rule)"
++        stats.sac["lcalda"] = False # "TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates"
++
++        # ...but, LOVROK gets overwritten to True in obspy.io.sac.util because of
++        # https://github.com/obspy/obspy/issues/1204 (I disagree with setting it to True as default
++        # (should be False), but alas its a miscellaneous field), left here regardless for future?
++        stats.sac["lovrok"] = False # TRUE if it is okay to overwrite this file on disk
++
++        # To continue the thought above -- generally, I find that obspy fills in some SAC default
++        # headers as nan instead of -12345
+ 
+         # Save data into a Stream object
+         trace = Trace()
+@@ -433,13 +474,18 @@ class Event:
+         return stream
+ 
+ 
+-def write_traces_txt(mdives, processed_path, mfloat_path, mfloat):
+-    fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
+-    traces_file = os.path.join(processed_path, mfloat_path, mfloat+"_traces.txt")
++def write_traces_txt(mdives, processed_path, mfloat_path):
+     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
+ 
++    traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
++    fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
++
++    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
++    header_line = "                               FILE_NAME            BIN_MER      PREV_DIVE_LOG  PREV_DIVE_ENV_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format()
++
+     with open(traces_file, "w+") as f:
+-        f.write("            	         SAC_MSEED_TRACE            BIN_MER      PREV_DIVE_LOG  PREV_DIVE_ENV_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format())
++        f.write(version_line)
++        f.write(header_line)
+ 
+         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
+             f.write(fmt_spec.format(e.get_export_file_name(),
+@@ -450,3 +496,30 @@ def write_traces_txt(mdives, processed_path, mfloat_path, mfloat):
+                                     d.mer_environment_name,
+                                     d.next_dive_log_name,
+                                     d.next_dive_mer_environment_name))
++
++
++def write_loc_txt(mdives, processed_path, mfloat_path):
++    '''Writes interpolated station locations at the time of event recording for all events for each
++    individual float
++
++    '''
++    event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
++
++    loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
++    fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>4.0f}\n"
++
++    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
++    header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO    STDP\n"
++
++    with open(loc_file, "w+") as f:
++        f.write(version_line)
++        f.write(header_line)
++
++        for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
++            trace_name = e.get_export_file_name()
++            STDP = e.depth if e.depth else float("nan")
++
++            f.write(fmt_spec.format(trace_name,
++                                    e.station_loc.latitude,
++                                    e.station_loc.longitude,
++                                    STDP))

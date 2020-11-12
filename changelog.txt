@@ -1,14 +1,32 @@
 Current:
+*V3.2.0: 11-Nov-2020
+  -- Parse/zero-pad Osean-defined serial number into five-character station name
+     (KSTNM) and "generic name of recording instrument" (KINST) in dives; add
+     those fields to the SAC header (and default others) in events
+  -- Give finer control of start/end dates of analysis ("filterDate") by
+     specifically checking individual GPS fixes within LOG/MER files as opposed
+     to accepting or rejecting entire files (that contain multiple points) based
+     only on their file names; update start dates of Princeton-owned floats to
+     first date in the LOG after GPS synchronization (internal clock zeroed)
+  -- Write loc.txt file of interpolated STLA and STLO (station locations); same
+     data that go in STLA and STLO SAC-header fields
+  -- Add dictionary of raw strings (not processed) that collect GPS parameters
+     from LOG and MER files in their (odd and different) native formats (e.g.,
+     degrees + decimal minutes) to each GPS instance and write those strings to
+     gps.txt
+  -- Remove Osean-serial number (e.g., '452.020-P-25') from text files that I
+     write (e.g., gps.txt) to differentiate them from files written by MERMAID;
+     add automaid version number and source-code url (ESO github) header to each
+
+Previous:
 *v3.1.0: 05-Nov-2020
   -- Allow single GPS for surface-drift interpolation (previously,
      gps.linear_interpolation failed if len < 2)
   -- Validate .MER file reported in .LOG file exists before processing
-       (sometimes the .MER file hits the server much later than the associated
-       .LOG)
+     (sometimes the .MER file hits the server much later than the associated
+     .LOG)
   -- Add previous dive information to printout and output *traces.txt
 
-
-Previous:
 *v3.0.0: 03-Nov-2020
    -- Make GPS list extension more strict: only appends previous(next) dive's
       GPS list if that .LOG represents a complete dive AND the appropriate
@@ -47,7 +65,7 @@ Previous:
      distinguish it from the .MER file associated with the environment (which
      may be different)
   -- Modify attribute names (e.g. "self.mmd..." for "self.mer..") for , which
-v     should be fine at this point because automaid is still self contained, as
+     should be fine at this point because automaid is still self contained, as
      far as I'm aware
 
 *v2.0.0: 16-Oct-2020
@@ -88,7 +106,7 @@ v     should be fine at this point because automaid is still self contained, as
      just the strings "log" and "mer"
   -- Add example detailing how code handles 10_5E79D332.MER transmission failure
 
-* v1.2.0: 01-Oct-2020
+*v1.2.0: 01-Oct-2020
   -- Spell out, explicitly, which .MER file contributed event binary data in
      each Event instance
   -- Spell out, explicitly, which .MER file was used for dive event metadata (GPS
@@ -115,7 +133,7 @@ v     should be fine at this point because automaid is still self contained, as
   -- Write list of all GPS data from .LOG / .MER -- currently in main.py; this
      logic should probably be pulled out into GPS.py at some point
 
-* v1.1.0: 17-Sep-2020
+*v1.1.0: 17-Sep-2020
   -- GPS clock-drift correction added to USER3 variable in SAC header
   -- Packaged version number stored in setup.py and imported in scripts
   -- Fixed tool_invert_mer.py fixed, which now allows flexible path declarations/
@@ -125,14 +143,14 @@ v     should be fine at this point because automaid is still self contained, as
      allow fullpath inputs
   -- Removed local server/ and processed/ directories: those go in $MERMAID
 
-* v1.0.0: 11-Sep-2020
+*v1.0.0: 11-Sep-2020
   -- Fix P-25.vit GPS.linear_interpolation crash with early return in dives.py
 
-* v0.3.0: 11-Sep-2020
+*v0.3.0: 11-Sep-2020
   -- Add version to "kuser0" SAC header field
   -- Print .MER (if any) that accompanies each .LOG to stdout
 
-* v0.2.0: 09-Sep-2020
+*v0.2.0: 09-Sep-2020
   -- Make paths relative to $MERMAID and $AUTOMAID
   -- Known issues (I0.2.0_1): icdf24_v103_test and icdf24_v103ec_test in
      $AUTOMAID/scripts/bin (after running make in $AUTOMAID/scripts/src/[V103
@@ -140,7 +158,7 @@ v     should be fine at this point because automaid is still self contained, as
      Y: "icdf24_v103_test 5 1 wtcoeffs"
      N: "$AUTOMAID/scripts/bin/icdf24_v103_test 5 1 $AUTOMAID/scripts/bin/wtcoeffs"
 
-* v0.1.0: 08-Sep-2020
+*v0.1.0: 08-Sep-2020
   -- Base version, with minor modifications from Seb's listed in remote_diffs/
      (that directory of plain text files is slated for removal, but may be
      retrieved from that release)
