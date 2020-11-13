@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 12-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
 import setup
@@ -263,6 +263,7 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
     for gps_mer in gps_mer_list:
         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
 
+        # .MER times are given simply as, e.g., "2020-10-20T02:36:55"
         fixdate = re.findall(" DATE=(\d+-\d+-\d+T\d+:\d+:\d+)", gps_mer)
         if len(fixdate) > 0:
             rawstr_dict['fixdate'] = re.search("DATE=(.*) LAT", gps_mer).group(1)
@@ -272,6 +273,8 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
         else:
             fixdate = None
 
+        # .MER latitudes are given as, e.g., "-2233.9800" (degrees decimal minutes) where the first 3
+        # chars are the degrees (= S22deg33.9800mn) in .LOG parlance, with extra precision here
         latitude = re.findall(" LAT=([+,-])(\d{2})(\d+\.\d+)", gps_mer)
         if len(latitude) > 0:
             rawstr_dict['latitude'] = re.search("LAT=(.*) LON", gps_mer).group(1)
@@ -284,6 +287,8 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
         else:
             latitude = None
 
+        # .MER longitudes are given as, e.g., "-14122.6800" (degrees decimal minutes) where the first
+        # 4 chars are the degrees (= W141deg22.6800mn) in .LOG parlance, with an extra precision here
         longitude = re.findall(" LON=([+,-])(\d{3})(\d+\.\d+)", gps_mer)
         if len(longitude) > 0:
             rawstr_dict['longitude'] = re.search("LON=(.*) />", gps_mer).group(1)
@@ -296,7 +301,7 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
         else:
             longitude = None
 
-        # .MER clockdrifts are given as e.g.,
+        # .MER clockdrifts are given as, e.g.,
         # "<DRIFT YEAR=48 MONTH=7 DAY=4 HOUR=12 MIN=41 SEC=20 USEC=-563354 />"
         # which describe the drift using the sign convention of "drift = gps_time - mermaid_time"
         # (manual Ref: 452.000.852, pg. 32), NB: not all (any?) fields must exist (this is a
@@ -372,7 +377,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
     for gps_log in gps_log_list:
         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
 
-        # .LOG GPS times are given as integer UNIX Epoch times
+        # .LOG GPS times are given as integer UNIX Epoch times prepending the "GPSACK" line
         fixdate = re.findall("(\d+):\[MRMAID *, *\d+\]\$GPSACK", gps_log)
         if len(fixdate) > 0:
             fixdate = fixdate[0]
@@ -381,7 +386,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
         else:
             fixdate = None
 
-        # .LOG latitudes are given as e.g., "S22deg33.978mn" (degrees and decimal minutes)
+        # .LOG latitudes are given as, e.g., "S22deg33.978mn" (degrees and decimal minutes)
         latitude = re.findall("([S,N])(\d+)deg(\d+.\d+)mn", gps_log)
         if len(latitude) > 0:
             rawstr_dict['latitude'] = re.search("[S,N][0-9]+deg[0-9]+\.[0-9]+mn", gps_log).group(0)
@@ -394,7 +399,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
         else:
             latitude = None
 
-        # .LOG latitudes are given as e.g., "W141deg22.679mn" (degrees and decimal minutes)
+        # .LOG latitudes are given as, e.g., "W141deg22.679mn" (degrees and decimal minutes)
         longitude = re.findall("([E,W])(\d+)deg(\d+.\d+)mn", gps_log)
         if len(longitude) > 0:
             rawstr_dict['longitude'] = re.search("[E,W][0-9]+deg[0-9]+\.[0-9]+mn", gps_log).group(0)
@@ -407,7 +412,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
         else:
             longitude = None
 
-        # .LOG clockdrifts are given as e.g., "$GPSACK:+48,+7,+4,+12,+41,+20,-563354;" which
+        # .LOG clockdrifts are given as, e.g., "$GPSACK:+48,+7,+4,+12,+41,+20,-563354;" which
         # describe the drift in terms of "year,month,day,hour,min,sec,usec" (manual Ref:
         # 452.000.852, pg. 16) where the sign convention is "drift = gps_time - mermaid_time"
         # (pg. 32), there describing the .MER environment, but it must be the same for the .LOG
