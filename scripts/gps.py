@@ -57,7 +57,8 @@ def linear_interpolation(gps_list, date):
     Only two GPS instances from the input GPS list are retained for interpolation, and, if possible
     this method retains only the first two GPS instances that are separated by more than 10 minutes.
     If the two retained locations are within 20 m of one another interpolation is not performed and
-    the interpolated location is fixed to an input.
+    the interpolated location and date are fixed to an input (i.e., the requested interpolation date
+    is not returned in the output GPS instance).
 
     The interpolation dictionary, ".interp_dict", attached to each instance attempts to explain the
     outcome of this method.
@@ -107,7 +108,8 @@ def linear_interpolation(gps_list, date):
             description = description + "; interpolation not required (interpolation date is gps_list.date)"
 
         else:
-            description = description + "; interpolation fixed to input gps_list"
+            date = gps_list.date # overwrite: we did not interpolate at the requested date
+            description = description + "; location and date fixed to input gps_list"
 
         interp_dict = locals()
 
@@ -184,11 +186,16 @@ def linear_interpolation(gps_list, date):
     description= "interpolation attempted using multiple GPS points"
 
     # If the distance between the two GPS points retained is less than 20 m, don't interpolate just
-    # pick one (also, if they are the same GPS point)
+    # return the one nearest in time to the requested date (don't simply fix a known location to the
+    # requested interpolation date because it may happen that the input locations may be very near
+    # to one another, but their dates may be very far from the requested date -- imagine if you gave
+    # this algorithm two points, which differ by 1 meter and 1 second, and requested an interpolated
+    # location date one after the last input date)
     if gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, gps_list[i].latitude, gps_list[i].longitude)[0] < 20:
         interp_lat = gps_list[i].latitude
         interp_lon = gps_list[i].longitude
-        description = description + "; retained points too close for interpolation; interpolation fixed to one of gps_list"
+        date = gps_list[i].date  # overwrite: we did not interpolate at the requested date
+        description = description + "; retained points too close for interpolation; location and date fixed to one of input gps_list"
 
     else:
         input_drift_dist_m = gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, \
