@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import utils
 import gps
 import sys
+import numpy as np
 import setup
 
 # Get current version number.
@@ -367,43 +368,47 @@ class Event:
         plt.close()
 
     def attach_sacmeta(self, kstnm, kinst, force_without_loc=False):
-        '''Attaches a dictionary of extra SAC-header variables absent from miniSEED
+        '''Attaches a dictionary of extra SAC-header variables absent from miniSEED.
+
+        Floats are converted to numpy.float32() in the returned sacmeta dictionary.
 
         '''
+
+        def_float = np.float32(-12345)
         self.sacmeta = dict()
 
         if not force_without_loc:
-            self.sacmeta["stla"] = self.station_loc.latitude
-            self.sacmeta["stlo"] = self.station_loc.longitude
+            self.sacmeta["stla"] = np.float32(self.station_loc.latitude);
+            self.sacmeta["stlo"] = np.float32(self.station_loc.longitude);
         else:
-            self.sacmeta["stla"] = -12345.0
-            self.sacmeta["stlo"] = -12345.0
+            self.sacmeta["stla"] = np.float32(def_float)
+            self.sacmeta["stlo"] = np.float32(def_float)
 
         # REQ events do not record their depth at the time of acquisition, nor the parameters that
         # triggered the onboard detection algorithm
         if not self.is_requested:
-            self.sacmeta["stdp"] = self.depth # meters (computed from external pressure sensor)
+            self.sacmeta["stdp"] = np.float32(self.depth) # meters (computed from external pressure sensor)
             self.sacmeta["user0"] = self.snr
             self.sacmeta["user1"] = self.criterion
             self.sacmeta["user2"] = self.trig # sample index
         else:
-            self.sacmeta["stdp"] = -12345.0
-            self.sacmeta["user0"] = -12345.0
-            self.sacmeta["user1"] = -12345.0
-            self.sacmeta["user2"] = -12345.0
+            self.sacmeta["stdp"] = def_float
+            self.sacmeta["user0"] = def_float
+            self.sacmeta["user1"] = def_float
+            self.sacmeta["user2"] = def_float
 
         # Clock drift is computed for both DET and REQ, unless prevented by GPS error
-        self.sacmeta["user3"] = self.clockdrift_correction if self.clockdrift_correction else -12345.0 # seconds
+        self.sacmeta["user3"] = np.float32(self.clockdrift_correction) if self.clockdrift_correction else def_float # seconds
         self.sacmeta['kinst'] = kinst
         self.sacmeta["kuser0"] = self.__version__
 
-        self.sacmeta["iftype"] = 1  # Type of file [required]: 1 == ITIME (time series file)
-        self.sacmeta["iztype"] = 9  # Reference time equivalence: 9 == IB (begin time)
+        self.sacmeta["iftype"] = 1 # Type of file [required]: 1 == ITIME (time series file)
+        self.sacmeta["iztype"] = 9 # Reference time equivalence: 9 == IB (begin time)
 
         # Logical header variables (False is undefined, or equivalent to -12345.0 for floats)
         # (quoted inline comments below: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html)
         # I'm basing my decision to set all but "LEVEN" to False based on SAC files I've received from IRIS...
-        self.sacmeta["leven"]  = True # "TRUE if data is evenly spaced [required]"
+        self.sacmeta["leven"] = True # "TRUE if data is evenly spaced [required]"
         self.sacmeta["lpspol"] = False # "TRUE if station components have a positive polarity (left-hand rule)"
         self.sacmeta["lcalda"] = False # "TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates"
 
@@ -477,6 +482,7 @@ class Event:
         # Save data into a Stream object
         trace = Trace()
         trace.stats = stats
+
         trace.data = self.data
         stream = Stream(traces=[trace])
 
@@ -511,6 +517,7 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
     individual float
 
     '''
+
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
@@ -525,9 +532,9 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
             trace_name = e.get_export_file_name()
-            STDP = e.depth if e.depth else float("nan")
+            STDP = e.sacmeta['stdp'] if e.sacmeta['stdp'] != -12345.0 else float("nan")
 
             f.write(fmt_spec.format(trace_name,
-                                    e.station_loc.latitude,
-                                    e.station_loc.longitude,
-                                    STDP))
+                                    e.sacmeta["stla"],
+                                    e.sacmeta["stlo"],
+                                    STDP));
