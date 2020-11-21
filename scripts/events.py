@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 20-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -140,8 +140,8 @@ class Event:
         self.date = None
         self.station_loc = None
         self.clockdrift_correction = None
+        self.sacmeta = None
 
-        self.is_complete_mer_file = False
         self.is_requested = False
 
         self.scales = re.findall(" STAGES=(-?\d+)", self.mer_binary_header)[0]
@@ -366,6 +366,55 @@ class Event:
         plt.clf()
         plt.close()
 
+    def attach_sacmeta(self, kstnm, kinst, force_without_loc=False):
+        '''Attaches a dictionary of extra SAC-header variables absent from miniSEED
+
+        '''
+        self.sacmeta = dict()
+
+        if not force_without_loc:
+            self.sacmeta["stla"] = self.station_loc.latitude
+            self.sacmeta["stlo"] = self.station_loc.longitude
+        else:
+            self.sacmeta["stla"] = -12345.0
+            self.sacmeta["stlo"] = -12345.0
+
+        # REQ events do not record their depth at the time of acquisition, nor the parameters that
+        # triggered the onboard detection algorithm
+        if not self.is_requested:
+            self.sacmeta["stdp"] = self.depth # meters (computed from external pressure sensor)
+            self.sacmeta["user0"] = self.snr
+            self.sacmeta["user1"] = self.criterion
+            self.sacmeta["user2"] = self.trig # sample index
+        else:
+            self.sacmeta["stdp"] = -12345.0
+            self.sacmeta["user0"] = -12345.0
+            self.sacmeta["user1"] = -12345.0
+            self.sacmeta["user2"] = -12345.0
+
+        # Clock drift is computed for both DET and REQ, unless prevented by GPS error
+        self.sacmeta["user3"] = self.clockdrift_correction if self.clockdrift_correction else -12345.0 # seconds
+        self.sacmeta['kinst'] = kinst
+        self.sacmeta["kuser0"] = self.__version__
+
+        self.sacmeta["iftype"] = 1  # Type of file [required]: 1 == ITIME (time series file)
+        self.sacmeta["iztype"] = 9  # Reference time equivalence: 9 == IB (begin time)
+
+        # Logical header variables (False is undefined, or equivalent to -12345.0 for floats)
+        # (quoted inline comments below: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html)
+        # I'm basing my decision to set all but "LEVEN" to False based on SAC files I've received from IRIS...
+        self.sacmeta["leven"]  = True # "TRUE if data is evenly spaced [required]"
+        self.sacmeta["lpspol"] = False # "TRUE if station components have a positive polarity (left-hand rule)"
+        self.sacmeta["lcalda"] = False # "TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates"
+
+        # ...but, LOVROK gets overwritten to True in obspy.io.sac.util because of
+        # https://github.com/obspy/obspy/issues/1204 (I disagree with setting it to True as default
+        # (should be False), but alas its a miscellaneous field), left here regardless for future?
+        self.sacmeta["lovrok"] = False # TRUE if it is okay to overwrite this file on disk
+
+        # To continue the thought above -- generally, I find that obspy fills in some SAC default
+        # headers as nan instead of -12345
+
     def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # NB, writes mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC", where "D" is the
         # quality indicator, "D -- The state of quality control of the data is indeterminate" (SEED
@@ -398,6 +447,9 @@ class Event:
         if not force_redo and os.path.exists(export_path_sac):
             return
 
+        # Attach SAC-specific metadata dictionary
+        self.attach_sacmeta(kstnm, kinst, force_without_loc)
+
         # Get stream object
         stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
 
@@ -419,51 +471,8 @@ class Event:
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.data)
 
-        # Fill header info specific to SAC format
-        stats.sac = dict()
-
-        if not force_without_loc:
-            stats.sac["stla"] = self.station_loc.latitude
-            stats.sac["stlo"] = self.station_loc.longitude
-        else:
-            stats.sac["stla"] = -12345.0
-            stats.sac["stlo"] = -12345.0
-
-        # REQ events do not record their depth at the time of acquisition, nor the parameters that
-        # triggered the onboard detection algorithm
-        if not self.is_requested:
-            stats.sac["stdp"] = self.depth # meters (computed from external pressure sensor)
-            stats.sac["user0"] = self.snr
-            stats.sac["user1"] = self.criterion
-            stats.sac["user2"] = self.trig # sample index
-        else:
-            stats.sac["stdp"] = -12345.0
-            stats.sac["user0"] = -12345.0
-            stats.sac["user1"] = -12345.0
-            stats.sac["user2"] = -12345.0
-
-        # Clock drift is computed for both DET and REQ, unless prevented by GPS error
-        stats.sac["user3"] = self.clockdrift_correction if self.clockdrift_correction else -12345.0 # seconds
-        stats.sac['kinst'] = kinst
-        stats.sac["kuser0"] = self.__version__
-
-        stats.sac["iftype"] = 1  # Type of file [required]: 1 == ITIME (time series file)
-        stats.sac["iztype"] = 9  # Reference time equivalence: 9 == IB (begin time)
-
-        # Logical header variables (False is undefined, or equivalent to -12345.0 for floats)
-        # (quoted inline comments below: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html)
-        # I'm basing my decision to set all but "LEVEN" to False based on SAC files I've received from IRIS...
-        stats.sac["leven"]  = True # "TRUE if data is evenly spaced [required]"
-        stats.sac["lpspol"] = False # "TRUE if station components have a positive polarity (left-hand rule)"
-        stats.sac["lcalda"] = False # "TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates"
-
-        # ...but, LOVROK gets overwritten to True in obspy.io.sac.util because of
-        # https://github.com/obspy/obspy/issues/1204 (I disagree with setting it to True as default
-        # (should be False), but alas its a miscellaneous field), left here regardless for future?
-        stats.sac["lovrok"] = False # TRUE if it is okay to overwrite this file on disk
-
-        # To continue the thought above -- generally, I find that obspy fills in some SAC default
-        # headers as nan instead of -12345
+        # Extra metadata only written to SAC files
+        stats.sac = self.sacmeta
 
         # Save data into a Stream object
         trace = Trace()
@@ -472,7 +481,6 @@ class Event:
         stream = Stream(traces=[trace])
 
         return stream
-
 
 def write_traces_txt(mdives, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)

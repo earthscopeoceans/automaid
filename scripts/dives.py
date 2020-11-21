@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 20-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -67,8 +67,6 @@ class Dive:
 
         self.descent_leave_surface_date = None
         self.descent_leave_surface_loc = None
-
-        self.mixed_layer_depth_m = None
 
         self.descent_leave_surface_layer_date = None
         self.descent_leave_surface_layer_loc = None
@@ -152,7 +150,7 @@ class Dive:
             self.station_number = self.station_name.split("-")[-1]
 
             # Zero-pad the (unique part) of the station name so that it is five characters long
-            self.get_kstnm_kinst()
+            self.attach_kstnm_kinst()
 
         # Find the .MER file of the ascent
         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
@@ -490,10 +488,10 @@ class Dive:
                           / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
             descent_dist_to_mixed_layer = mixed_layer_depth_m - descent_depth_in_surface_layer
             descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
-            descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
+            self.descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
 
             self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive_incl_prev_dive, \
-                                                                            descent_leave_surface_layer_date)
+                                                                            self.descent_leave_surface_layer_date)
 
             #______________________________________________________________________________________#
 
@@ -525,10 +523,10 @@ class Dive:
                          / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
             ascent_dist_to_mixed_layer = ascent_depth_in_mixed_layer - mixed_layer_depth_m
             ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
-            ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
+            self.ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
 
             self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
-                                                                           ascent_reach_surface_layer_date)
+                                                                           self.ascent_reach_surface_layer_date)
 
             #______________________________________________________________________________________#
 
@@ -547,7 +545,7 @@ class Dive:
             event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
 
 
-    def get_kstnm_kinst(self):
+    def attach_kstnm_kinst(self):
         '''Attaches a five-character station name (KSTNM), zero-padded between the letter and number
         defining the unique MERMAID (if required), and the "generic name of recording instrument"
         (KINST), defined as the string which precedes the first hyphen in the Osean-defined names
@@ -578,11 +576,11 @@ class Dive:
 
     def generate_events_sac(self):
         for event in self.events:
-            event.to_sac(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
+            event.to_sac(self.export_path, self.kstnm, self.kinst)
 
     def generate_events_mseed(self):
         for event in self.events:
-            event.to_mseed(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
+            event.to_mseed(self.export_path, self.kstnm, self.kinst)
 
     def print_len(self):
         self.len_days = self.len_secs / (60*60*24.)
