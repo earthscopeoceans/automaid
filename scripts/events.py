@@ -384,8 +384,8 @@ class Event:
             self.sacmeta["stla"] = np.float32(def_float)
             self.sacmeta["stlo"] = np.float32(def_float)
 
-        # REQ events do not record their depth at the time of acquisition, nor the parameters that
-        # triggered the onboard detection algorithm
+        # REQ events do not record their depth at the time of acquisition, and because the onboard
+        # dectection algorithm was not triggered there are no trigger parameters to report
         if not self.is_requested:
             self.sacmeta["stdp"] = np.float32(self.depth) # meters (computed from external pressure sensor)
             self.sacmeta["user0"] = np.float32(self.snr)
@@ -402,6 +402,9 @@ class Event:
         self.sacmeta["user3"] = np.float32(self.clockdrift_correction) if self.clockdrift_correction else def_float # seconds
         self.sacmeta['kinst'] = kinst
         self.sacmeta["kuser0"] = self.__version__
+
+        reqdet_scales = self.get_export_file_name().split('.')[-2:]
+        self.sacmeta['kuser1'] = '.'.join(reqdet_scales) # e.g., "DET.WLT5"
 
         self.sacmeta["iftype"] = np.int32(1) # Type of file [required]: 1 == ITIME (time series file)
         self.sacmeta["iztype"] = np.int32(9) # Reference time equivalence: 9 == IB (begin time)
