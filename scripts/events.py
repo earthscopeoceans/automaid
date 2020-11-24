@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 24-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -374,8 +374,8 @@ class Event:
 
         '''
 
-        def_float = np.float32(-12345)
         self.sacmeta = dict()
+        def_float = np.float32(-12345)
 
         if not force_without_loc:
             self.sacmeta["stla"] = np.float32(self.station_loc.latitude);
@@ -388,37 +388,23 @@ class Event:
         # triggered the onboard detection algorithm
         if not self.is_requested:
             self.sacmeta["stdp"] = np.float32(self.depth) # meters (computed from external pressure sensor)
-            self.sacmeta["user0"] = self.snr
-            self.sacmeta["user1"] = self.criterion
-            self.sacmeta["user2"] = self.trig # sample index
+            self.sacmeta["user0"] = np.float32(self.snr)
+            self.sacmeta["user1"] = np.float32(self.criterion)
+            self.sacmeta["user2"] = np.float32(self.trig) # sample index
         else:
             self.sacmeta["stdp"] = def_float
             self.sacmeta["user0"] = def_float
             self.sacmeta["user1"] = def_float
             self.sacmeta["user2"] = def_float
 
-        # Clock drift is computed for both DET and REQ, unless prevented by GPS error
+        # Clock drift is computed for both DET and REQ, unless prevented by GPS error (computation
+        # not determined by DET or REQ status)
         self.sacmeta["user3"] = np.float32(self.clockdrift_correction) if self.clockdrift_correction else def_float # seconds
         self.sacmeta['kinst'] = kinst
         self.sacmeta["kuser0"] = self.__version__
 
-        self.sacmeta["iftype"] = 1 # Type of file [required]: 1 == ITIME (time series file)
-        self.sacmeta["iztype"] = 9 # Reference time equivalence: 9 == IB (begin time)
-
-        # Logical header variables (False is undefined, or equivalent to -12345.0 for floats)
-        # (quoted inline comments below: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html)
-        # I'm basing my decision to set all but "LEVEN" to False based on SAC files I've received from IRIS...
-        self.sacmeta["leven"] = True # "TRUE if data is evenly spaced [required]"
-        self.sacmeta["lpspol"] = False # "TRUE if station components have a positive polarity (left-hand rule)"
-        self.sacmeta["lcalda"] = False # "TRUE if DIST, AZ, BAZ, and GCARC are to be calculated from station and event coordinates"
-
-        # ...but, LOVROK gets overwritten to True in obspy.io.sac.util because of
-        # https://github.com/obspy/obspy/issues/1204 (I disagree with setting it to True as default
-        # (should be False), but alas its a miscellaneous field), left here regardless for future?
-        self.sacmeta["lovrok"] = False # TRUE if it is okay to overwrite this file on disk
-
-        # To continue the thought above -- generally, I find that obspy fills in some SAC default
-        # headers as nan instead of -12345
+        self.sacmeta["iftype"] = np.int32(1) # Type of file [required]: 1 == ITIME (time series file)
+        self.sacmeta["iztype"] = np.int32(9) # Reference time equivalence: 9 == IB (begin time)
 
     def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # NB, writes mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC", where "D" is the
@@ -476,17 +462,28 @@ class Event:
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.data)
 
-        # Extra metadata only written to SAC files
+        # Extra metadata only written to SAC files*
         stats.sac = self.sacmeta
 
         # Save data into a Stream object
         trace = Trace()
         trace.stats = stats
-
         trace.data = self.data
+
+        # NB: the SAC header shown to the world (e.g., "sac.delta") and the private SAC header
+        # written to disk (e.g., "sac._hf[0]") differ in type, hence I convert sacmeta to np.float32
+        # above.  The relevant float header values that actually get printed with sac.write are
+        # stored in the private ._hf attriubute.
+        #
+        # >> from obspy.io.sac.sactrace import SACTrace
+        # >> sac = SACTrace.from_obspy_trace(trace)
+        # >> isinstance(sac.delta, float)
+        # >> isinstance(sac._hf[0], numpy.float32)
+
         stream = Stream(traces=[trace])
 
         return stream
+
 
 def write_traces_txt(mdives, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
