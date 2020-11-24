@@ -4,9 +4,9 @@
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
-# Current maintainer: Dr. Joel D. Simon (JDS)
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 24-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import re
@@ -117,7 +117,18 @@ def get_time_array(length, period):
     return time_list
 
 
-# Convert raw data amplitude to pascal
+def sac_scale():
+    '''Returns the multiplicative factor to convert MERMAID digital counts to pascal
+
+    '''
+
+    scale = 1 / (10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000)
+
+    return scale
+
+
 def counts2pascal(data):
-    factor = 0.178 / 1000. * 10. ** (23. / 20.) * 2. ** 24. / 5. * 2. ** 4.
-    return data / factor
+    '''Converts MERMAID digital counts to pascal via multiplication with scale factor: util.sac_scale
+
+    '''
+    return data * sac_scale()

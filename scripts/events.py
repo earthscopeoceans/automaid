@@ -351,13 +351,13 @@ class Event:
         if not force_redo and os.path.exists(export_path_png):
             return
 
-        data = [d/(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000) for d in self.data]
+        pascals = [utils.counts2pascal(d) for d in self.data]
 
         # Plot frequency image
         plt.figure(figsize=(9, 4))
         plt.title(self.__get_figure_title(), fontsize=12)
-        plt.plot(utils.get_time_array(len(self.data), 1./self.decimated_fs),
-                 data,
+        plt.plot(utils.get_time_array(len(pascals), 1./self.decimated_fs),
+                 pascals,
                  color='b')
         plt.xlabel("Time (s)", fontsize=12)
         plt.ylabel("Pascal", fontsize=12)
