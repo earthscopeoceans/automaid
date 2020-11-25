@@ -545,7 +545,7 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
 
     '''
 
-    event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
+    event_list = [event for dive in mdives for event in dive.events if event.station_loc]
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
     fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
@@ -557,7 +557,7 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
         f.write(version_line)
         f.write(header_line)
 
-        for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
+        for e in sorted(event_list, key=lambda x: x.date):
             f.write(fmt_spec.format(e.get_export_file_name(),
                                     np.float32(e.obspy_trace_stats.sac["stla"]),
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
@@ -566,64 +566,64 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
 
 
 def write_automaid_metadata(mdives, processed_path, mfloat_path):
-    def writeit(file_name, header_line, file_format):
-        version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    '''Writes metadata useful to the researchers and/or specific to automaid and/or not included in
+    mseed or the mseed2sac metadata file in csv and txt format.
 
-        with open(file_name, "w+") as f:
-            f.write(version_line)
-            f.write(header_line)
-
-            for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
-                f.write(file_format.format(e.get_export_file_name(),
-                                           np.float32(e.obspy_trace_stats.sac["stla"]),
-                                           np.float32(e.obspy_trace_stats.sac["stlo"]),
-                                           np.float32(e.obspy_trace_stats.sac["stdp"]),
-                                           np.float32(e.obspy_trace_stats.sac["user0"]),
-                                           np.float32(e.obspy_trace_stats.sac["user1"]),
-                                           np.float32(e.obspy_trace_stats.sac["user2"]),
-                                           np.float32(e.obspy_trace_stats.sac["user3"]),
-                                           e.obspy_trace_stats.sac["kinst"],
-                                           e.obspy_trace_stats.sac["kuser0"],
-                                           e.obspy_trace_stats.sac["kuser1"]))
-
-    # This has to be a list not a generator because it is used twice
-    event_dive_tup = [(event, dive) for dive in mdives for event in dive.events if event.station_loc]
-
-    fmt_spec_txt = ['{:>40s}',   # file name
-                    '{:>10.6f}', # stla
-                    '{:>11.6f}', # stlo
-                    '{:>6.0f}',  # stdp
-                    '{:>13.6f}', # user0 (snr)
-                    '{:>13.6f}', # user1 (criterion)
-                    '{:>6.0f}',  # user2 (trig)
-                    '{:>13.6f}', # user3 (clockdrift correction)
-                    '{:>8s}',    # kinst (instrument)
-                    '{:>8s}',    # kuser0 (automaid version)
-                    '{:>8s}\n'   # kuser1 (REQ or DET and scales)
-                    ]
-
-    fmt_spec_csv = ['{:s}',   # file name
-                    '{:.6f}', # stla
-                    '{:.6f}', # stlo
-                    '{:.0f}', # stdp
-                    '{:.6f}', # user0 (snr)
-                    '{:.6f}', # user1 (criterion)
-                    '{:.0f}', # user2 (trig)
-                    '{:.6f}', # user3 (clockdrift correction)
-                    '{:s}',   # kinst (instrument)
-                    '{:s}',   # kuser0 (automaid version)
-                    '{:s}\n'  # kuser1 (REQ or DET and scales)
-                    ]
-
-    fmt_spec_txt  = '    '.join(fmt_spec_txt)
-    fmt_spec_csv  = ','.join(fmt_spec_csv)
-
+    '''
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
     header_line_txt = "                               FILE_NAME          STLA           STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
     header_line_csv = "FILE_NAME,STLA,STLO,STDP,USER0,USER1,USER2,USER3,KINST,KUSER0,USER1\n"
 
+    fmt_txt = ['{:>40s}',   # file name
+               '{:>10.6f}', # stla
+               '{:>11.6f}', # stlo
+               '{:>6.0f}',  # stdp
+               '{:>13.6f}', # user0 (snr)
+               '{:>13.6f}', # user1 (criterion)
+               '{:>6.0f}',  # user2 (trig)
+               '{:>13.6f}', # user3 (clockdrift correction)
+               '{:>8s}',    # kinst (instrument)
+               '{:>8s}',    # kuser0 (automaid version)
+               '{:>8s}\n']  # kuser1 (REQ or DET and scales)
+    fmt_txt  = '    '.join(fmt_txt)
+    fmt_csv = ['{:s}',   # file name
+               '{:.6f}', # stla
+               '{:.6f}', # stlo
+               '{:.0f}', # stdp
+               '{:.6f}', # user0 (snr)
+               '{:.6f}', # user1 (criterion)
+               '{:.0f}', # user2 (trig)
+               '{:.6f}', # user3 (clockdrift correction)
+               '{:s}',   # kinst (instrument)
+               '{:s}',   # kuser0 (automaid version)
+               '{:s}\n'] # kuser1 (REQ or DET and scales)
+    fmt_csv  = ','.join(fmt_csv)
+
+    event_list = [event for dive in mdives for event in dive.events if event.station_loc]
     base_path = os.path.join(processed_path, mfloat_path, 'automaid_metadata')
-    writeit(base_path+'.txt', header_line_txt, fmt_spec_txt)
-    writeit(base_path+'.csv', header_line_csv, fmt_spec_csv)
+    with open(base_path+'.txt', "w+") as f_txt, open(base_path+'.csv', "w+") as f_csv:
+        f_txt.write(version_line)
+        f_txt.write(header_line_txt)
+
+        f_csv.write(version_line)
+        f_csv.write(header_line_csv)
+
+        for e in sorted(event_list, key=lambda x: x.date):
+            metadata = [e.get_export_file_name(),
+                        np.float32(e.obspy_trace_stats.sac["stla"]),
+                        np.float32(e.obspy_trace_stats.sac["stlo"]),
+                        np.float32(e.obspy_trace_stats.sac["stdp"]),
+                        np.float32(e.obspy_trace_stats.sac["user0"]),
+                        np.float32(e.obspy_trace_stats.sac["user1"]),
+                        np.float32(e.obspy_trace_stats.sac["user2"]),
+                        np.float32(e.obspy_trace_stats.sac["user3"]),
+                        e.obspy_trace_stats.sac["kinst"],
+                        e.obspy_trace_stats.sac["kuser0"],
+                        e.obspy_trace_stats.sac["kuser1"]]
+
+            f_txt.write(fmt_txt.format(*metadata))
+            f_csv.write(fmt_csv.format(*metadata))
+
 
 def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
     '''Writes a mseed2sac metadata csv file
@@ -634,10 +634,9 @@ def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
     Also prints the same information in a formatted text file for review.
 
     '''
-    event_list = [event for dive in mdives for event in dive.events if event.station_loc]
-
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
     header_line_csv = "#net,sta,loc,chan,lat,lon,elev,depth,azimuth,SACdip,instrument,scale,scalefreq,scaleunits,samplerate,start,end\n"
-    header_line_txt = "net     sta   loc   chan           lat            lon      elev     depth   azimuth    SACdip  instrument     scale  scalefreq scaleunit  samplerate               start                    end\n"
+    header_line_txt = "net     sta   loc   chan           lat            lon      elev     depth   azimuth    SACdip  instrument     scale  scalefreq scaleunits samplerate               start                    end\n"
 
     fmt_csv = ['{:s}',
                '{:s}',
@@ -676,6 +675,10 @@ def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
                '{:>19s}\n']
     fmt_txt = '    '.join(fmt_txt)
 
+
+    event_list = [event for dive in mdives for event in dive.events if event.station_loc]
+    base_path = os.path.join(processed_path, mfloat_path, 'mseed2sac_metadata')
+
     '''
     From: https://github.com/iris-edu/mseed2sac/blob/master/doc/mseed2sac.md
 
@@ -700,9 +703,6 @@ def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
     '''
     scale_frequency = np.float32(1.) # ?
     scale_units = "N/m**2" # or "Pa" or "kg m**-1 s**-2" ?
-
-    base_path = os.path.join(processed_path, mfloat_path, 'mseed2sac_metadata')
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
     with open(base_path+".txt", "w+") as f_txt, open(base_path+".csv", "w+") as f_csv:
         f_txt.write(version_line)
