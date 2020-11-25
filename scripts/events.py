@@ -141,7 +141,7 @@ class Event:
         self.date = None
         self.station_loc = None
         self.clockdrift_correction = None
-        self.sacmeta = None
+        self.obspy_trace_stats = None
 
         self.is_requested = False
 
@@ -367,44 +367,57 @@ class Event:
         plt.clf()
         plt.close()
 
-    def attach_sacmeta(self, kstnm, kinst, force_without_loc=False):
+    def attach_obspy_trace_stats(self, kstnm, kinst, force_without_loc=False):
         '''Attaches a dictionary of extra SAC-header variables absent from miniSEED.
 
         Floats are converted to numpy.float32() in the returned sacmeta dictionary.
 
         '''
 
-        self.sacmeta = dict()
+        # Fill metadata common to SAC and miniSEED formats
+        stats = Stats()
+        stats.network = "MH"
+        stats.station = kstnm
+        stats.location = ""
+        stats.channel = "BDH"  # SEED manual Appendix A
+        stats.starttime = self.date
+        stats.sampling_rate = self.decimated_fs
+        stats.npts = len(self.data)
+
+        # Extra metadata only written to SAC files*
+        stats.sac = dict()
         def_float = np.float32(-12345)
 
         if not force_without_loc:
-            self.sacmeta["stla"] = np.float32(self.station_loc.latitude);
-            self.sacmeta["stlo"] = np.float32(self.station_loc.longitude);
+            stats.sac["stla"] = np.float32(self.station_loc.latitude);
+            stats.sac["stlo"] = np.float32(self.station_loc.longitude);
         else:
-            self.sacmeta["stla"] = np.float32(def_float)
-            self.sacmeta["stlo"] = np.float32(def_float)
+            stats.sac["stla"] = np.float32(def_float)
+            stats.sac["stlo"] = np.float32(def_float)
 
         # REQ events do not record their depth at the time of acquisition, and because the onboard
         # dectection algorithm was not triggered there are no trigger parameters to report
         if not self.is_requested:
-            self.sacmeta["stdp"] = np.float32(self.depth) # meters (computed from external pressure sensor)
-            self.sacmeta["user0"] = np.float32(self.snr)
-            self.sacmeta["user1"] = np.float32(self.criterion)
-            self.sacmeta["user2"] = np.float32(self.trig) # sample index
+            stats.sac["stdp"] = np.float32(self.depth) # meters (computed from external pressure sensor)
+            stats.sac["user0"] = np.float32(self.snr)
+            stats.sac["user1"] = np.float32(self.criterion)
+            stats.sac["user2"] = np.float32(self.trig) # sample index
         else:
-            self.sacmeta["stdp"] = def_float
-            self.sacmeta["user0"] = def_float
-            self.sacmeta["user1"] = def_float
-            self.sacmeta["user2"] = def_float
+            stats.sac["stdp"] = def_float
+            stats.sac["user0"] = def_float
+            stats.sac["user1"] = def_float
+            stats.sac["user2"] = def_float
 
         # Clock drift is computed for both DET and REQ, unless prevented by GPS error (computation
         # not determined by DET or REQ status)
-        self.sacmeta["user3"] = np.float32(self.clockdrift_correction) if self.clockdrift_correction else def_float # seconds
-        self.sacmeta['kinst'] = kinst
-        self.sacmeta["kuser0"] = self.__version__
+        stats.sac["user3"] = np.float32(self.clockdrift_correction) if self.clockdrift_correction else def_float # seconds
+        stats.sac['kinst'] = kinst
+        stats.sac["kuser0"] = self.__version__
 
         reqdet_scales = self.get_export_file_name().split('.')[-2:]
-        self.sacmeta['kuser1'] = '.'.join(reqdet_scales) # e.g., "DET.WLT5"
+        stats.sac['kuser1'] = '.'.join(reqdet_scales) # e.g., "DET.WLT5"
+
+        self.obspy_trace_stats = stats
 
     def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # NB, writes mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC", where "D" is the
@@ -415,6 +428,10 @@ class Event:
         if self.station_loc is None and not force_without_loc:
             #print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
             return
+
+        # Format the metadata into miniSEED and SAC header formats
+        if not self.obspy_trace_stats:
+            self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
 
         # Check if file exist
         export_path_msd = export_path + self.get_export_file_name() + ".mseed"
@@ -433,13 +450,14 @@ class Event:
             #print self.get_export_file_name() + ": Skip sac generation, wait the next ascent to compute location"
             return
 
+        # Format the metadata into miniSEED and SAC header formats
+        if not self.obspy_trace_stats:
+            self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
+
         # Check if file exist
         export_path_sac = export_path + self.get_export_file_name() + ".sac"
         if not force_redo and os.path.exists(export_path_sac):
             return
-
-        # Attach SAC-specific metadata dictionary
-        self.attach_sacmeta(kstnm, kinst, force_without_loc)
 
         # Get stream object
         stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
@@ -452,22 +470,10 @@ class Event:
         if self.station_loc is None and not force_without_loc:
             return
 
-        # Fill metadata common to SAC and miniSEED formats
-        stats = Stats()
-        stats.network = "MH"
-        stats.station = kstnm
-        stats.location = ""
-        stats.channel = "BDH"  # SEED manual Appendix A
-        stats.starttime = self.date
-        stats.sampling_rate = self.decimated_fs
-        stats.npts = len(self.data)
-
-        # Extra metadata only written to SAC files*
-        stats.sac = self.sacmeta
 
         # Save data into a Stream object
         trace = Trace()
-        trace.stats = stats
+        trace.stats = self.obspy_trace_stats
         trace.data = self.data
 
         # NB: the SAC header shown to the world (e.g., "sac.delta") and the private SAC header
@@ -518,10 +524,10 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
-    fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>4.0f}\n"
+    fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO    STDP\n"
+    header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO      STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)
@@ -529,9 +535,9 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
             f.write(fmt_spec.format(e.get_export_file_name(),
-                                    e.sacmeta["stla"],
-                                    e.sacmeta["stlo"],
-            e.sacmeta["stdp"]))
+                                    e.obspy_trace_stats.sac["stla"],
+                                    e.obspy_trace_stats.sac["stlo"],
+                                    e.obspy_trace_stats.sac["stdp"]))
 
 
 
@@ -555,7 +561,7 @@ def write_sacmeta_txt(mdives, processed_path, mfloat_path):
     fmt_spec  = '    '.join(fmt_spec)
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
+    header_line = "                               FILE_NAME          STLA           STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
 
     with open(sacmeta_file, "w+") as f:
         f.write(version_line)
@@ -563,13 +569,13 @@ def write_sacmeta_txt(mdives, processed_path, mfloat_path):
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
             f.write(fmt_spec.format(e.get_export_file_name(),
-                                    e.sacmeta["stla"],
-                                    e.sacmeta["stlo"],
-                                    e.sacmeta["stdp"],
-                                    e.sacmeta["user0"],
-                                    e.sacmeta["user1"],
-                                    e.sacmeta["user2"],
-                                    e.sacmeta["user3"],
-                                    e.sacmeta["kinst"],
-                                    e.sacmeta["kuser0"],
-                                    e.sacmeta["kuser1"]))
+                                    e.obspy_trace_stats.sac["stla"],
+                                    e.obspy_trace_stats.sac["stlo"],
+                                    e.obspy_trace_stats.sac["stdp"],
+                                    e.obspy_trace_stats.sac["user0"],
+                                    e.obspy_trace_stats.sac["user1"],
+                                    e.obspy_trace_stats.sac["user2"],
+                                    e.obspy_trace_stats.sac["user3"],
+                                    e.obspy_trace_stats.sac["kinst"],
+                                    e.obspy_trace_stats.sac["kuser0"],
+                                    e.obspy_trace_stats.sac["kuser1"]))
