@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 24-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 25-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -408,15 +408,27 @@ class Event:
         stats.npts = len(self.data)
 
         # Extra metadata only written to SAC files*
-        stats.sac = dict()
+        keys = ['stla',
+                'stlo',
+                'stel',
+                'stdp',
+                'cmpaz',
+                'cmpinc',
+                'kinst',
+                'scale',
+                'user0',
+                'user1',
+                'user2',
+                'user3',
+                'kuser1']
         def_float = -12345.
+
+        # Default SAC header (will not fill all of these keys)
+        stats.sac = dict.fromkeys(keys, def_float)
 
         if not force_without_loc:
             stats.sac["stla"] = self.station_loc.latitude;
             stats.sac["stlo"] = self.station_loc.longitude;
-        else:
-            stats.sac["stla"] = def_float
-            stats.sac["stlo"] = def_float
 
         # REQ events do not record their depth at the time of acquisition, and because the onboard
         # detection algorithm was not triggered there are no trigger parameters to report
@@ -425,11 +437,9 @@ class Event:
             stats.sac["user0"] = self.snr
             stats.sac["user1"] = self.criterion
             stats.sac["user2"] = self.trig # sample index
-        else:
-            stats.sac["stdp"] = def_float
-            stats.sac["user0"] = def_float
-            stats.sac["user1"] = def_float
-            stats.sac["user2"] = def_float
+
+        # This needs to be discussed -- I do not know the convention here.
+        stats.sac["scale"] = utils.sac_scale()
 
         # Clock drift is computed for both DET and REQ, unless prevented by GPS error (computation
         # not determined by DET or REQ status)
@@ -437,6 +447,7 @@ class Event:
         stats.sac['kinst'] = kinst
         stats.sac["kuser0"] = self.__version__
 
+        # String describing detection/request status, and number of wavelet scales transmitted
         reqdet_scales = self.get_export_file_name().split('.')[-2:]
         stats.sac['kuser1'] = '.'.join(reqdet_scales) # e.g., "DET.WLT5"
 
@@ -554,7 +565,7 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
 
 
 
-def write_sacmeta_txt_csv(mdives, processed_path, mfloat_path):
+def write_automaid_metadata(mdives, processed_path, mfloat_path):
     def writeit(file_name, header_line, file_format):
         version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
@@ -610,6 +621,114 @@ def write_sacmeta_txt_csv(mdives, processed_path, mfloat_path):
     header_line_txt = "                               FILE_NAME          STLA           STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
     header_line_csv = "FILE_NAME,STLA,STLO,STDP,USER0,USER1,USER2,USER3,KINST,KUSER0,USER1\n"
 
-    base_path = os.path.join(processed_path, mfloat_path, 'sacmeta')
+    base_path = os.path.join(processed_path, mfloat_path, 'automaid_metadata')
     writeit(base_path+'.txt', header_line_txt, fmt_spec_txt)
     writeit(base_path+'.csv', header_line_csv, fmt_spec_csv)
+
+def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
+    '''Writes a mseed2sac metadata csv file
+    (https://github.com/iris-edu/mseed2sac/blob/master/doc/mseed2sac.md).
+
+    Usage: mseed2sac -m mseed2sac_metadata.cv *mseed
+
+    Also prints the same information in a formatted text file for review.
+
+    '''
+    event_list = [event for dive in mdives for event in dive.events if event.station_loc]
+
+    header_line_csv = "#net,sta,loc,chan,lat,lon,elev,depth,azimuth,SACdip,instrument,scale,scalefreq,scaleunits,samplerate,start,end\n"
+    header_line_txt = "net     sta   loc   chan           lat            lon      elev     depth   azimuth    SACdip  instrument     scale  scalefreq scaleunit  samplerate               start                    end\n"
+
+    fmt_csv = ['{:s}',
+               '{:s}',
+               '{:s}',
+               '{:s}',
+               '{:.6f}',
+               '{:.6f}',
+               '{:.0f}',
+               '{:.0f}',
+               '{:.0f}',
+               '{:.0f}',
+               '{:s}',
+               '{:.0f}',
+               '{:.1f}',
+               '{:s}',
+               '{:.0f}',
+               '{:s}',
+               '{:s}\n']
+    fmt_csv = ','.join(fmt_csv)
+    fmt_txt = ['{:>2s}',
+               '{:>5s}',
+               '{:>2s}',
+               '{:>3s}',
+               '{:>10.6f}',
+               '{:>11.6f}',
+               '{:>6.0f}',
+               '{:>6.0f}',
+               '{:>6.0f}',
+               '{:>6.0f}',
+               '{:>8s}',
+               '{:6.0f}',
+               '{:>4.1f}',
+               '{:>8s}',
+               '{:>6.0f}',
+               '{:>19s}',
+               '{:>19s}\n']
+    fmt_txt = '    '.join(fmt_txt)
+
+    '''
+    From: https://github.com/iris-edu/mseed2sac/blob/master/doc/mseed2sac.md
+
+    Network (KNETWK)
+    Station (KSTNM)
+    Location (KHOLE)
+    Channel (KCMPNM)
+    Latitude (STLA)
+    Longitude (STLO)
+    Elevation (STEL), in meters [not currently used by SAC]
+    Depth (STDP), in meters [not currently used by SAC]
+    Component Azimuth (CMPAZ), degrees clockwise from north
+    Component Incident Angle (CMPINC), degrees from vertical
+    Instrument Name (KINST), up to 8 characters
+    Scale Factor (SCALE)
+    Scale Frequency, unused
+    Scale Units, unused
+    Sampling rate, unused
+    Start time, used for matching
+    End time, used for matching
+
+    '''
+    scale_frequency = np.float32(1.) # ?
+    scale_units = "N/m**2" # or "Pa" or "kg m**-1 s**-2" ?
+
+    base_path = os.path.join(processed_path, mfloat_path, 'mseed2sac_metadata')
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+
+    with open(base_path+".txt", "w+") as f_txt, open(base_path+".csv", "w+") as f_csv:
+        f_txt.write(version_line)
+        f_txt.write(header_line_txt)
+
+        f_csv.write(version_line)
+        f_csv.write(header_line_csv)
+
+        for e in sorted(event_list, key=lambda x: x.date):
+            metadata = [e.obspy_trace_stats.network,
+                        e.obspy_trace_stats.station,
+                        e.obspy_trace_stats.location,
+                        e.obspy_trace_stats.channel,
+                        np.float32(e.obspy_trace_stats.sac.stla),
+                        np.float32(e.obspy_trace_stats.sac.stlo),
+                        np.float32(e.obspy_trace_stats.sac.stel),
+                        np.float32(e.obspy_trace_stats.sac.stdp),
+                        np.float32(e.obspy_trace_stats.sac.cmpaz),
+                        np.float32(e.obspy_trace_stats.sac.cmpinc),
+                        e.obspy_trace_stats.sac.kinst,
+                        np.float32(e.obspy_trace_stats.sac.scale), # ?
+                        scale_frequency,
+                        scale_units,
+                        np.float32(e.obspy_trace_stats.sampling_rate),
+                        str(e.obspy_trace_stats.starttime)[:19],  # float32 conversion?
+                        str(e.obspy_trace_stats.endtime)[:19]]    # float32 conversion?
+
+            f_txt.write(fmt_txt.format(*metadata))
+            f_csv.write(fmt_csv.format(*metadata))
