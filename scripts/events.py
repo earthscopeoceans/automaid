@@ -368,9 +368,32 @@ class Event:
         plt.close()
 
     def attach_obspy_trace_stats(self, kstnm, kinst, force_without_loc=False):
-        '''Attaches a dictionary of extra SAC-header variables absent from miniSEED.
+        '''Attaches attribute: obspy_trace_stats, an obspy.core.trace.Stats instance.
 
-        Floats are converted to numpy.float32() in the returned sacmeta dictionary.
+        obspy_trace_stats holds metadata common to both miniSEED and SAC formats.
+        obspy_trace_stats.sac holds extra metadata only found in the SAC format.
+
+        Floats are NOT converted to numpy.float32() in either case.
+
+        NB: the SAC header value shown to the world (e.g., "sac.delta"), and the private SAC header
+        written to disk (e.g., "sac._hf[0]"), differ in type.  The relevant float header values that
+        actually get written to disk with sac.write are stored in the private "._hf" attribute,
+        which is not generated with initialization of the raw Stats() container. Therefore, if
+        printing those values to, e.g. a text file, ensure the relevant F (float) fields are cast to
+        numpy.float32 first.
+
+        For example:
+        >> from obspy.core.trace import Trace
+        >> from obspy.io.sac.sactrace import SACTrace
+        >> trace = Trace()
+        >> sac = SACTrace.from_obspy_trace(trace)  <-- this gets called by sac.write (within stream.write)
+        >> sac.delta = 1/20
+        >> isinstance(sac.delta, float)            <-- True: this is the public attr shown to the world
+        >> isinstance(sac.delta, numpy.float32)    <-- False
+        >> isinstance(sac._hf[0], float)           <-- False
+        >> isinstance(sac._hf[0], numpy.float32)   <-- True: this is the private attr written to disk
+
+        For more detail see: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
 
         '''
 
@@ -386,22 +409,22 @@ class Event:
 
         # Extra metadata only written to SAC files*
         stats.sac = dict()
-        def_float = np.float32(-12345)
+        def_float = -12345.
 
         if not force_without_loc:
-            stats.sac["stla"] = np.float32(self.station_loc.latitude);
-            stats.sac["stlo"] = np.float32(self.station_loc.longitude);
+            stats.sac["stla"] = self.station_loc.latitude;
+            stats.sac["stlo"] = self.station_loc.longitude;
         else:
-            stats.sac["stla"] = np.float32(def_float)
-            stats.sac["stlo"] = np.float32(def_float)
+            stats.sac["stla"] = def_float
+            stats.sac["stlo"] = def_float
 
         # REQ events do not record their depth at the time of acquisition, and because the onboard
-        # dectection algorithm was not triggered there are no trigger parameters to report
+        # detection algorithm was not triggered there are no trigger parameters to report
         if not self.is_requested:
-            stats.sac["stdp"] = np.float32(self.depth) # meters (computed from external pressure sensor)
-            stats.sac["user0"] = np.float32(self.snr)
-            stats.sac["user1"] = np.float32(self.criterion)
-            stats.sac["user2"] = np.float32(self.trig) # sample index
+            stats.sac["stdp"] = self.depth # meters (computed from external pressure sensor)
+            stats.sac["user0"] = self.snr
+            stats.sac["user1"] = self.criterion
+            stats.sac["user2"] = self.trig # sample index
         else:
             stats.sac["stdp"] = def_float
             stats.sac["user0"] = def_float
@@ -410,7 +433,7 @@ class Event:
 
         # Clock drift is computed for both DET and REQ, unless prevented by GPS error (computation
         # not determined by DET or REQ status)
-        stats.sac["user3"] = np.float32(self.clockdrift_correction) if self.clockdrift_correction else def_float # seconds
+        stats.sac["user3"] = self.clockdrift_correction if self.clockdrift_correction else def_float # seconds
         stats.sac['kinst'] = kinst
         stats.sac["kuser0"] = self.__version__
 
@@ -476,16 +499,6 @@ class Event:
         trace.stats = self.obspy_trace_stats
         trace.data = self.data
 
-        # NB: the SAC header shown to the world (e.g., "sac.delta") and the private SAC header
-        # written to disk (e.g., "sac._hf[0]") differ in type, hence I convert sacmeta to np.float32
-        # above.  The relevant float header values that actually get printed with sac.write are
-        # stored in the private ._hf attriubute.
-        #
-        # >> from obspy.io.sac.sactrace import SACTrace
-        # >> sac = SACTrace.from_obspy_trace(trace)
-        # >> isinstance(sac.delta, float)
-        # >> isinstance(sac._hf[0], numpy.float32)
-
         stream = Stream(traces=[trace])
 
         return stream
@@ -535,47 +548,68 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
             f.write(fmt_spec.format(e.get_export_file_name(),
-                                    e.obspy_trace_stats.sac["stla"],
-                                    e.obspy_trace_stats.sac["stlo"],
-                                    e.obspy_trace_stats.sac["stdp"]))
+                                    np.float32(e.obspy_trace_stats.sac["stla"]),
+                                    np.float32(e.obspy_trace_stats.sac["stlo"]),
+                                    np.float32(e.obspy_trace_stats.sac["stdp"])))
 
 
 
-def write_sacmeta_txt(mdives, processed_path, mfloat_path):
-    event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
+def write_sacmeta_txt_csv(mdives, processed_path, mfloat_path):
+    def writeit(file_name, header_line, file_format):
+        version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
-    sacmeta_file = os.path.join(processed_path, mfloat_path, "sacmeta.txt")
-    fmt_spec = ['{:>40s}',   # file name
-                '{:>10.6f}', # stla
-                '{:>11.6f}', # stlo
-                '{:>6.0f}',  # stdp
-                '{:>13.6f}', # user0 (snr)
-                '{:>13.6f}', # user1 (criterion)
-                '{:>6.0f}',  # user2 (trig)
-                '{:>13.6f}', # user3 (clockdrift correction)
-                '{:>8s}',    # kinst (instrument)
-                '{:>8s}',    # kuser0 (automaid version)
-                '{:>8s}\n'   # kuser1 (REQ or DET and scales)
-                ]
+        with open(file_name, "w+") as f:
+            f.write(version_line)
+            f.write(header_line)
 
-    fmt_spec  = '    '.join(fmt_spec)
+            for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
+                f.write(file_format.format(e.get_export_file_name(),
+                                           np.float32(e.obspy_trace_stats.sac["stla"]),
+                                           np.float32(e.obspy_trace_stats.sac["stlo"]),
+                                           np.float32(e.obspy_trace_stats.sac["stdp"]),
+                                           np.float32(e.obspy_trace_stats.sac["user0"]),
+                                           np.float32(e.obspy_trace_stats.sac["user1"]),
+                                           np.float32(e.obspy_trace_stats.sac["user2"]),
+                                           np.float32(e.obspy_trace_stats.sac["user3"]),
+                                           e.obspy_trace_stats.sac["kinst"],
+                                           e.obspy_trace_stats.sac["kuser0"],
+                                           e.obspy_trace_stats.sac["kuser1"]))
 
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               FILE_NAME          STLA           STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
+    # This has to be a list not a generator because it is used twice
+    event_dive_tup = [(event, dive) for dive in mdives for event in dive.events if event.station_loc]
 
-    with open(sacmeta_file, "w+") as f:
-        f.write(version_line)
-        f.write(header_line)
+    fmt_spec_txt = ['{:>40s}',   # file name
+                    '{:>10.6f}', # stla
+                    '{:>11.6f}', # stlo
+                    '{:>6.0f}',  # stdp
+                    '{:>13.6f}', # user0 (snr)
+                    '{:>13.6f}', # user1 (criterion)
+                    '{:>6.0f}',  # user2 (trig)
+                    '{:>13.6f}', # user3 (clockdrift correction)
+                    '{:>8s}',    # kinst (instrument)
+                    '{:>8s}',    # kuser0 (automaid version)
+                    '{:>8s}\n'   # kuser1 (REQ or DET and scales)
+                    ]
 
-        for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
-            f.write(fmt_spec.format(e.get_export_file_name(),
-                                    e.obspy_trace_stats.sac["stla"],
-                                    e.obspy_trace_stats.sac["stlo"],
-                                    e.obspy_trace_stats.sac["stdp"],
-                                    e.obspy_trace_stats.sac["user0"],
-                                    e.obspy_trace_stats.sac["user1"],
-                                    e.obspy_trace_stats.sac["user2"],
-                                    e.obspy_trace_stats.sac["user3"],
-                                    e.obspy_trace_stats.sac["kinst"],
-                                    e.obspy_trace_stats.sac["kuser0"],
-                                    e.obspy_trace_stats.sac["kuser1"]))
+    fmt_spec_csv = ['{:s}',   # file name
+                    '{:.6f}', # stla
+                    '{:.6f}', # stlo
+                    '{:.0f}', # stdp
+                    '{:.6f}', # user0 (snr)
+                    '{:.6f}', # user1 (criterion)
+                    '{:.0f}', # user2 (trig)
+                    '{:.6f}', # user3 (clockdrift correction)
+                    '{:s}',   # kinst (instrument)
+                    '{:s}',   # kuser0 (automaid version)
+                    '{:s}\n'  # kuser1 (REQ or DET and scales)
+                    ]
+
+    fmt_spec_txt  = '    '.join(fmt_spec_txt)
+    fmt_spec_csv  = ','.join(fmt_spec_csv)
+
+    header_line_txt = "                               FILE_NAME          STLA           STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
+    header_line_csv = "FILE_NAME,STLA,STLO,STDP,USER0,USER1,USER2,USER3,KINST,KUSER0,USER1\n"
+
+    base_path = os.path.join(processed_path, mfloat_path, 'sacmeta')
+    writeit(base_path+'.txt', header_line_txt, fmt_spec_txt)
+    writeit(base_path+'.csv', header_line_csv, fmt_spec_csv)
