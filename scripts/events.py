@@ -406,9 +406,6 @@ class Event:
         reqdet_scales = self.get_export_file_name().split('.')[-2:]
         self.sacmeta['kuser1'] = '.'.join(reqdet_scales) # e.g., "DET.WLT5"
 
-        self.sacmeta["iftype"] = np.int32(1) # Type of file [required]: 1 == ITIME (time series file)
-        self.sacmeta["iztype"] = np.int32(9) # Reference time equivalence: 9 == IB (begin time)
-
     def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # NB, writes mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC", where "D" is the
         # quality indicator, "D -- The state of quality control of the data is indeterminate" (SEED
@@ -531,10 +528,48 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
         f.write(header_line)
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
-            trace_name = e.get_export_file_name()
-            STDP = e.sacmeta['stdp'] if e.sacmeta['stdp'] != -12345.0 else float("nan")
-
-            f.write(fmt_spec.format(trace_name,
+            f.write(fmt_spec.format(e.get_export_file_name(),
                                     e.sacmeta["stla"],
                                     e.sacmeta["stlo"],
-                                    STDP));
+            e.sacmeta["stdp"]))
+
+
+
+def write_sacmeta_txt(mdives, processed_path, mfloat_path):
+    event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
+
+    sacmeta_file = os.path.join(processed_path, mfloat_path, "sacmeta.txt")
+    fmt_spec = ['{:>40s}',   # file name
+                '{:>10.6f}', # stla
+                '{:>11.6f}', # stlo
+                '{:>6.0f}',  # stdp
+                '{:>13.6f}', # user0 (snr)
+                '{:>13.6f}', # user1 (criterion)
+                '{:>6.0f}',  # user2 (trig)
+                '{:>13.6f}', # user3 (clockdrift correction)
+                '{:>8s}',    # kinst (instrument)
+                '{:>8s}',    # kuser0 (automaid version)
+                '{:>8s}\n'   # kuser1 (REQ or DET and scales)
+                ]
+
+    fmt_spec  = '    '.join(fmt_spec)
+
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
+
+    with open(sacmeta_file, "w+") as f:
+        f.write(version_line)
+        f.write(header_line)
+
+        for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
+            f.write(fmt_spec.format(e.get_export_file_name(),
+                                    e.sacmeta["stla"],
+                                    e.sacmeta["stlo"],
+                                    e.sacmeta["stdp"],
+                                    e.sacmeta["user0"],
+                                    e.sacmeta["user1"],
+                                    e.sacmeta["user2"],
+                                    e.sacmeta["user3"],
+                                    e.sacmeta["kinst"],
+                                    e.sacmeta["kuser0"],
+                                    e.sacmeta["kuser1"]))
