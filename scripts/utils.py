@@ -1,10 +1,10 @@
-# -*-coding:Utf-8 -*
-#
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
+# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+# Last modified by JDS: 25-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified by JDS: 24-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
@@ -122,8 +122,7 @@ def sac_scale():
 
     '''
 
-    scale = 1 / (10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000)
-
+    scale = 10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000
     return scale
 
 
@@ -131,4 +130,4 @@ def counts2pascal(data):
     '''Converts MERMAID digital counts to pascal via multiplication with scale factor: util.sac_scale
 
     '''
-    return data * sac_scale()
+    return data/sac_scale()
