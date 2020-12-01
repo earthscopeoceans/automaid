@@ -118,11 +118,11 @@ def get_time_array(length, period):
 
 
 def sac_scale():
-    '''Returns the multiplicative factor to convert MERMAID digital counts to pascal
+    '''Returns the ROUNDED multiplicative factor to convert MERMAID digital counts to pascal
 
     '''
 
-    scale = 10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000
+    scale = round(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000)
     return scale
 
 
