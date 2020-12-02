@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 25-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 01-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -395,40 +395,47 @@ class Event:
 
         For more detail see: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
 
+        Update function "write_automaid_metadata" if the fields in this method are changed.
+
         '''
 
         # Fill metadata common to SAC and miniSEED formats
         stats = Stats()
         stats.network = "MH"
         stats.station = kstnm
-        stats.location = ""
         stats.channel = "BDH"  # SEED manual Appendix A
         stats.starttime = self.date
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.data)
 
-        # Extra metadata only written to SAC files*
+        # Extra metadata only written to SAC files (stel, cmpaz, and cmpinc are included here for
+        # writing to mseed2sac_metadata.csv, but they are left unfilled)
         keys = ['stla',
                 'stlo',
-                'stel',
                 'stdp',
-                'cmpaz',
-                'cmpinc',
-                'kinst',
                 'scale',
                 'user0',
                 'user1',
                 'user2',
                 'user3',
-                'kuser1']
+                'kinst',
+                'kuser0',
+                'kuser1',
+                'stel', # default
+                'cmpaz', # default
+                'cmpinc'] # default
         def_float = -12345.
 
         # Default SAC header (will not fill all of these keys)
         stats.sac = dict.fromkeys(keys, def_float)
 
+        # Fill station-location header fields.
         if not force_without_loc:
             stats.sac["stla"] = self.station_loc.latitude;
             stats.sac["stlo"] = self.station_loc.longitude;
+
+        # This needs to be discussed -- I do not know the convention here.
+        stats.sac["scale"] = utils.sac_scale()
 
         # REQ events do not record their depth at the time of acquisition, and because the onboard
         # detection algorithm was not triggered there are no trigger parameters to report
@@ -438,18 +445,20 @@ class Event:
             stats.sac["user1"] = self.criterion
             stats.sac["user2"] = self.trig # sample index
 
-        # This needs to be discussed -- I do not know the convention here.
-        stats.sac["scale"] = utils.sac_scale()
-
         # Clock drift is computed for both DET and REQ, unless prevented by GPS error (computation
         # not determined by DET or REQ status)
         stats.sac["user3"] = self.clockdrift_correction if self.clockdrift_correction else def_float # seconds
+
+        # Generic instrument (e.g., '452.020')
         stats.sac['kinst'] = kinst
+
+        # automaid version number
         stats.sac["kuser0"] = self.__version__
 
         # String describing detection/request status, and number of wavelet scales transmitted
+        # (e.g., 'DET.WLT5')
         reqdet_scales = self.get_export_file_name().split('.')[-2:]
-        stats.sac['kuser1'] = '.'.join(reqdet_scales) # e.g., "DET.WLT5"
+        stats.sac['kuser1'] = '.'.join(reqdet_scales)
 
         self.obspy_trace_stats = stats
 
@@ -551,7 +560,7 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
     fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               FILE_NAME   INTERP_STLA    INTERP_STLO      STDP\n"
+    header_line = "                               file_name   interp_STLA    interp_STLO      STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)
@@ -569,34 +578,50 @@ def write_automaid_metadata(mdives, processed_path, mfloat_path):
     '''Writes metadata useful to the researchers and/or specific to automaid and/or not included in
     mseed or the mseed2sac metadata file in csv and txt format.
 
+    Update this function if the fields in method "attach_obspy_trace_stats" are changed.
+
     '''
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line_txt = "                               FILE_NAME          STLA           STLO      STDP            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1\n"
-    header_line_csv = "FILE_NAME,STLA,STLO,STDP,USER0,USER1,USER2,USER3,KINST,KUSER0,USER1\n"
+    header_line_txt = "                               file_name KNETWK    KSTNM KCMPNM          STLA           STLO      STDP     SCALE            USER0            USER1     USER2            USER3       KINST      KUSER0      KUSER1 samplerate                  start                    end\n"
+    header_line_csv = ','.join(header_line_txt.split()) + '\n'
 
     fmt_txt = ['{:>40s}',   # file name
+               '{:>3s}',    # knewtk
+               '{:>5s}',    # kstnm
+               '{:>3s}',    # kcmpnm
                '{:>10.6f}', # stla
                '{:>11.6f}', # stlo
                '{:>6.0f}',  # stdp
+               '{:>.0f}',   # scale
                '{:>13.6f}', # user0 (snr)
                '{:>13.6f}', # user1 (criterion)
                '{:>6.0f}',  # user2 (trig)
                '{:>13.6f}', # user3 (clockdrift correction)
                '{:>8s}',    # kinst (instrument)
                '{:>8s}',    # kuser0 (automaid version)
-               '{:>8s}\n']  # kuser1 (REQ or DET and scales)
+               '{:>8s}',    # kuser1 (REQ or DET and scales)
+               '{:>7.0f}',  # samplerate (NOT SAC header field); here for future matching?
+               '{:>19s}',   # start (NOT SAC header field); here for future matching?
+               '{:>19s}\n'] # end (NOT SAC header field); here for future matching?
     fmt_txt  = '    '.join(fmt_txt)
     fmt_csv = ['{:s}',   # file name
+               '{:s}',   # knewtk
+               '{:s}',   # kstnm
+               '{:s}',   # kcmpnm
                '{:.6f}', # stla
                '{:.6f}', # stlo
                '{:.0f}', # stdp
+               '{:.0f}', # scale
                '{:.6f}', # user0 (snr)
                '{:.6f}', # user1 (criterion)
                '{:.0f}', # user2 (trig)
                '{:.6f}', # user3 (clockdrift correction)
                '{:s}',   # kinst (instrument)
                '{:s}',   # kuser0 (automaid version)
-               '{:s}\n'] # kuser1 (REQ or DET and scales)
+               '{:s}',   # kuser1 (REQ or DET and scales)
+               '{:.0f}', # samplerate (NOT SAC header field); here for future matching?
+               '{:s}',   # start (NOT SAC header field); here for future matching?
+               '{:s}\n'] # end (NOT SAC header field); here for future matching?
     fmt_csv  = ','.join(fmt_csv)
 
     event_list = [event for dive in mdives for event in dive.events if event.station_loc]
@@ -610,16 +635,23 @@ def write_automaid_metadata(mdives, processed_path, mfloat_path):
 
         for e in sorted(event_list, key=lambda x: x.date):
             metadata = [e.get_export_file_name(),
+                        e.obspy_trace_stats["network"],
+                        e.obspy_trace_stats["station"],
+                        e.obspy_trace_stats["channel"],
                         np.float32(e.obspy_trace_stats.sac["stla"]),
                         np.float32(e.obspy_trace_stats.sac["stlo"]),
                         np.float32(e.obspy_trace_stats.sac["stdp"]),
+                        np.float32(e.obspy_trace_stats.sac["scale"]),
                         np.float32(e.obspy_trace_stats.sac["user0"]),
                         np.float32(e.obspy_trace_stats.sac["user1"]),
                         np.float32(e.obspy_trace_stats.sac["user2"]),
                         np.float32(e.obspy_trace_stats.sac["user3"]),
                         e.obspy_trace_stats.sac["kinst"],
                         e.obspy_trace_stats.sac["kuser0"],
-                        e.obspy_trace_stats.sac["kuser1"]]
+                        e.obspy_trace_stats.sac["kuser1"],
+                        np.float32(e.obspy_trace_stats["sampling_rate"]), # ?
+                        str(e.obspy_trace_stats["starttime"])[:19],  # float32 conversion?
+                        str(e.obspy_trace_stats["endtime"])[:19]]    # float32 conversion?
 
             f_txt.write(fmt_txt.format(*metadata))
             f_csv.write(fmt_csv.format(*metadata))
@@ -635,8 +667,8 @@ def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
 
     '''
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line_csv = "#net,sta,loc,chan,lat,lon,elev,depth,azimuth,SACdip,instrument,scale,scalefreq,scaleunits,samplerate,start,end\n"
     header_line_txt = "net     sta   loc   chan           lat            lon      elev     depth   azimuth    SACdip  instrument     scale  scalefreq scaleunits samplerate               start                    end\n"
+    header_line_csv = '#' + ','.join(header_line_txt.split()) + '\n'
 
     fmt_csv = ['{:s}',
                '{:s}',
@@ -675,7 +707,6 @@ def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
                '{:>19s}\n']
     fmt_txt = '    '.join(fmt_txt)
 
-
     event_list = [event for dive in mdives for event in dive.events if event.station_loc]
     base_path = os.path.join(processed_path, mfloat_path, 'mseed2sac_metadata')
 
@@ -712,23 +743,23 @@ def write_mseed2sac_metadata(mdives, processed_path, mfloat_path):
         f_csv.write(header_line_csv)
 
         for e in sorted(event_list, key=lambda x: x.date):
-            metadata = [e.obspy_trace_stats.network,
-                        e.obspy_trace_stats.station,
-                        e.obspy_trace_stats.location,
-                        e.obspy_trace_stats.channel,
-                        np.float32(e.obspy_trace_stats.sac.stla),
-                        np.float32(e.obspy_trace_stats.sac.stlo),
-                        np.float32(e.obspy_trace_stats.sac.stel),
-                        np.float32(e.obspy_trace_stats.sac.stdp),
-                        np.float32(e.obspy_trace_stats.sac.cmpaz),
-                        np.float32(e.obspy_trace_stats.sac.cmpinc),
-                        e.obspy_trace_stats.sac.kinst,
-                        np.float32(e.obspy_trace_stats.sac.scale), # ?
+            metadata = [e.obspy_trace_stats["network"],
+                        e.obspy_trace_stats["station"],
+                        e.obspy_trace_stats["location"],
+                        e.obspy_trace_stats["channel"],
+                        np.float32(e.obspy_trace_stats.sac["stla"]),
+                        np.float32(e.obspy_trace_stats.sac["stlo"]),
+                        np.float32(e.obspy_trace_stats.sac["stel"]),
+                        np.float32(e.obspy_trace_stats.sac["stdp"]),
+                        np.float32(e.obspy_trace_stats.sac["cmpaz"]),
+                        np.float32(e.obspy_trace_stats.sac["cmpinc"]),
+                        e.obspy_trace_stats.sac["kinst"],
+                        np.float32(e.obspy_trace_stats.sac["scale"]), # ?
                         scale_frequency,
                         scale_units,
-                        np.float32(e.obspy_trace_stats.sampling_rate),
-                        str(e.obspy_trace_stats.starttime)[:19],  # float32 conversion?
-                        str(e.obspy_trace_stats.endtime)[:19]]    # float32 conversion?
+                        np.float32(e.obspy_trace_stats["sampling_rate"]), # ?
+                        str(e.obspy_trace_stats["starttime"])[:19],  # float32 conversion?
+                        str(e.obspy_trace_stats["endtime"])[:19]]    # float32 conversion?
 
             f_txt.write(fmt_txt.format(*metadata))
             f_csv.write(fmt_csv.format(*metadata))
