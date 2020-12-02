@@ -699,7 +699,7 @@ def write_dives_txt(mdives, processed_path, mfloat_path):
     fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "DIVE_ID              DIVE_START                DIVE_END   LEN_SECS  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format()
+    header_line = "dive_id              dive_start                dive_end   len_secs  len_days           log_name       mer_env_name\n".format()
 
     with open(dives_file, "w+") as f:
         f.write(version_line)

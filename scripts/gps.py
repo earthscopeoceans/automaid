@@ -476,7 +476,7 @@ def write_gps_txt(mdives, processed_path, mfloat_path):
     gps_file = os.path.join(processed_path, mfloat_path, "gps.txt")
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "            GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME  |           SOURCE   LAT(deg min)    LON(deg min)\n".format()
+    header_line = "            gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time  |           source   lat(deg min)    lon(deg min)\n".format()
 
     with open(gps_file, "w+") as f:
         f.write(version_line)

@@ -531,7 +531,7 @@ def write_traces_txt(mdives, processed_path, mfloat_path):
     fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               FILE_NAME            BIN_MER      PREV_DIVE_LOG  PREV_DIVE_ENV_MER      THIS_DIVE_LOG  THIS_DIVE_ENV_MER      NEXT_DIVE_LOG  NEXT_DIVE_ENV_MER\n".format()
+    header_line = "                               file_name            bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n".format()
 
     with open(traces_file, "w+") as f:
         f.write(version_line)
