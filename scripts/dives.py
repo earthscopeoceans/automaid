@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 04-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -714,40 +714,3 @@ def write_dives_txt(mdives, processed_path, mfloat_path):
                                     d.len_days,
                                     d.log_name,
                                     d.mer_environment_name))
-
-def attach_is_complete_mer_to_dive_events(dive_list):
-    """Prior to automaid v1.4.0 this method was used to determine which .MER files had to be skipped (if
-    the file was incomplete, all events contained in the .MER file were ignored).  However,
-    events.py now verifies that each individual event block (<EVENT> ... int32 ... </EVENT>)
-    contains the expected number of bytes, per that event's header.  Therefore, individual events in
-    an incomplete .MER file may be converted before the entire .MER file has been transmitted.  As
-    such, while this method may still have some future utility, it is no longer used to determine
-    which events to make.
-
-    Original description:
-    Intakes a list of Dive instances and updates their events.is_complete_mer_file field (events is
-    a list of events associated with each dive).
-
-    More verbose: each Dive instance is associated with a single .MER file via
-    dive.mer_environment_name in the sense that this is the .MER file whose environment is
-    associated with that dive (the GPS fixes in the environment are similar to the corresponding
-    .LOG file, in dive.log_name).  However, the events (a separate list) attached to this dive may
-    have had their .MER binary data written to a different .MER file.  I.e., the .MER environment
-    does not necessarily correspond to the same file's event data records, and thus .MER data does
-    not necessarily correspond to the last dive.
-
-    """
-
-    # Generate lists of:
-    # (1) all mer (.MER) files processed
-    # (2) the completeness (or lack thereof) of those same files
-    # and zip them into dictionary for easy reference
-    mer_environment_names = [d.mer_environment_name for d in dive_list]
-    mer_files_are_complete = [d.is_complete_mer_file for d in dive_list]
-    mer_dict = dict(zip(mer_environment_names, mer_files_are_complete))
-
-    # Attach completeness metric to each event
-    for d in dive_list:
-        for e in d.events:
-            if e.mer_binary_name is not None:
-                e.is_complete_mer_file = mer_dict[e.mer_binary_name]
