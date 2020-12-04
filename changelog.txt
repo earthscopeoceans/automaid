@@ -37,6 +37,7 @@ Previous:
       potential pitfall of v2.X.X where, for example, the GPS list before the
       dive of the previous dive is attached, meaning we are attempting to
       interpolate from two dives back in time
+   -- Removed pickling from main.py
 
 *v2.1.0: 02-Nov-2020
   -- Attach interpolation dictionary to every GPS instance so that interpolation
