@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 02-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import argparse
@@ -68,7 +68,7 @@ filterDate = {
     "452.020-P-11": (datetime.datetime(2018, 8,  9, 11,  2,  6), datetime.datetime(2100, 1, 1)),
     "452.020-P-12": (datetime.datetime(2018, 8, 10, 19, 51, 31), datetime.datetime(2100, 1, 1)),
     "452.020-P-13": (datetime.datetime(2018, 8, 31, 16, 50, 23), datetime.datetime(2100, 1, 1)),
-    "452.020-P-16": (datetime.datetime(2018, 9,  3), datetime.datetime(2100, 1, 1)),
+    "452.020-P-16": (datetime.datetime(2018, 9,  4,  7, 12, 15), datetime.datetime(2100, 1, 1)),
     "452.020-P-17": (datetime.datetime(2018, 9,  4, 11,  2, 54), datetime.datetime(2100, 1, 1)),
     "452.020-P-18": (datetime.datetime(2018, 9,  5, 17, 38, 32), datetime.datetime(2100, 1, 1)),
     "452.020-P-19": (datetime.datetime(2018, 9,  6, 20,  7, 30), datetime.datetime(2100, 1, 1)),
@@ -92,8 +92,7 @@ filterDate = {
 # Boolean set to true in order to delete every processed data and redo everything
 redo = False
 
-# Plot interactive figures in HTML format for acoustic events
-# WARNING: Plotly files takes a lot of memory so commented by default
+# Figures commented by default (take heaps of memory)
 events_plotly = False
 events_mseed = True
 events_sac = True
@@ -240,8 +239,11 @@ def main():
         # and .MER files
         events.write_traces_txt(mdives, processed_path, mfloat_path)
 
-        # Write a text file with out best-guess at the location of MERMAID at the time of recording
+        # Write a text file with our best-guess at the location of MERMAID at the time of recording
         events.write_loc_txt(mdives, processed_path, mfloat_path)
+
+        # Write mseed2sac and automaid metadata textfiles.
+        events.write_metadata(mdives, processed_path, mfloat_path)
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
@@ -251,7 +253,6 @@ def main():
 
         # Add dives to growing dict
         dives_dict[mfloat] = mdives
-
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
