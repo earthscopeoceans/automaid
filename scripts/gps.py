@@ -469,18 +469,48 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
     return gps
 
 
-def write_gps_txt(mdives, processed_path, mfloat_path):
+def write_gps(mdives, processed_path, mfloat_path):
     gps_genexp = (gps for dive in mdives for gps in dive.gps_list)
 
-    gps_fmt_spec = "{:>19s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}  |  {:>15s}    {:>3s} {:<7s}    {:>4s} {:<7s}\n"
-    gps_file = os.path.join(processed_path, mfloat_path, "gps.txt")
+    # Version header is the same for both csv and txt files
+    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "            gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time  |           source   lat(deg min)    lon(deg min)\n".format()
+    # Specify field headers of both csv and txt files
+    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time             source raw_gps_lat(deg_min) raw_gps_lon(deg_min)\n"
+    header_line_csv = '#' + ','.join(header_line_txt.split()) + '\n'
+    header_line_txt = '#' + header_line_txt # add pound sign after comma substitution
 
-    with open(gps_file, "w+") as f:
-        f.write(version_line)
-        f.write(header_line)
+    # Specify generic format of both csv and txt files
+    fmt = ['{:>19s}',
+           '{:>10.6f}',
+           '{:>11.6f}',
+           '{:>6.3f}',
+           '{:>6.3f}',
+           '{:>17.6f}',
+           '{:>15s}',
+           '{:>9s}_{:<7s}',   # lat ('3s') specified as '9s' to accommodate long header
+           '{:>9s}_{:<7s}\n'] # lon ('4s') specified as '9s' to accommodate long header
+
+
+    # Add four spaces between each field for the txt file
+    fmt_txt  = '    '.join(fmt)
+
+    # Add comma between each field and remove field width (non-decimal) to format the csv
+    fmt_csv  = ','.join(fmt)
+    fmt_csv  = re.sub(':>\d*', ':', fmt_csv)
+
+    # Specify file paths
+    base_path = os.path.join(processed_path, mfloat_path)
+    csv_file =  os.path.join(base_path, 'gps.csv')
+    txt_file =  os.path.join(base_path, 'gps.txt')
+
+    with open(csv_file, "w+") as f_csv, open(txt_file, "w+") as f_txt:
+        # Write the version and header lines to both the csv and txt file
+        f_csv.write(version_line)
+        f_csv.write(header_line_csv)
+
+        f_txt.write(version_line)
+        f_txt.write(header_line_txt)
 
         for g in sorted(gps_genexp, key=lambda x: x.date):
             if g.hdop is None:
@@ -508,17 +538,22 @@ def write_gps_txt(mdives, processed_path, mfloat_path):
                 raw_lon_deg = raw_lon[:4]
                 raw_lon_mn = raw_lon[4:]
 
-            f.write(gps_fmt_spec.format(str(g.date)[:19] + 'Z',
-                                        g.latitude,
-                                        g.longitude,
-                                        g.hdop,
-                                        g.vdop,
-                                        g.clockdrift,
-                                        g.source,
-                                        raw_lat_deg,
-                                        raw_lat_mn,
-                                        raw_lon_deg,
-                                        raw_lon_mn))
+            # Collect list of GPS data
+            gps_data = [str(g.date)[:19] + 'Z',
+                        g.latitude,
+                        g.longitude,
+                        g.hdop,
+                        g.vdop,
+                        g.clockdrift,
+                        g.source,
+                        raw_lat_deg,
+                        raw_lat_mn,
+                        raw_lon_deg,
+                        raw_lon_mn]
+
+            # Write data to .csv and .txt formats
+            f_csv.write(fmt_csv.format(*gps_data))
+            f_txt.write(fmt_txt.format(*gps_data))
 
 
 def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
