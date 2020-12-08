@@ -1,10 +1,12 @@
-# Part of automaid -- a Python package to process MERMAID files
+# automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
+#
+# Usage: python main.py [-p processed] [-s server]
 #
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 02-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 08-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import argparse
@@ -222,8 +224,8 @@ def main():
         if len(mdives) > 1:
             vitals.plot_corrected_pressure_offset(mfloat_path, mdives, begin, end)
 
-        # Write text file containing all GPS fixes from .LOG and .MER
-        gps.write_gps_txt(mdives, processed_path, mfloat_path)
+        # Write csv and txt files containing all GPS fixes from .LOG and .MER
+        gps.write_gps(mdives, processed_path, mfloat_path)
 
         # Write text file detailing event-station location interpolation parameters
         gps.write_gps_interpolation_txt(mdives, processed_path, mfloat_path)
@@ -232,7 +234,7 @@ def main():
         # files connect
         dives.generate_printout(mdives, mfloat_serial)
 
-        # Write the same info just printout do stdout to text file
+        # Write text file detailing how .LOG and .MER files connect
         dives.write_dives_txt(mdives, processed_path, mfloat_path)
 
         # Write a text file relating all SAC and mSEED to their associated .LOG
@@ -242,7 +244,7 @@ def main():
         # Write a text file with our best-guess at the location of MERMAID at the time of recording
         events.write_loc_txt(mdives, processed_path, mfloat_path)
 
-        # Write mseed2sac and automaid metadata textfiles.
+        # Write mseed2sac and automaid metadata csv and text files
         events.write_metadata(mdives, processed_path, mfloat_path)
 
         # Clean directories
