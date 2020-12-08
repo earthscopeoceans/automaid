@@ -1,0 +1,17 @@
+diff --git a/scripts/setup.py b/scripts/setup.py
+index 5cd2f95..63de0ca 100644
+--- a/scripts/setup.py
++++ b/scripts/setup.py
+@@ -4,10 +4,10 @@
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 25-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ def get_version():
+-    version = 'v3.2.0'
++    version = 'v3.3.0'
+     return version
+ 
+ def get_url():

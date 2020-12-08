@@ -1,0 +1,60 @@
+diff --git a/scripts/tool_invert_mer.py b/scripts/tool_invert_mer.py
+index 4d685b0..9ec9fe1 100644
+--- a/scripts/tool_invert_mer.py
++++ b/scripts/tool_invert_mer.py
+@@ -3,23 +3,24 @@
+ #
+ # Usage: python tool_invert_mer.py [.MER file]
+ #
+-# Converts a single .MER file without location interpolation, and places the SAC
+-# and miniSEED outputs into the same directory as the input .MER file.
++# Converts a single .MER file to sac/mseed/html/png.
+ #
+-# Warning:
+-# * does not correct for MERMAID clock drift, but that does not explain
+-#   the entire time difference between using this tool and main.py...
++# ! This should be used for quick-and-dirty checks.
++# ! This should not be used for analysis.
++# ! Clock drifts are not accounted for.
++# ! Station locations are not interpolated.
+ #
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Dr. Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 23-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 04-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ import events
+ import re
+ import sys
+ import os
+ import gps
++from datetime import datetime as datetime
+ import setup
+ 
+ # Get current version number.
+@@ -46,7 +47,9 @@ def invert_main():
+     # Collect GPS list from the header -- the subsequent events we loop through
+     # must be contained within these GPS times otherwise this .MER environment
+     # is not references by the .MER events contained therein
+-    gpsl = gps.get_gps_from_mer_environment(mer_file_name, environment)
++    gpsl = gps.get_gps_from_mer_environment(mer_file_name, environment,
++                                            begin=datetime(2000, 01, 01),
++                                            end=datetime(2599, 12, 31))
+ 
+     for event in mevents.events:
+         if not gpsl[0].date < event.date < gpsl[-1].date:
+@@ -58,8 +61,11 @@ def invert_main():
+         event.find_measured_sampling_frequency()
+         event.correct_date()
+         event.invert_transform()
+-        event.to_sac(mer_file_path, station_number, force_without_loc=True, force_redo=True)
+-        event.to_mseed(mer_file_path, station_number, force_without_loc=True, force_redo=True)
++
++        event.to_sac(mer_file_path, kstnm='xxxxx', kinst='xxxxxxxx',
++                     force_without_loc=True, force_redo=True)
++        event.to_mseed(mer_file_path, kstnm='xxxxx', kinst='xxxxxxxx',
++                       force_without_loc=True, force_redo=True)
+         event.plotly(mer_file_path, force_redo=True)
+         event.plot_png(mer_file_path, force_redo=True)
+ 

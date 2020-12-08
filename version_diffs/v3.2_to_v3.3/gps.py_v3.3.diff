@@ -1,0 +1,214 @@
+diff --git a/scripts/gps.py b/scripts/gps.py
+index 89e7bd4..28753b2 100644
+--- a/scripts/gps.py
++++ b/scripts/gps.py
+@@ -4,7 +4,7 @@
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 12-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ import re
+ import setup
+@@ -57,7 +57,8 @@ def linear_interpolation(gps_list, date):
+     Only two GPS instances from the input GPS list are retained for interpolation, and, if possible
+     this method retains only the first two GPS instances that are separated by more than 10 minutes.
+     If the two retained locations are within 20 m of one another interpolation is not performed and
+-    the interpolated location is fixed to an input.
++    the interpolated location and date are fixed to an input (i.e., the requested interpolation date
++    is not returned in the output GPS instance).
+ 
+     The interpolation dictionary, ".interp_dict", attached to each instance attempts to explain the
+     outcome of this method.
+@@ -107,7 +108,8 @@ def linear_interpolation(gps_list, date):
+             description = description + "; interpolation not required (interpolation date is gps_list.date)"
+ 
+         else:
+-            description = description + "; interpolation fixed to input gps_list"
++            date = gps_list.date # overwrite: we did not interpolate at the requested date
++            description = description + "; location and date fixed to input gps_list"
+ 
+         interp_dict = locals()
+ 
+@@ -184,11 +186,16 @@ def linear_interpolation(gps_list, date):
+     description= "interpolation attempted using multiple GPS points"
+ 
+     # If the distance between the two GPS points retained is less than 20 m, don't interpolate just
+-    # pick one (also, if they are the same GPS point)
++    # return the one nearest in time to the requested date (don't simply fix a known location to the
++    # requested interpolation date because it may happen that the input locations may be very near
++    # to one another, but their dates may be very far from the requested date -- imagine if you gave
++    # this algorithm two points, which differ by 1 meter and 1 second, and requested an interpolated
++    # location date one after the last input date)
+     if gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, gps_list[i].latitude, gps_list[i].longitude)[0] < 20:
+         interp_lat = gps_list[i].latitude
+         interp_lon = gps_list[i].longitude
+-        description = description + "; retained points too close for interpolation; interpolation fixed to one of gps_list"
++        date = gps_list[i].date  # overwrite: we did not interpolate at the requested date
++        description = description + "; retained points too close for interpolation; location and date fixed to one of input gps_list"
+ 
+     else:
+         input_drift_dist_m = gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, \
+@@ -263,6 +270,7 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
+     for gps_mer in gps_mer_list:
+         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
+ 
++        # .MER times are given simply as, e.g., "2020-10-20T02:36:55"
+         fixdate = re.findall(" DATE=(\d+-\d+-\d+T\d+:\d+:\d+)", gps_mer)
+         if len(fixdate) > 0:
+             rawstr_dict['fixdate'] = re.search("DATE=(.*) LAT", gps_mer).group(1)
+@@ -272,6 +280,8 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
+         else:
+             fixdate = None
+ 
++        # .MER latitudes are given as, e.g., "-2233.9800" (degrees decimal minutes) where the first 3
++        # chars are the degrees (= S22deg33.9800mn) in .LOG parlance, with extra precision here
+         latitude = re.findall(" LAT=([+,-])(\d{2})(\d+\.\d+)", gps_mer)
+         if len(latitude) > 0:
+             rawstr_dict['latitude'] = re.search("LAT=(.*) LON", gps_mer).group(1)
+@@ -284,6 +294,8 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
+         else:
+             latitude = None
+ 
++        # .MER longitudes are given as, e.g., "-14122.6800" (degrees decimal minutes) where the first
++        # 4 chars are the degrees (= W141deg22.6800mn) in .LOG parlance, with an extra precision here
+         longitude = re.findall(" LON=([+,-])(\d{3})(\d+\.\d+)", gps_mer)
+         if len(longitude) > 0:
+             rawstr_dict['longitude'] = re.search("LON=(.*) />", gps_mer).group(1)
+@@ -296,7 +308,7 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
+         else:
+             longitude = None
+ 
+-        # .MER clockdrifts are given as e.g.,
++        # .MER clockdrifts are given as, e.g.,
+         # "<DRIFT YEAR=48 MONTH=7 DAY=4 HOUR=12 MIN=41 SEC=20 USEC=-563354 />"
+         # which describe the drift using the sign convention of "drift = gps_time - mermaid_time"
+         # (manual Ref: 452.000.852, pg. 32), NB: not all (any?) fields must exist (this is a
+@@ -372,7 +384,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
+     for gps_log in gps_log_list:
+         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
+ 
+-        # .LOG GPS times are given as integer UNIX Epoch times
++        # .LOG GPS times are given as integer UNIX Epoch times prepending the "GPSACK" line
+         fixdate = re.findall("(\d+):\[MRMAID *, *\d+\]\$GPSACK", gps_log)
+         if len(fixdate) > 0:
+             fixdate = fixdate[0]
+@@ -381,7 +393,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
+         else:
+             fixdate = None
+ 
+-        # .LOG latitudes are given as e.g., "S22deg33.978mn" (degrees and decimal minutes)
++        # .LOG latitudes are given as, e.g., "S22deg33.978mn" (degrees and decimal minutes)
+         latitude = re.findall("([S,N])(\d+)deg(\d+.\d+)mn", gps_log)
+         if len(latitude) > 0:
+             rawstr_dict['latitude'] = re.search("[S,N][0-9]+deg[0-9]+\.[0-9]+mn", gps_log).group(0)
+@@ -394,7 +406,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
+         else:
+             latitude = None
+ 
+-        # .LOG latitudes are given as e.g., "W141deg22.679mn" (degrees and decimal minutes)
++        # .LOG latitudes are given as, e.g., "W141deg22.679mn" (degrees and decimal minutes)
+         longitude = re.findall("([E,W])(\d+)deg(\d+.\d+)mn", gps_log)
+         if len(longitude) > 0:
+             rawstr_dict['longitude'] = re.search("[E,W][0-9]+deg[0-9]+\.[0-9]+mn", gps_log).group(0)
+@@ -407,7 +419,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
+         else:
+             longitude = None
+ 
+-        # .LOG clockdrifts are given as e.g., "$GPSACK:+48,+7,+4,+12,+41,+20,-563354;" which
++        # .LOG clockdrifts are given as, e.g., "$GPSACK:+48,+7,+4,+12,+41,+20,-563354;" which
+         # describe the drift in terms of "year,month,day,hour,min,sec,usec" (manual Ref:
+         # 452.000.852, pg. 16) where the sign convention is "drift = gps_time - mermaid_time"
+         # (pg. 32), there describing the .MER environment, but it must be the same for the .LOG
+@@ -457,18 +469,48 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
+     return gps
+ 
+ 
+-def write_gps_txt(mdives, processed_path, mfloat_path):
++def write_gps(mdives, processed_path, mfloat_path):
+     gps_genexp = (gps for dive in mdives for gps in dive.gps_list)
+ 
+-    gps_fmt_spec = "{:>19s}    {:>10.6f}    {:>11.6f}    {:>6.3f}    {:>6.3f}    {:>17.6f}  |  {:>15s}    {:>3s} {:<7s}    {:>4s} {:<7s}\n"
+-    gps_file = os.path.join(processed_path, mfloat_path, "gps.txt")
++    # Version header is the same for both csv and txt files
++    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+ 
+-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+-    header_line = "            GPS_TIME       GPS_LAT        GPS_LON  GPS_HDOP  GPS_VDOP    GPS_TIME-MER_TIME  |           SOURCE   LAT(deg min)    LON(deg min)\n".format()
++    # Specify field headers of both csv and txt files
++    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time             source raw_gps_lat(deg_min) raw_gps_lon(deg_min)\n"
++    header_line_csv = '#' + ','.join(header_line_txt.split()) + '\n'
++    header_line_txt = '#' + header_line_txt # add pound sign after comma substitution
+ 
+-    with open(gps_file, "w+") as f:
+-        f.write(version_line)
+-        f.write(header_line)
++    # Specify generic format of both csv and txt files
++    fmt = ['{:>19s}',
++           '{:>10.6f}',
++           '{:>11.6f}',
++           '{:>6.3f}',
++           '{:>6.3f}',
++           '{:>17.6f}',
++           '{:>15s}',
++           '{:>9s}_{:<7s}',   # lat ('3s') specified as '9s' to accommodate long header
++           '{:>9s}_{:<7s}\n'] # lon ('4s') specified as '9s' to accommodate long header
++
++
++    # Add four spaces between each field for the txt file
++    fmt_txt  = '    '.join(fmt)
++
++    # Add comma between each field and remove field width (non-decimal) to format the csv
++    fmt_csv  = ','.join(fmt)
++    fmt_csv  = re.sub(':>\d*', ':', fmt_csv)
++
++    # Specify file paths
++    base_path = os.path.join(processed_path, mfloat_path)
++    csv_file =  os.path.join(base_path, 'gps.csv')
++    txt_file =  os.path.join(base_path, 'gps.txt')
++
++    with open(csv_file, "w+") as f_csv, open(txt_file, "w+") as f_txt:
++        # Write the version and header lines to both the csv and txt file
++        f_csv.write(version_line)
++        f_csv.write(header_line_csv)
++
++        f_txt.write(version_line)
++        f_txt.write(header_line_txt)
+ 
+         for g in sorted(gps_genexp, key=lambda x: x.date):
+             if g.hdop is None:
+@@ -496,17 +538,22 @@ def write_gps_txt(mdives, processed_path, mfloat_path):
+                 raw_lon_deg = raw_lon[:4]
+                 raw_lon_mn = raw_lon[4:]
+ 
+-            f.write(gps_fmt_spec.format(str(g.date)[:19] + 'Z',
+-                                        g.latitude,
+-                                        g.longitude,
+-                                        g.hdop,
+-                                        g.vdop,
+-                                        g.clockdrift,
+-                                        g.source,
+-                                        raw_lat_deg,
+-                                        raw_lat_mn,
+-                                        raw_lon_deg,
+-                                        raw_lon_mn))
++            # Collect list of GPS data
++            gps_data = [str(g.date)[:19] + 'Z',
++                        g.latitude,
++                        g.longitude,
++                        g.hdop,
++                        g.vdop,
++                        g.clockdrift,
++                        g.source,
++                        raw_lat_deg,
++                        raw_lat_mn,
++                        raw_lon_deg,
++                        raw_lon_mn]
++
++            # Write data to .csv and .txt formats
++            f_csv.write(fmt_csv.format(*gps_data))
++            f_txt.write(fmt_txt.format(*gps_data))
+ 
+ 
+ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):

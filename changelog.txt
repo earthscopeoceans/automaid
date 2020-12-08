@@ -1,5 +1,26 @@
 Current:
-*V3.2.0: 11-Nov-2020
+*v3.3.0: 08-Dec-2020
+
+    "Modify interpolation algorithm to return input location AND date when
+     interpolation not performed, and write float32 metadata files"
+
+-- Modify gps.linear_interpolation to return the input date and location, as
+   opposed to the requested date and input location, when only a single GPS
+   instance is retained (i.e., interpolation can not proceed); see esp. commit
+   1ee1ca269bf27059f860c1e1385b495cea81526c
+-- Write gps.csv alongside previous gps.txt
+-- Collect ALL and ONLY mSEED/SAC metadata defined by automaid in
+   event.obspy_trace_stats attribute dictionary, with the understanding that
+   ObsPy DOES NOT automatically cast them into float32; that must be done when
+   writing to csv/txt
+-- Define new metadata fields: elev(STEL), azimuth(CMPAZ), SACdip(CMPINC)
+-- Write mseed2sac_metadata.csv/txt
+-- Write automaid_metadata.csv/txt
+-- Remove dives.attach_is_complete_mer_to_dive_events, whose utility was
+   superseded by dive.is_complete_mer_file attribute in v1.4
+
+Previous:
+*v3.2.0: 11-Nov-2020
   -- Parse/zero-pad Osean-defined serial number into five-character station name
      (KSTNM) and "generic name of recording instrument" (KINST) in dives; add
      those fields to the SAC header (and default others) in events
@@ -18,7 +39,6 @@ Current:
      write (e.g., gps.txt) to differentiate them from files written by MERMAID;
      add automaid version number and source-code url (ESO github) header to each
 
-Previous:
 *v3.1.0: 05-Nov-2020
   -- Allow single GPS for surface-drift interpolation (previously,
      gps.linear_interpolation failed if len < 2)

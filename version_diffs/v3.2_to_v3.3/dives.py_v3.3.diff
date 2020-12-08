@@ -1,0 +1,130 @@
+diff --git a/scripts/dives.py b/scripts/dives.py
+index e37d0f4..8073c83 100644
+--- a/scripts/dives.py
++++ b/scripts/dives.py
+@@ -4,7 +4,7 @@
+ # Original author: Sebastien Bonnieux
+ # Current maintainer: Joel D. Simon (JDS)
+ # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+-# Last modified by JDS: 11-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
++# Last modified by JDS: 04-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+ 
+ import utils
+ import gps
+@@ -68,8 +68,6 @@ class Dive:
+         self.descent_leave_surface_date = None
+         self.descent_leave_surface_loc = None
+ 
+-        self.mixed_layer_depth_m = None
+-
+         self.descent_leave_surface_layer_date = None
+         self.descent_leave_surface_layer_loc = None
+ 
+@@ -152,7 +150,7 @@ class Dive:
+             self.station_number = self.station_name.split("-")[-1]
+ 
+             # Zero-pad the (unique part) of the station name so that it is five characters long
+-            self.get_kstnm_kinst()
++            self.attach_kstnm_kinst()
+ 
+         # Find the .MER file of the ascent
+         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
+@@ -490,10 +488,10 @@ class Dive:
+                           / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
+             descent_dist_to_mixed_layer = mixed_layer_depth_m - descent_depth_in_surface_layer
+             descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
+-            descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
++            self.descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
+ 
+             self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive_incl_prev_dive, \
+-                                                                            descent_leave_surface_layer_date)
++                                                                            self.descent_leave_surface_layer_date)
+ 
+             #______________________________________________________________________________________#
+ 
+@@ -525,10 +523,10 @@ class Dive:
+                          / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
+             ascent_dist_to_mixed_layer = ascent_depth_in_mixed_layer - mixed_layer_depth_m
+             ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
+-            ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
++            self.ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
+ 
+             self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
+-                                                                           ascent_reach_surface_layer_date)
++                                                                           self.ascent_reach_surface_layer_date)
+ 
+             #______________________________________________________________________________________#
+ 
+@@ -547,7 +545,7 @@ class Dive:
+             event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
+ 
+ 
+-    def get_kstnm_kinst(self):
++    def attach_kstnm_kinst(self):
+         '''Attaches a five-character station name (KSTNM), zero-padded between the letter and number
+         defining the unique MERMAID (if required), and the "generic name of recording instrument"
+         (KINST), defined as the string which precedes the first hyphen in the Osean-defined names
+@@ -578,11 +576,11 @@ class Dive:
+ 
+     def generate_events_sac(self):
+         for event in self.events:
+-            event.to_sac(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
++            event.to_sac(self.export_path, self.kstnm, self.kinst)
+ 
+     def generate_events_mseed(self):
+         for event in self.events:
+-            event.to_mseed(self.export_path, self.kstnm, self.kinst, force_without_loc=False)
++            event.to_mseed(self.export_path, self.kstnm, self.kinst)
+ 
+     def print_len(self):
+         self.len_days = self.len_secs / (60*60*24.)
+@@ -701,7 +699,7 @@ def write_dives_txt(mdives, processed_path, mfloat_path):
+     fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
+ 
+     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+-    header_line = "DIVE_ID              DIVE_START                DIVE_END   LEN_SECS  LEN_DAYS           LOG_NAME       MER_ENV_NAME\n".format()
++    header_line = "dive_id              dive_start                dive_end   len_secs  len_days           log_name       mer_env_name\n".format()
+ 
+     with open(dives_file, "w+") as f:
+         f.write(version_line)
+@@ -716,40 +714,3 @@ def write_dives_txt(mdives, processed_path, mfloat_path):
+                                     d.len_days,
+                                     d.log_name,
+                                     d.mer_environment_name))
+-
+-def attach_is_complete_mer_to_dive_events(dive_list):
+-    """Prior to automaid v1.4.0 this method was used to determine which .MER files had to be skipped (if
+-    the file was incomplete, all events contained in the .MER file were ignored).  However,
+-    events.py now verifies that each individual event block (<EVENT> ... int32 ... </EVENT>)
+-    contains the expected number of bytes, per that event's header.  Therefore, individual events in
+-    an incomplete .MER file may be converted before the entire .MER file has been transmitted.  As
+-    such, while this method may still have some future utility, it is no longer used to determine
+-    which events to make.
+-
+-    Original description:
+-    Intakes a list of Dive instances and updates their events.is_complete_mer_file field (events is
+-    a list of events associated with each dive).
+-
+-    More verbose: each Dive instance is associated with a single .MER file via
+-    dive.mer_environment_name in the sense that this is the .MER file whose environment is
+-    associated with that dive (the GPS fixes in the environment are similar to the corresponding
+-    .LOG file, in dive.log_name).  However, the events (a separate list) attached to this dive may
+-    have had their .MER binary data written to a different .MER file.  I.e., the .MER environment
+-    does not necessarily correspond to the same file's event data records, and thus .MER data does
+-    not necessarily correspond to the last dive.
+-
+-    """
+-
+-    # Generate lists of:
+-    # (1) all mer (.MER) files processed
+-    # (2) the completeness (or lack thereof) of those same files
+-    # and zip them into dictionary for easy reference
+-    mer_environment_names = [d.mer_environment_name for d in dive_list]
+-    mer_files_are_complete = [d.is_complete_mer_file for d in dive_list]
+-    mer_dict = dict(zip(mer_environment_names, mer_files_are_complete))
+-
+-    # Attach completeness metric to each event
+-    for d in dive_list:
+-        for e in d.events:
+-            if e.mer_binary_name is not None:
+-                e.is_complete_mer_file = mer_dict[e.mer_binary_name]
