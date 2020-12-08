@@ -672,16 +672,16 @@ def write_metadata(mdives, processed_path, mfloat_path):
     ## atm_* == automaid*
 
     # Version line is the same for both
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
-    # Generate header lines for all four files
-    m2s_header_line_txt = "net     sta   loc   chan           lat            lon      elev     depth   azimuth    SACdip  instrument     scale  scalefreq scaleunits samplerate                  start                    end\n"
-    m2s_header_line_csv = '#' + ','.join(m2s_header_line_txt.split()) + '\n'
+    # Generate header lines for all four files: generate .csv by replacing
+    # spaces with commas in text format
+    m2s_header_line_txt = "#net    sta   loc   chan           lat            lon      elev     depth   azimuth    SACdip  instrument     scale  scalefreq scaleunits samplerate                  start                    end\n"
+    m2s_header_line_csv = ','.join(m2s_header_line_txt.split())  + '\n'
 
-    atm_header_line_txt = "                                filename KNETWK    KSTNM KCMPNM          STLA           STLO STEL      STDP CMPAZ CMPINC      KINST     SCALE            USER0            USER1     USER2            USER3      KUSER0      KUSER1 samplerate                  start                    end\n"
-    atm_header_line_csv = ','.join(atm_header_line_txt.split()) + '\n'
-
-    # Specify format for all four files
+    atm_header_line_txt = "                               filename KNETWK    KSTNM KCMPNM          STLA           STLO STEL      STDP CMPAZ CMPINC      KINST     SCALE            USER0            USER1     USER2            USER3      KUSER0      KUSER1 samplerate                  start                    end\n"
+    atm_header_line_csv = '#' + ','.join(atm_header_line_txt.split()) + '\n'
+    atm_header_line_txt = '#' + atm_header_line_txt # add pount after comma substitution
 
     # Field specifiers for mseed2sac_metadata.csv and mseed2sac_metadata.txt
     m2s_fmt = ['{:>2s}',    # Network (KNETWK)
