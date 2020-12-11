@@ -1,0 +1,27 @@
+Diagram:
+
+x = GPS point
+- = Drift
+O = Interpolated point
+\ = Dive in 
+/ = Ascend
+[DET] = location of recording signal
+
+surface drift |dive|   deep drift   |ascend| surface drift
+
+
+
+
+(0 m ->) x -- x -- x - O                            O - x -- x -- x
+                        \                         /
+              	         \                       /
+SURFACE                   \                     /
+LAYER (< 50 m)             \                   /
+		            \                 /
+                   (50 m ->) O               O
+		             |               |
+MIXED                        |               |
+LAYER (> 50 m)              ...             ...
+		             |               |
+		             |               |
+                 (1500 m ->)  - - - - [DET] -
