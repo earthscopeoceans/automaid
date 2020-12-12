@@ -1,67 +1,64 @@
 Author: Joel D. Simon
 Contact: jdsimon-at-princeton.edu
 Last updated: 11-Dec-2020
-Automaid: v3+
 
 PURPOSE: To diagram and elaborate upon MERMAID's interpolation algorithm.
+
+RELEVANCE: automaid v3.0.0 to v3.3.0 (current).
+
 
 ## ___________________________________________________________________________ ##
 #                              DIVE MODEL DIAGRAM                               #
 ## ___________________________________________________________________________ ##
 
-
-Time:      --> (increasing to the right) -->
+CROSS-SECTIONAL VIEW OF STANDARD DIVE CYCLE: (X = time or location, Y = depth)
 
 Leg:      |.........1.........|.......2.......|.........3..........|
 Measure:  G1   G2   G3  I1    I2       I5     I3     I4  G4   G5  G6
 (0 m ->)  x -- x -- x - O                            O - x -- x -- x
                          \                         /
                	          \                       /
-SURFACE                    \                     /
+   SURFACE                 \                     /
 LAYER (< 50 m)              \                   /
 		             \                 /
                     (50 m ->) O               O
 		              |               |
-MIXED                         |               |
+    MIXED                     |               |
 LAYER (> 50 m)               ...             ...
 		              |               |
 		              |               |
                   (1500 m ->)  - - - - [DET] -
 
-
+LEGEND:
 x = GPS fix ("G6" in the diagram marks the 6th GPS fix)
 - = Drift
 O = Interpolated point ("I5" in the diagram marks the 5th interpolated location)
-\ = Descent in surface layer
-/ = Ascent in surface layer
-| = Descent/ascent in mixed layer (assumed uniform at depths beyond > 50 m)
+\ = Descent and drift in surface layer
+/ = Ascent and drift in surface layer
+| = Descent/ascent in mixed layer (drift assumed uniform at depths beyond > 50 m)
 [DET] = location of recording signal
-
 
 NOTE:
 In this case the surface-layer thickness (depth to the mixed layer) is modeled
 to be 50 m, though this is adjustable.
 
+
 ## ___________________________________________________________________________ ##
 #                            ALGORITHM: STANDARD CASE                           #
 ## ___________________________________________________________________________ ##
 
-
 PROBLEM:
-Interpolate for the time and location of DET (I5) using the 6 GPS points.
-
+Interpolate for the time and location of recording the signal at "[DET]" (I5).
 
 DIVE MODEL:
 Split dive into three legs - Leg 1: surface-layer drift on descent (measures G1 to I2)
                              Leg 2: mixed-layer drift (measures I2 to I3)
 			     Leg 3: surface-layer drift on ascent (measures I3 to G6)
 
-
 ALGORITHM (standard case; "Case 0"):
 *Step 1: interpolate for I2 using G1-G3 (Leg 1)
 *Step 2: interpolate for I3 using G4-G6 (Leg 3)
 *Step 3: interpolate for I5 using I2-I3 (Leg 2)
-
 
 SUMMARY:
 Four (4) GPS fixes are used to generate three (3) interpolated locations.
@@ -69,11 +66,12 @@ Potentially: 4 source filenames; 8 GPS; 6 interpolation coordinates (18 columns)
 
 NOTES:
 The locations I2 and I3 are purported to be the coordinates where MERMAID exits
-and re-enters the surface layer on the descent and ascent, respectively.  The
+and reenters the surface layer on the descent and ascent, respectively.  The
 dates at which those locations are interpolated are THEMSELVES interpolated from
-time series of pressure readings contained in the LOG files.  Those interpolated
-dates do not have a clock-drift correction applied; as of automaid v3.3.0 ONLY
-the interpolated date of the time series has a clock-drift correction applied.
+time series of pressure readings contained in the LOG files.  As of automaid
+v3.3.0 those interpolated dates do not have a clock-drift correction applied;
+ONLY the interpolated date at I5 has a clock-drift correction applied.
+
 
 ## ___________________________________________________________________________ ##
 #                            ALGORITHM: FAILURE CASE                           #
