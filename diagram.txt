@@ -56,9 +56,9 @@ Split dive into three legs - Leg 1: surface-layer drift on descent (locations G1
 			     Leg 3: surface-layer drift on ascent (locations I3 to G6)
 
 ALGORITHM (standard case; "Case 0"):
-*Step 1: interpolate for I2 using G1-G3 (Leg 1)
-*Step 2: interpolate for I3 using G4-G6 (Leg 3)
-*Step 3: interpolate for I5 using I2-I3 (Leg 2)
+*Step 1: interpolate for I2 using G1-G3 (Leg 1; "Surface drift during descent")
+*Step 2: interpolate for I3 using G4-G6 (Leg 3; "Deep-drift in the mixed layer")
+*Step 3: interpolate for I5 using I2-I3 (Leg 2; "Surface drift during ascent")
 
 SUMMARY:
 Four (4) GPS fixes are used to generate three (3) interpolated locations.
