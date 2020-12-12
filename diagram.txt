@@ -14,7 +14,7 @@ RELEVANCE: automaid v3.0.0 to v3.3.0 (current).
 CROSS-SECTIONAL VIEW OF STANDARD DIVE CYCLE: (X = time or location, Y = depth)
 
 Leg:      |.........1.........|.......2.......|.........3..........|
-Measure:  G1   G2   G3  I1    I2       I5     I3     I4  G4   G5  G6
+Location: G1   G2   G3  I1    I2       I5     I3     I4  G4   G5  G6
 (0 m ->)  x -- x -- x - O                            O - x -- x -- x
                          \                         /
                	          \                       /
@@ -51,9 +51,9 @@ PROBLEM:
 Interpolate for the time and location of recording the signal at "[DET]" (I5).
 
 DIVE MODEL:
-Split dive into three legs - Leg 1: surface-layer drift on descent (measures G1 to I2)
-                             Leg 2: mixed-layer drift (measures I2 to I3)
-			     Leg 3: surface-layer drift on ascent (measures I3 to G6)
+Split dive into three legs - Leg 1: surface-layer drift on descent (locations G1 to I2)
+                             Leg 2: mixed-layer drift (locations I2 to I3)
+			     Leg 3: surface-layer drift on ascent (locations I3 to G6)
 
 ALGORITHM (standard case; "Case 0"):
 *Step 1: interpolate for I2 using G1-G3 (Leg 1)
@@ -62,7 +62,7 @@ ALGORITHM (standard case; "Case 0"):
 
 SUMMARY:
 Four (4) GPS fixes are used to generate three (3) interpolated locations.
-Potentially: 4 source filenames; 8 GPS; 6 interpolation coordinates (18 columns)
+==> 4 source filenames; 8 GPS and 6 unique interpolation coordinates
 
 NOTES:
 The locations I2 and I3 are purported to be the coordinates where MERMAID exits
@@ -72,9 +72,25 @@ time series of pressure readings contained in the LOG files.  As of automaid
 v3.3.0 those interpolated dates do not have a clock-drift correction applied;
 ONLY the interpolated date at I5 has a clock-drift correction applied.
 
+GEOCSV MOCK-UP:
+                    MethodIdentifier           Location   GU4I   IU4I
+Measurement:GPS:Trimble                              G1    nan    nan
+Measurement:GPS:Trimble                              G2    nan    nan
+Measurement:GPS:Trimble                              G3    nan    nan
+Interpolation(SurfaceDriftDescent):SimonSebs:v3.3.0  I2  G2,G3    nan
+Interpolation(DeepDrift):SimonSebs:v3.3.0            I5    nan  I2,I3
+Interpolation(SurfaceDriftAscent):SimonSebs:v3.3.0   I3  G4,G5    nan
+Measurement:GPS:Trimble                              G4    nan    nan
+Measurement:GPS:Trimble                              G5    nan    nan
+Measurement:GPS:Trimble                              G6    nan    nan
+
+GU4I = "GPS used for interpolation"
+IU4I = "Interpolant used for interpolation"
+The number of interpolation rows could be expanded with future algorithms.
+The number of interpolation rows would shrink with GPS failures.
 
 ## ___________________________________________________________________________ ##
-#                            ALGORITHM: FAILURE CASE                           #
+#                         ALGORITHM: GPS FAILURE CASES                          #
 ## ___________________________________________________________________________ ##
 
 Case 1: only one  GPS fix before dive; multiple after (exceedingly rare)
@@ -82,15 +98,50 @@ Problem: unable to estimate surface drift before dive
 Result: merge Legs 1 and 2; compute Leg 3 as normal
 Summary: 3 GPS fixes are used to interpolate 2 locations (e.g., I3 and I5 above)
 
+GEOCSV MOCK-UP:
+                    MethodIdentifier           Location   GU4I   IU4I
+Measurement:GPS:Trimble                              G1    nan    nan
+Measurement:GPS:Trimble                              G2    nan    nan
+Measurement:GPS:Trimble                              G3    nan    nan
+Interpolation(DeepDrift):SimonSebs:v3.3.0            I5     G3     I3
+Interpolation(SurfaceDriftAscent):SimonSebs:v3.3.0   I3  G4,G5    nan
+Measurement:GPS:Trimble                              G4    nan    nan
+Measurement:GPS:Trimble                              G5    nan    nan
+Measurement:GPS:Trimble                              G6    nan    nan
+
+
 Case 2: only one GPS fix after dive; multiple before (exceedingly rare)
 Problem: unable to estimate surface drift after dive
 Result: compute Leg 1 as normal; merge Legs 2 and 3
 Summary: 3 GPS fixes are used to interpolate 2 locations (e.g., I2 and I5 above)
 
+GEOCSV MOCK-UP:
+                    MethodIdentifier           Location   GU4I   IU4I
+Measurement:GPS:Trimble                              G1    nan    nan
+Measurement:GPS:Trimble                              G2    nan    nan
+Measurement:GPS:Trimble                              G3    nan    nan
+Interpolation(SurfaceDriftDescent):SimonSebs:v3.3.0  I2  G2,G3    nan
+Interpolation(DeepDrift):SimonSebs:v3.3.0            I5     G3     I2
+Measurement:GPS:Trimble                              G4    nan    nan
+Measurement:GPS:Trimble                              G5    nan    nan
+Measurement:GPS:Trimble                              G6    nan    nan
+
+
 Case 3: only one GPS fix both before and after dive (theoretically possible)
 Problem: unable to estimate surface drift either before or after dive
 Result: merge all Legs into one; interpolate between first/last GPS fixes
 Summary: 2 GPS fixes are used to interpolate 1 location (e.g., I5 above)
+
+GEOCSV MOCK-UP:
+                    MethodIdentifier           Location   GU4I   IU4I
+Measurement:GPS:Trimble                              G1    nan    nan
+Measurement:GPS:Trimble                              G2    nan    nan
+Measurement:GPS:Trimble                              G3    nan    nan
+Interpolation(DeepDrift):SimonSebs:v3.3.0            I5  G3,G4    nan
+Measurement:GPS:Trimble                              G4    nan    nan
+Measurement:GPS:Trimble                              G5    nan    nan
+Measurement:GPS:Trimble                              G6    nan    nan
+
 
 Combined, Cases 1 and 2 occur in less than 1.5% of all dives.
 Case 4 is theoretically possible though it has never occurred.
