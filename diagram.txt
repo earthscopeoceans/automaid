@@ -1,15 +1,16 @@
 Author: Joel D. Simon
 Contact: jdsimon-at-princeton.edu
 Last updated: 11-Dec-2020
+Automaid: v3+
 
-CONCERNING: automaid v3.3.0 intepolation algorithm
+PURPOSE: To diagram and elaborate upon MERMAID's interpolation algorithm.
 
 ## ___________________________________________________________________________ ##
 #                              DIVE MODEL DIAGRAM                               #
 ## ___________________________________________________________________________ ##
 
 
-Time: --> (increasing to the right) -->
+Time:      --> (increasing to the right) -->
 
 Leg:      |.........1.........|.......2.......|.........3..........|
 Measure:  G1   G2   G3  I1    I2       I5     I3     I4  G4   G5  G6
@@ -28,56 +29,70 @@ LAYER (> 50 m)               ...             ...
                   (1500 m ->)  - - - - [DET] -
 
 
-x = GPS point (G1=1st GPS fix; G6=6th GPS fix)
+x = GPS fix ("G6" in the diagram marks the 6th GPS fix)
 - = Drift
-O = Interpolated point (I1=1st interpolation etc.)
+O = Interpolated point ("I5" in the diagram marks the 5th interpolated location)
 \ = Descent in surface layer
 / = Ascent in surface layer
-| = Descent/ascent in mixed layer (drift > 50 m)
+| = Descent/ascent in mixed layer (assumed uniform at depths beyond > 50 m)
 [DET] = location of recording signal
 
 
+NOTE:
+In this case the surface-layer thickness (depth to the mixed layer) is modeled
+to be 50 m, though this is adjustable.
+
 ## ___________________________________________________________________________ ##
-#                                   ALGORITHM                                   #
+#                            ALGORITHM: STANDARD CASE                           #
 ## ___________________________________________________________________________ ##
 
 
-PROBELM:
+PROBLEM:
 Interpolate for the time and location of DET (I5) using the 6 GPS points.
 
 
 DIVE MODEL:
-Split dive into three legs: * surface-layer drift on descent (measures G1 to I2)
-                            * mixed-layer drift (meaures I2 to I3)
-			    * surface-layer drift on ascent (measures I3 to G6)
+Split dive into three legs - Leg 1: surface-layer drift on descent (measures G1 to I2)
+                             Leg 2: mixed-layer drift (measures I2 to I3)
+			     Leg 3: surface-layer drift on ascent (measures I3 to G6)
 
 
-ALGORITHM:
-*Step 1: interpolate for I2 using G1-G3
-*Step 2: interpolate for I3 using G4-G6
-*Step 3: interpolate for I5 using I2 and I3
+ALGORITHM (standard case; "Case 0"):
+*Step 1: interpolate for I2 using G1-G3 (Leg 1)
+*Step 2: interpolate for I3 using G4-G6 (Leg 3)
+*Step 3: interpolate for I5 using I2-I3 (Leg 2)
 
+
+SUMMARY:
+Four (4) GPS fixes are used to generate three (3) interpolated locations.
+Potentially: 4 source filenames; 8 GPS; 6 interpolation coordinates (18 columns)
+
+NOTES:
+The locations I2 and I3 are purported to be the coordinates where MERMAID exits
+and re-enters the surface layer on the descent and ascent, respectively.  The
+dates at which those locations are interpolated are THEMSELVES interpolated from
+time series of pressure readings contained in the LOG files.  Those interpolated
+dates do not have a clock-drift correction applied; as of automaid v3.3.0 ONLY
+the interpolated date of the time series has a clock-drift correction applied.
 
 ## ___________________________________________________________________________ ##
-#                                   EXAMPLES                                    #
+#                            ALGORITHM: FAILURE CASE                           #
 ## ___________________________________________________________________________ ##
 
-Normal case: mutliple GPS before and after dive (vast majority)
+Case 1: only one  GPS fix before dive; multiple after (exceedingly rare)
+Problem: unable to estimate surface drift before dive
+Result: merge Legs 1 and 2; compute Leg 3 as normal
+Summary: 3 GPS fixes are used to interpolate 2 locations (e.g., I3 and I5 above)
 
-In normal cases a single dive is comprised of three interpolated legs --
-Leg 1: From last GPS at the surface to reaching the mixed layer on the descent
-Leg 2: Between entering/exiting the mixed layer on descent/ascent
-Leg 3: From leaving the mixed layer to first GPS at the surface on the ascent
+Case 2: only one GPS fix after dive; multiple before (exceedingly rare)
+Problem: unable to estimate surface drift after dive
+Result: compute Leg 1 as normal; merge Legs 2 and 3
+Summary: 3 GPS fixes are used to interpolate 2 locations (e.g., I2 and I5 above)
 
-In rare cases of GPS failure a single GPS fix taken before/after the dive may be
-used for interpolation, forgoing the normal procedure of estimating one or both
-of the surface drifts. For example, if only a single GPS fix is taken before
-diving, but multiple are taken after surfacing, Legs 1 and 2 are combined into a
-single Leg.
+Case 3: only one GPS fix both before and after dive (theoretically possible)
+Problem: unable to estimate surface drift either before or after dive
+Result: merge all Legs into one; interpolate between first/last GPS fixes
+Summary: 2 GPS fixes are used to interpolate 1 location (e.g., I5 above)
 
-Leg 1*: From last GPS point at the LAST KNOWN GPS at surface before descending to
-Leg 2*: From leaving the mixed layer to reaching the surface on the ascent
-
-
-And in an extreme example (this has not yet occured)
-Leg 1**: Between last(first) GPS point at the surface on the descent(ascent)
+Combined, Cases 1 and 2 occur in less than 1.5% of all dives.
+Case 4 is theoretically possible though it has never occurred.
