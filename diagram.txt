@@ -1,9 +1,9 @@
 Author: Joel D. Simon <jdsimon at alumni.princeton.edu>
-Last updated: 12-Dec-2020
+Last updated: 14-Dec-2020
 
 PURPOSE: To diagram and elaborate upon MERMAID's interpolation algorithm.
 
-RELEVANCE: automaid v3.0.0 to v3.3.0 (current).
+RELEVANCE: automaid v3.0.0 to v3.3.0.
 
 
 ## ___________________________________________________________________________ ##
@@ -29,13 +29,20 @@ LAYER (> 50 m)               ...             ...
                   (1500 m ->)  - - - - [DET] -
 
 LEGEND:
-x = GPS fix ("G6" in the diagram marks the 6th GPS fix)
-- = Drift
-O = Interpolated point ("I5" in the diagram marks the 5th interpolated location)
+x = GPS fix (e.g., "G6" in the diagram marks the 6th GPS fix)
+- = Drift between GPS fixes / interpolated locations
+O = Interpolated location (e.g., "I5" in the diagram marks the 5th interpolated location)
 \ = Descent and drift in surface layer
 / = Ascent and drift in surface layer
 | = Descent/ascent in mixed layer (drift assumed uniform at depths beyond > 50 m)
-[DET] = location of recording signal
+[DET] = location at recording of hydroacoustic time series (the "Trace")
+
+LOCATION = INTERPRETATION ==> MethodIdentifer:
+I1 = Descent: leave surface ==> "DiveLeaveSurface"
+I2 = Descent: leave surface layer / enter mixed layer ==> "DiveExitSurfaceLayer"
+I5 = Parking-depth drift: record hydroacoustic time series ==> "RecordHydroacousticTrace"
+I3 = Ascent: leave mixed layer / enter surface layer ==> "AscentEnterSurfaceLayer"
+I4 = Ascent: reach surface ==> "AscentReachSurface"
 
 NOTE:
 In this case the surface-layer thickness (depth to the mixed layer) is modeled
@@ -47,12 +54,12 @@ to be 50 m, though this is adjustable.
 ## ___________________________________________________________________________ ##
 
 PROBLEM:
-Interpolate for the time and location of recording the signal at "[DET]" (I5).
+Interpolate for the time and location of recording the trace at "[DET]" (I5).
 
-DIVE MODEL:
-Split dive into three legs - Leg 1: surface-layer drift on descent (locations G1 to I2)
-                             Leg 2: mixed-layer drift (locations I2 to I3)
-			     Leg 3: surface-layer drift on ascent (locations I3 to G6)
+DIVE MODEL: Break dive up into three Legs
+Leg 1: surface-layer drift on descent (drift from location G1 to I2)
+Leg 2: mixed-layer drift at parking depth (drift from location I2 to I3)
+Leg 3: surface-layer drift on ascent (drift from location I3 to G6)
 
 ALGORITHM (standard case; "Case 0"):
 *Step 1: interpolate for I2 using G1-G3 (Leg 1; "Surface drift during descent")
@@ -60,8 +67,8 @@ ALGORITHM (standard case; "Case 0"):
 *Step 3: interpolate for I5 using I2-I3 (Leg 2; "Surface drift during ascent")
 
 SUMMARY:
-Four (4) GPS fixes are used to generate three (3) interpolated locations.
-==> 4 source filenames; 8 GPS and 6 unique interpolation coordinates
+4 GPS fixes are used to generate 3 interpolated locations.
+Location metadata surrounding I5 requires 6 coordinate pairs and 4 source files.
 
 NOTES:
 The locations I2 and I3 are purported to be the coordinates where MERMAID exits
@@ -73,21 +80,24 @@ ONLY the interpolated date at I5 has a clock-drift correction applied.
 
 GEOCSV MOCK-UP: CASE 0
 
-                    MethodIdentifier           Location   GU4I   IU4I
-Measurement:GPS:Trimble                              G1    nan    nan
-Measurement:GPS:Trimble                              G2    nan    nan
-Measurement:GPS:Trimble                              G3    nan    nan
-Interpolation(SurfaceDriftDescent):SimonSebs:v3.3.0  I2  G2,G3    nan
-Interpolation(DeepDrift):SimonSebs:v3.3.0            I5    nan  I2,I3
-Interpolation(SurfaceDriftAscent):SimonSebs:v3.3.0   I3  G4,G5    nan
-Measurement:GPS:Trimble                              G4    nan    nan
-Measurement:GPS:Trimble                              G5    nan    nan
-Measurement:GPS:Trimble                              G6    nan    nan
+                    MethodIdentifier              Location   GU4I   IU4I         SourceFile
+Measurement:GPS:Trimble                                 G1    nan    nan    08_5FBEB95B.LOG
+Measurement:GPS:Trimble                                 G2    nan    nan    08_5FC3B4EE.MER
+Measurement:GPS:Trimble                                 G3    nan    nan    08_5FC3B55E.LOG
+Interpolation(DiveExitSurfaceLayer):automaid_v3.3.0     I2  G2,G3    nan                nan
+Interpolation(RecordHydroacousticTrace):automaid_v3.3.0 I5    nan  I2,I3                nan
+Interpolation(AscentEnterSurfaceLayer):automaid_v3.3.0  I3  G4,G5    nan                nan
+Measurement:GPS:Trimble                                 G4    nan    nan    08_5FCB77BA.MER
+Measurement:GPS:Trimble                                 G5    nan    nan    08_5FCB77FE.LOG
+Measurement:GPS:Trimble                                 G6    nan    nan    08_5FD3BB6E.MER
 
-GU4I = "GPS used for interpolation"
-IU4I = "Interpolant used for interpolation"
+GU4I = "GPS used for interpolation" (obviously this column would be renamed)
+IU4I = "Interpolant used for interpolation" (obviously this column would be renamed)
+
 The number of interpolation rows could be expanded with future algorithms.
-The number of interpolation rows would shrink with GPS failures.
+The number of interpolation rows would shrink with GPS failures (see below).
+For the following examples I will ignore the "SourceFile" column.
+
 
 ## ___________________________________________________________________________ ##
 #                         ALGORITHM: GPS FAILURE CASES                          #
@@ -95,88 +105,84 @@ The number of interpolation rows would shrink with GPS failures.
 
 Case 1: only one  GPS fix before dive; multiple after (exceedingly rare)
 Problem: unable to estimate surface drift before dive
-Result: merge Legs 1 and 2; compute Leg 3 as normal
+Solution: merge Legs 1 and 2; compute Leg 3 as normal
 Summary: 3 GPS fixes are used to interpolate 2 locations (e.g., I3 and I5 above)
 
 GEOCSV MOCK-UP: CASE 1
 
-                    MethodIdentifier           Location   GU4I   IU4I
-Measurement:GPS:Trimble                              G1    nan    nan
-Measurement:GPS:Trimble                              G2    nan    nan
-Measurement:GPS:Trimble                              G3    nan    nan
-Interpolation(DeepDrift):SimonSebs:v3.3.0            I5     G3     I3
-Interpolation(SurfaceDriftAscent):SimonSebs:v3.3.0   I3  G4,G5    nan
-Measurement:GPS:Trimble                              G4    nan    nan
-Measurement:GPS:Trimble                              G5    nan    nan
-Measurement:GPS:Trimble                              G6    nan    nan
+                    MethodIdentifier              Location   GU4I   IU4I
+Measurement:GPS:Trimble                                 G3    nan    nan
+Interpolation(RecordHydroacousticTrace):automaid_v3.3.0 I5     G3     I3
+Interpolation(AscentEnterSurfaceLayer):automaid_v3.3.0  I3  G4,G5    nan
+Measurement:GPS:Trimble                                 G4    nan    nan
+Measurement:GPS:Trimble                                 G5    nan    nan
+Measurement:GPS:Trimble                                 G6    nan    nan
 
 ___
 
 
 Case 2: only one GPS fix after dive; multiple before (exceedingly rare)
 Problem: unable to estimate surface drift after dive
-Result: compute Leg 1 as normal; merge Legs 2 and 3
+Solution: compute Leg 1 as normal; merge Legs 2 and 3
 Summary: 3 GPS fixes are used to interpolate 2 locations (e.g., I2 and I5 above)
 
 GEOCSV MOCK-UP: CASE 2
 
-                    MethodIdentifier           Location   GU4I   IU4I
-Measurement:GPS:Trimble                              G1    nan    nan
-Measurement:GPS:Trimble                              G2    nan    nan
-Measurement:GPS:Trimble                              G3    nan    nan
-Interpolation(SurfaceDriftDescent):SimonSebs:v3.3.0  I2  G2,G3    nan
-Interpolation(DeepDrift):SimonSebs:v3.3.0            I5     G3     I2
-Measurement:GPS:Trimble                              G4    nan    nan
-Measurement:GPS:Trimble                              G5    nan    nan
-Measurement:GPS:Trimble                              G6    nan    nan
+                    MethodIdentifier              Location   GU4I   IU4I
+Measurement:GPS:Trimble                                 G1    nan    nan
+Measurement:GPS:Trimble                                 G2    nan    nan
+Measurement:GPS:Trimble                                 G3    nan    nan
+Interpolation(DiveExitSurfaceLayer):automaid_v3.3.0     I2  G2,G3    nan
+Interpolation(RecordHydroacousticTrace):automaid_v3.3.0 I5     G4     I2
+Measurement:GPS:Trimble                                 G4    nan    nan
 
 ___
 
 
 Case 3: only one GPS fix both before and after dive (theoretically possible)
 Problem: unable to estimate surface drift either before or after dive
-Result: merge all Legs into one; interpolate between first/last GPS fixes
+Solution: merge all Legs into one; interpolate between first/last GPS fixes
 Summary: 2 GPS fixes are used to interpolate 1 location (e.g., I5 above)
 
 GEOCSV MOCK-UP: CASE 3
 
-                    MethodIdentifier           Location   GU4I   IU4I
-Measurement:GPS:Trimble                              G1    nan    nan
-Measurement:GPS:Trimble                              G2    nan    nan
-Measurement:GPS:Trimble                              G3    nan    nan
-Interpolation(DeepDrift):SimonSebs:v3.3.0            I5  G3,G4    nan
-Measurement:GPS:Trimble                              G4    nan    nan
-Measurement:GPS:Trimble                              G5    nan    nan
-Measurement:GPS:Trimble                              G6    nan    nan
+                    MethodIdentifier              Location   GU4I   IU4I
+Measurement:GPS:Trimble                                 G3    nan    nan
+Interpolation(RecordHydroacousticTrace):automaid_v3.3.0 I5  G3,G4    nan
+Measurement:GPS:Trimble                                 G4    nan    nan
+
+___
+
 
 Combined, Cases 1 and 2 occur in less than 1.5% of all dives.
 Case 3 is theoretically possible though it has never occurred.
 
+
 ## ___________________________________________________________________________ ##
-#                         ALGORITHM: COMPLEX CASES                              #
+#                           ALGORITHM: COMPLEX CASES                            #
 ## ___________________________________________________________________________ ##
 
 It is possible that MERMAID never dives into the mixed layer, or a lack of
 pressure readings prohibits the interpolation of the date and location that it
 passed into/out of the mixed layer. In these cases, the interpretation of the
-three legs would be altered slightly (they are all "surface drift"), and the two
+three Legs would be altered slightly (they are all "surface drift"), and the two
 interpolants that bracket the recording date and location ([DET] or "I5") would
 be the interpolated locations where MERMAID left/reached the surface (I1 and I4)
-and not where it left/reached the surface layer (I2 and I3).
+and not where it exited/entered the surface layer (I2 and I3).
 
 
-GEOCSV MOCK-UP: CASE 0* (MERMAID does not enter the mixed layer; no "DeepDrift")
+GEOCSV MOCK-UP: CASE 0* (MERMAID does not enter the mixed layer)
 
-                    MethodIdentifier           Location   GU4I   IU4I
-Measurement:GPS:Trimble                              G1    nan    nan
-Measurement:GPS:Trimble                              G2    nan    nan
-Measurement:GPS:Trimble                              G3    nan    nan
-Interpolation(SurfaceDrift1):SimonSebs:v3.3.0        I1  G2,G3    nan
-Interpolation(SurfaceDrift2):SimonSebs:v3.3.0        I5    nan  I2,I4
-Interpolation(SurfaceDrift3):SimonSebs:v3.3.0        I4  G4,G5    nan
-Measurement:GPS:Trimble                              G4    nan    nan
-Measurement:GPS:Trimble                              G5    nan    nan
-Measurement:GPS:Trimble                              G6    nan    nan
+                    MethodIdentifier              Location   GU4I   IU4I
+Measurement:GPS:Trimble                                 G1    nan    nan
+Measurement:GPS:Trimble                                 G2    nan    nan
+Measurement:GPS:Trimble                                 G3    nan    nan
+Interpolation(DiveLeaveSurface):automaid_v3.3.0         I1  G2,G3    nan
+Interpolation(RecordHydroacousticTrace):automaid_v3.3.0 I5    nan  I1,I4
+Interpolation(AscentReachSurface):automaid_v3.3.0       I4  G4,G5    nan
+Measurement:GPS:Trimble                                 G4    nan    nan
+Measurement:GPS:Trimble                                 G5    nan    nan
+Measurement:GPS:Trimble                                 G6    nan    nan
 
 ___
 
@@ -187,28 +193,28 @@ However, more often than not two subsequent GPS fixes (e.g., G2 and G3, or G4
 and G5) are too close in time or space to provide good estimates of drift and so
 they are not the fixes used to interpolate any of the Legs.
 
-GEOCSV MOCK-UP: CASE 0** (G2 and G3; G4 and G5 too close for interpolation)
+GEOCSV MOCK-UP: CASE 0** (G2 and G3, and G4 and G5 too close for interpolation)
 
-                    MethodIdentifier           Location   GU4I   IU4I
-Measurement:GPS:Trimble                              G1    nan    nan
-Measurement:GPS:Trimble                              G2    nan    nan
-Measurement:GPS:Trimble                              G3    nan    nan
-Interpolation(SurfaceDriftDescent):SimonSebs:v3.3.0  I2  G1,G3    nan
-Interpolation(DeepDrift):SimonSebs:v3.3.0            I5    nan  I2,I3
-Interpolation(SurfaceDriftAscent):SimonSebs:v3.3.0   I3  G4,G6    nan
-Measurement:GPS:Trimble                              G4    nan    nan
-Measurement:GPS:Trimble                              G5    nan    nan
-Measurement:GPS:Trimble                              G6    nan    nan
+                    MethodIdentifier              Location   GU4I   IU4I
+Measurement:GPS:Trimble                                 G1    nan    nan
+Measurement:GPS:Trimble                                 G2    nan    nan
+Measurement:GPS:Trimble                                 G3    nan    nan
+Interpolation(DiveExitSurfaceLayer):automaid_v3.3.0     I2  G1,G3    nan
+Interpolation(RecordHydroacousticTrace):automaid_v3.3.0 I5    nan  I2,I3
+Interpolation(AscentEnterSurfaceLayer):automaid_v3.3.0  I3  G4,G6    nan
+Measurement:GPS:Trimble                                 G4    nan    nan
+Measurement:GPS:Trimble                                 G5    nan    nan
+Measurement:GPS:Trimble                                 G6    nan    nan
 
-In this case G2 and G5 were not used the interpolation of any Leg. Therefore one
-cannot just assume the the pair of GPS fixes before/after any interpolated
-location where the GPS fixes actually used to interpolate for that
-location. Also, a future algorithm may use three or more GPS fixes to
-interpolate for a single location. This is why I think it is vital that we
-somehow include the information in the "GU4I" and "IU4I" columns in the final
-GeoCSV format.
+In this case G2 and G5 were not used in the interpolation of any Leg. Therefore
+one cannot just assume that the pair of GPS fixes before/after any interpolated
+location are the GPS fixes actually used to interpolate for that location. Also,
+a future algorithm may use three or more GPS fixes to interpolate for a single
+location. This is why I think it is vital that we include the information in the
+"GU4I" and "IU4I" columns in the final GeoCSV format.
 
 ___
 
 
-Finally, any combination of the cases just presented can and will occur.
+Finally, any combination of the cases just presented can and will occur because
+"anything that can go wrong will go wrong."
