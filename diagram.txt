@@ -30,7 +30,7 @@ LAYER (> 50 m)               ...             ...
 
 LEGEND:
 x = GPS fix (e.g., "G6" in the diagram marks the 6th GPS fix)
-- = Drift between GPS fixes / interpolated locations
+- = Drift between GPS fixes and/or interpolated locations
 O = Interpolated location (e.g., "I5" in the diagram marks the 5th interpolated location)
 \ = Descent and drift in surface layer
 / = Ascent and drift in surface layer
@@ -94,9 +94,10 @@ Measurement:GPS:Trimble                                 G6    nan    nan    08_5
 GU4I = "GPS used for interpolation" (obviously this column would be renamed)
 IU4I = "Interpolant used for interpolation" (obviously this column would be renamed)
 
+No datetime column is shown, but the rows are ordered by time (earliest first).
 The number of interpolation rows could be expanded with future algorithms.
 The number of interpolation rows would shrink with GPS failures (see below).
-For the following examples I will ignore the "SourceFile" column.
+For later examples I will ignore the "SourceFile" column.
 
 
 ## ___________________________________________________________________________ ##
