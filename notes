@@ -1,0 +1,7 @@
+Errant P016 date in misalo.txt (which is earlier than any date I have) is from:
+
+16_5B8CDE45.LOG
+
+which FJS deleted from the server on 24-Sep-2018 in
+
+commit ca97eb2e2937e68a714b08da375a09b4dcd7cc06
