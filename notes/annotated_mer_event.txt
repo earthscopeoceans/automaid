@@ -1,15 +1,25 @@
-REQUESTED (section 9.4.3, manual ref: 452.000.852 version 00)
+There is nothing new here that is not in annotated_mer_environment: the <FORMAT>
+block contains teh number of wavelet sacles and whether or not it's normalized,
+but it does not say whether there is edge correction applied (needs to be
+applied?)
+
+
+DETECTED (section 9.4.3, manual ref: 452.000.852 version 00)
 
 <EVENT>
-	* trig date, the depth, the temperature, the calculated criterion and signal-to-noise ratio, the TRIG sample number and the DTRIG sample number (pg. 33; not trig time, not starttime!)
+
+	* trig date, the depth, the temperature, the calculated criterion and
+          signal-to-noise ratio, the TRIG sample number and the DTRIG sample
+          number (pg. 33; not trig time, not starttime!)
 	<INFO DATE=2020-11-30T23:05:46.916900 PRESSURE=1522.00 TEMPERATURE=-11.0000 CRITERION=0.0501695 SNR=1.298 TRIG=2000 DETRIG=5860 />
 
-	* Bytes, sampling rate of int32 data in <EVENT> block, wavelet scales used in reconstruction, wavelet transform normalization, total number of samples in event
-	32 bits), the sampling rate of the signal (40 Hz divided by 2 to the
-	power the number of scales removed), the number of wavelet scales
-	recorded, the method of the wavelet transform with or without
-	normalization and the total length of the signal."
-	<FORMAT ENDIANNESS=LITTLE BYTES_PER_SAMPLE=4 SAMPLING_RATE=20.000000 STAGES=5 NORMALIZED=YES LENGTH=4864 />
+	* Bytes, sampling rate of int32 data in <EVENT> block, wavelet scales
+	used in reconstruction, wavelet transform normalization, total number of
+	samples in event 32 bits), the sampling rate of the signal (40 Hz
+	divided by 2 to the power the number of scales removed), the number of
+	wavelet scales recorded, the method of the wavelet transform with or
+	without normalization and the total length of the signal."
+X	<FORMAT ENDIANNESS=LITTLE BYTES_PER_SAMPLE=4 SAMPLING_RATE=20.000000 STAGES=5 NORMALIZED=YES LENGTH=4864 />
 	<DATA>
 
 
@@ -19,9 +29,12 @@ _________________________________
 REQUESTED (section 9.4.5, manual ref: 452.000.852 version 00)
 
 <EVENT>
-	* The date of the first sample requested, the name of the file (internal MERMAID file, not .MER file) where the data come from and the position of the sample in this file (starttime = FNAME + SMP_OFFSET)
+
+	* The date of the first sample requested, the name of the file (internal
+          MERMAID file, not .MER file) where the data come from and the position
+          of the sample in this file (starttime = FNAME + SMP_OFFSET)
 	<INFO DATE=2018-10-10T20:52:05 FNAME=2018-10-08T19_10_04.625000	SMP_OFFSET=7159265 TRUE_FS=40.013695 />
 
 	* Same as in detected events except that the STAGE field can be ‘-1’ if raw data are requested
-	<FORMAT ENDIANNESS=LITTLE BYTES_PER_SAMPLE=4 SAMPLING_RATE=20.006847 STAGES=5 NORMALIZED=YES LENGTH=7680 />
+X	<FORMAT ENDIANNESS=LITTLE BYTES_PER_SAMPLE=4 SAMPLING_RATE=20.006847 STAGES=5 NORMALIZED=YES LENGTH=7680 />
 	<DATA>

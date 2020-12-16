@@ -20,11 +20,11 @@ X	<SOFTWARE 2.1336 />
 
 <PARAMETERS>
 	* Parameters of the analog to digital converter (pg. 31; but the filter is and must stay disabled disabled (pg. 26)))
-	<ADC GAIN=1 BUFFER=ON />
+X	<ADC GAIN=1 BUFFER=ON />
 
 	* "The signal is filtered by the INPUT_FILTER before any other data processing. By default, this filter is disabled (0 order filter with coefficients set to 1) and has to stay disabled" (pg 26)
 	* "The input filter has an effect on data processed by the STA/LTA and data recorded in memory. The default filter coefficients are equivalent to a disabled filter" (pg. 30)
-	<INPUT_FILTER B[0]=1/1 A[0]=1/1 />
+X	<INPUT_FILTER B[0]=1/1 A[0]=1/1 />
 
 	* Numerical filter only applied on the STA/LTA process but not on the recorded signal (used for detection only; pg. 31)
 	<STALTA B[0]=12/295 B[1]=0/1 B[2]=-17/209 B[3]=0/1 B[4]=12/295 A[0]=1/1 A[1]=-551/148 A[2]=4535/856 A[3]=-4661/1365 A[4]=277/329 STA_LEN=400 LTA_LEN=4000 TRIG=5/2 DETRIG=1/1 />
@@ -36,7 +36,7 @@ X	<SOFTWARE 2.1336 />
 	<RATING NOISE_LEN=1024 NOISE_OVERLAP=204 KEEP_ALL=0.010:0.100 KEEP_SIZE=0.001:0.100 SIZE=4000 />
 
 	* Parameters of the wavelet transform (pg. 31; used by automaid to invert the lossless time series)
-	<CDF24 EDGES_CORRECTION=1 NORMALIZED=1 SCALES=5 />
+X	<CDF24 EDGES_CORRECTION=1 NORMALIZED=1 SCALES=5 />
 
 	* "EXTRAPOLATED" --> ????
 	* "REF" --> Parameter used to calculate the criterion of a detected signal (pg. 31)
