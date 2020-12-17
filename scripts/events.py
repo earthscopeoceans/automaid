@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 03-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 16-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
@@ -403,8 +403,8 @@ class Event:
         stats = Stats()
         stats.network = "MH"
         stats.station = kstnm
-        stats.channel = "BDH"  # SEED manual Appendix A
-        stats.starttime = self.date
+        stats.location = "00"
+        stats.channel = utils.band_code(self.decimated_fs) + "DH"  # SEED manual Appendix A
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.data)
 

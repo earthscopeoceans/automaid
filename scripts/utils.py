@@ -6,12 +6,11 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 25-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 24-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 16-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import re
+import warnings
 from obspy import UTCDateTime
 import plotly.graph_objs as graph
 
@@ -133,3 +132,28 @@ def counts2pascal(data):
 
     '''
     return data/sac_scale()
+
+
+def band_code(sample_rate=None):
+    """ Return instrument band code given sampling frequency in Hz.
+
+    Args:
+        sample_rate (float/int): Sample rate in Hz [def: None]
+
+    Returns:
+        str: Band code (e.g., "M" for mid period) [def: None]
+
+    """
+
+    # Page 133 : "Appendix A: Channel Naming" (SEED  Manual Format Version 2.4)
+    if 1 < sample_rate < 10:
+        band_code = "M"
+
+    elif 10 <= sample_rate < 80:
+        band_code = "B"
+
+    else:
+        band_code = None
+        warnings.warn("No band code defined for {} Hz sample rate".format(sample_rate))
+
+    return band_code
