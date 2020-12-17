@@ -77,7 +77,7 @@ class GeoCSV:
 
             """
 
-            for gps in gps_list: #sort
+            for gps in sorted(gps_list, key=lambda x:x.date):
                 csvwriter.writerow(['Measurement:GPS:Trimble',
                                     str(gps.date)[0:19]+'Z',
                                     np.float32(gps.latitude),
@@ -91,7 +91,7 @@ class GeoCSV:
                 events (list): list of events.Event instances with interpolations
 
             """
-            for event in event_list: #sort
+            for event in sorted(event_list, key=lambda x: x.station_loc.date):
                 csvwriter.writerow(['Algorithm:automaid:v3.3.0',
                                     str(event.station_loc.date)[0:19]+'Z',
                                     np.float32(event.station_loc.latitude),
