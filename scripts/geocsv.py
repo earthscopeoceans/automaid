@@ -107,28 +107,51 @@ class GeoCSV:
                                  self.MethodIdentifier_header])
 
 
-        def write_measurement_rows(csvwriter, gps_list):
+        def write_measurement_rows(csvwriter, dive, flag):
             """Write mutliple rows of GPS measurements
 
             Args:
-               gps (list): List of gps.GPS instances of actual GPS measurements
+                dive (dives.Dive instance):
+                gps_list (list):
 
             """
 
+            # Determine what GPS fixes to write
+            flag = flag.lower()
+            if flag == 'before_dive':
+                gps_list = dive.gps_before_dive
+            elif flag == 'after_dive':
+                gps_list = dive.gps_before_dive
+            else:
+                print 'bad flag'
+
+            # Loop over all GPS instances and write single line for each
             for gps in sorted(gps_list, key=lambda x:x.date):
                 csvwriter.writerow(['Measurement:GPS:Trimble',
                                     str(gps.date)[0:19]+'Z',
                                     np.float32(gps.latitude),
                                     np.float32(gps.longitude)])
 
-        def write_algorithm_row(csvwriter, event_list):
+        def write_algorithm_row(csvwriter, dive, flag):
             """Write a single row of event measurements (e.g. STDP) and interpolations
             (e.g. STLA/STLO)
 
             Args:
-                events (list): list of events.Event instances with interpolations
+                dive (dives.Dive instance):
+                flag (str):
 
             """
+
+            # Determine what events to write
+            if flag == 'all':
+                event_list = dive.events
+            elif flag == 'det':
+                event_list = [event for event in dive.events if not event.is_requested]
+            elif flag == 'req':
+                event_list = [event for event in dive.events if event.is_requested]
+            else:
+                print 'bad val'
+
             for event in sorted(event_list, key=lambda x: x.station_loc.date):
                 csvwriter.writerow(['Algorithm:automaid:v3.3.0',
                                     str(event.station_loc.date)[0:19]+'Z',
@@ -160,22 +183,22 @@ class GeoCSV:
             # Events are parsed between REQ and DET files (hence "write..row")
             for dive in self.dives:
                 if dive.gps_before_dive is not None:
-                    write_measurement_rows(csvwriter_all, dive.gps_before_dive)
-                    write_measurement_rows(csvwriter_det, dive.gps_before_dive)
-                    write_measurement_rows(csvwriter_req, dive.gps_before_dive)
+                    write_measurement_rows(csvwriter_all, dive, 'before_dive')
+                    write_measurement_rows(csvwriter_det, dive, 'before_dive')
+                    write_measurement_rows(csvwriter_req, dive, 'before_dive')
 
                 if dive.events is not None:
                     for event in dive.events:
-                        write_algorithm_row(csvwriter_all, dive.events)
+                        write_algorithm_row(csvwriter_all, dive, 'all')
                         if event.is_requested:
-                            write_algorithm_row(csvwriter_req, dive.events)
+                            write_algorithm_row(csvwriter_req, dive, 'req')
                         else:
-                            write_algorithm_row(csvwriter_det, dive.events)
+                            write_algorithm_row(csvwriter_det, dive, 'det')
 
                 if dive.gps_after_dive is not None:
-                    write_measurement_rows(csvwriter_all, dive.gps_after_dive)
-                    write_measurement_rows(csvwriter_det, dive.gps_after_dive)
-                    write_measurement_rows(csvwriter_req, dive.gps_after_dive)
+                    write_measurement_rows(csvwriter_all, dive, 'after_dive')
+                    write_measurement_rows(csvwriter_det, dive, 'after_dive')
+                    write_measurement_rows(csvwriter_req, dive, 'after_dive')
 
 
 if __name__ == '__main__':
