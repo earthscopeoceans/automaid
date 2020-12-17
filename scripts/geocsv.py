@@ -32,18 +32,56 @@ class GeoCSV:
         # Define first two header lines
         self.dataset_header = ['#dataset: GeoCSV ' + self.version]
         self.delimiter_header = ['#delimiter: ' + self.delimiter]
-        self.field_unit_header = ["#field_unit",
-                                  "ISO_8601",
-                                  "degrees_north",
-                                  "degrees_east"]
-        self.field_type_header = ["#field_type",
-                                  "datetime",
-                                  "float(32bit)",
-                                  "float(32bit)"]
-        self.MethodIdentifier_header = ["MethodIdentifier",
-                                        "StartTime",
-                                        "Latitude",
-                                        "Longitude"]
+        self.field_unit_header = ['#field_unit',
+                                  'ISO_8601',
+                                  'unitless',
+                                  'unitless',
+                                  'unitless',
+                                  'unitless',
+                                  'degrees_north',
+                                  'degrees_east',
+                                  'meters',
+                                  'meters',
+                                  'unitless',
+                                  'factor',
+                                  'hertz',
+                                  'unitless',
+                                  'hertz',
+                                  'seconds']
+
+        self.field_type_header = ['#field_type',
+                                  'datetime',
+                                  'string',
+                                  'string',
+                                  'string',
+                                  'string',
+                                  'float',
+                                  'float',
+                                  'float',
+                                  'float',
+                                  'string',
+                                  'float',
+                                  'float',
+                                  'string',
+                                  'float',
+                                  'float']
+
+        self.MethodIdentifier_header = ['MethodIdentifier',
+                                        'StartTime',
+                                        'Network',
+                                        'Station',
+                                        'Location',
+                                        'Channel',
+                                        'Latitude',
+                                        'Longitude',
+                                        'Elevation',
+                                        'Depth',
+                                        'SensorDescription',
+                                        'Scale',
+                                        'ScaleFrequency',
+                                        'ScaleUnits',
+                                        'SampleRate',
+                                        'TimeCorrectionApplied']
 
 
     def write(self, filename):
@@ -64,9 +102,9 @@ class GeoCSV:
             """
             csvwriter.writerows([self.dataset_header,
                                  self.delimiter_header,
-                                 self.MethodIdentifier_header,
                                  self.field_unit_header,
-                                 self.field_type_header])
+                                 self.field_type_header,
+                                 self.MethodIdentifier_header])
 
 
         def write_measurement_rows(csvwriter, gps_list):
