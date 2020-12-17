@@ -46,11 +46,11 @@ class GeoCSV:
                                         "Longitude"]
 
 
-    def write(self, filename='mermaid_geo.csv'):
-        """Write GeoCSV file
+    def write(self, filename):
+        """Write (Geo)CSV file
 
         Args:
-            filename (str): GeoCSV filename (def: mermaid_geo.csv)
+            filename (str): GeoCSV filename
 
         """
         #filename.append('geocsv') if filename.split('.')[-1] != 'geocsv' else pass
@@ -69,8 +69,8 @@ class GeoCSV:
                                  self.field_type_header])
 
 
-        def write_measurement_rows(gps_list):
-            """Write GeoCSV rows of GPS measurements
+        def write_measurement_rows(csvwriter, gps_list):
+            """Write mutliple rows of GPS measurements
 
             Args:
                gps (list): List of gps.GPS instances of actual GPS measurements
@@ -83,8 +83,8 @@ class GeoCSV:
                                     np.float32(gps.latitude),
                                     np.float32(gps.longitude)])
 
-        def write_algorithm_rows(event_list):
-            """Write GeoCSV rows of event measurements (e.g. STDP) and interpolations
+        def write_algorithm_row(csvwriter, event_list):
+            """Write a single row of event measurements (e.g. STDP) and interpolations
             (e.g. STLA/STLO)
 
             Args:
@@ -98,29 +98,49 @@ class GeoCSV:
                                     np.float32(event.station_loc.longitude)])
 
 
+        # Parse basename from filename to later append "_DET.csv" and "_REQ.csv"
+        basename = filename.strip('.csv') if filename.endswith('.csv') else filename
+
         # Open as as 'wb' in Python 2 rather than 'w' with newline='' in Python 3
         # https://docs.python.org/2/library/csv.html#csv.writer
-        with open(filename, 'wb') as csvfile:
-            csvwriter = csv.writer(csvfile, delimiter=self.delimiter)
+        with open(basename+'.csv', 'wb') as csvfile_all, \
+             open(basename+'_DET.csv', 'wb') as csvfile_det, \
+             open(basename+'_REQ.csv', 'wb') as csvfile_req:
+
+            # Define csv.writer object for all three files
+            csvwriter_all = csv.writer(csvfile_all, delimiter=self.delimiter)
+            csvwriter_det = csv.writer(csvfile_det, delimiter=self.delimiter)
+            csvwriter_req = csv.writer(csvfile_req, delimiter=self.delimiter)
 
             # Write headers
-            write_headers(csvwriter)
+            write_headers(csvwriter_all)
+            write_headers(csvwriter_det)
+            write_headers(csvwriter_req)
 
             # Write metadata rows
+            # Every GPS fix goes in all three files (hence "write...rows" plural)
+            # Events are parsed between REQ and DET files (hence "write..row")
             for dive in self.dives:
                 if dive.gps_before_dive is not None:
-                    write_measurement_rows(dive.gps_before_dive)
+                    write_measurement_rows(csvwriter_all, dive.gps_before_dive)
+                    write_measurement_rows(csvwriter_det, dive.gps_before_dive)
+                    write_measurement_rows(csvwriter_req, dive.gps_before_dive)
 
                 if dive.events is not None:
-                    write_algorithm_rows(dive.events)
+                    for event in dive.events:
+                        write_algorithm_row(csvwriter_all, dive.events)
+                        if event.is_requested:
+                            write_algorithm_row(csvwriter_req, dive.events)
+                        else:
+                            write_algorithm_row(csvwriter_det, dive.events)
 
                 if dive.gps_after_dive is not None:
-                    write_measurement_rows(dive.gps_after_dive)
-
-
+                    write_measurement_rows(csvwriter_all, dive.gps_after_dive)
+                    write_measurement_rows(csvwriter_det, dive.gps_after_dive)
+                    write_measurement_rows(csvwriter_req, dive.gps_after_dive)
 
 
 if __name__ == '__main__':
     dive_list = pickle.load( open('mdives.p', 'rb') )
     geocsv = GeoCSV(dive_list)
-    geocsv.write()
+    geocsv.write('test')
