@@ -7,6 +7,7 @@
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified: 16-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
+import setup
 import csv
 import numpy as np
 import pickle
@@ -47,6 +48,7 @@ class GeoCSV:
                                   'hertz',
                                   'unitless',
                                   'hertz',
+                                  'seconds',
                                   'seconds']
 
         self.field_type_header = ['#field_type',
@@ -63,6 +65,7 @@ class GeoCSV:
                                   'float',
                                   'float',
                                   'string',
+                                  'float',
                                   'float',
                                   'float']
 
@@ -81,6 +84,7 @@ class GeoCSV:
                                         'ScaleFrequency',
                                         'ScaleUnits',
                                         'SampleRate',
+                                        'TimeDelay',
                                         'TimeCorrectionApplied']
 
 
@@ -121,16 +125,31 @@ class GeoCSV:
             if flag == 'before_dive':
                 gps_list = dive.gps_before_dive
             elif flag == 'after_dive':
-                gps_list = dive.gps_before_dive
+                gps_list = dive.gps_after_dive
             else:
                 print 'bad flag'
 
             # Loop over all GPS instances and write single line for each
             for gps in sorted(gps_list, key=lambda x:x.date):
+                gps.clockdrift
                 csvwriter.writerow(['Measurement:GPS:Trimble',
                                     str(gps.date)[0:19]+'Z',
+                                    dive.network,
+                                    dive.kstnm,
+                                    '01',
+                                    float('nan'),
                                     np.float32(gps.latitude),
-                                    np.float32(gps.longitude)])
+                                    np.float32(gps.longitude),
+                                    np.float32(0.),
+                                    np.float32(0.),
+                                    'ExternalPressureSensor',
+                                    np.float32(1.),
+                                    float('nan'),
+                                    'm',
+                                    float('nan'),
+                                    gps.clockdrift,
+                                    float('nan')])
+
 
         def write_algorithm_row(csvwriter, dive, flag):
             """Write a single row of event measurements (e.g. STDP) and interpolations
@@ -153,10 +172,24 @@ class GeoCSV:
                 print 'bad val'
 
             for event in sorted(event_list, key=lambda x: x.station_loc.date):
-                csvwriter.writerow(['Algorithm:automaid:v3.3.0',
-                                    str(event.station_loc.date)[0:19]+'Z',
-                                    np.float32(event.station_loc.latitude),
-                                    np.float32(event.station_loc.longitude)])
+                if event.station_loc:
+                    csvwriter.writerow(['Algorithm:automaid:{:s}'.format(setup.get_version()),
+                                        str(event.obspy_trace_stats["starttime"])[:19]+'Z',
+                                        dive.network,
+                                        dive.kstnm,
+                                        '00',
+                                        event.obspy_trace_stats["channel"],
+                                        np.float32(event.obspy_trace_stats.sac["stla"]),
+                                        np.float32(event.obspy_trace_stats.sac["stlo"]),
+                                        np.float32(0.),
+                                        np.float32(event.obspy_trace_stats.sac["stdp"]),
+                                        'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                                        np.float32(event.obspy_trace_stats.sac["scale"]),
+                                        np.float32(1.),
+                                        'Pa',
+                                        np.float32(event.obspy_trace_stats["sampling_rate"]),
+                                        float('nan'),
+                                        -np.float32(event.clockdrift_correction)])
 
 
         # Parse basename from filename to later append "_DET.csv" and "_REQ.csv"
@@ -190,10 +223,10 @@ class GeoCSV:
                 if dive.events is not None:
                     for event in dive.events:
                         write_algorithm_row(csvwriter_all, dive, 'all')
-                        if event.is_requested:
-                            write_algorithm_row(csvwriter_req, dive, 'req')
-                        else:
+                        if not event.is_requested:
                             write_algorithm_row(csvwriter_det, dive, 'det')
+                        else:
+                            write_algorithm_row(csvwriter_req, dive, 'req')
 
                 if dive.gps_after_dive is not None:
                     write_measurement_rows(csvwriter_all, dive, 'after_dive')
