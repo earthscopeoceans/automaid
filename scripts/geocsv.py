@@ -5,7 +5,7 @@
 #
 # Author: Joel. D Simon
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified: 16-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified: 17-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import csv
@@ -85,7 +85,7 @@ class GeoCSV:
                                         'ScaleUnits',
                                         'SampleRate',
                                         'TimeDelay',
-                                        'TimeCorrectionApplied']
+                                        'TimeCorrection']
 
 
     def write(self, filename):
@@ -131,25 +131,25 @@ class GeoCSV:
 
             # Loop over all GPS instances and write single line for each
             for gps in sorted(gps_list, key=lambda x:x.date):
-                gps.clockdrift
-                csvwriter.writerow(['Measurement:GPS:Trimble',
+                measurement_list = ['Measurement:GPS:Trimble',
                                     str(gps.date)[0:19]+'Z',
                                     dive.network,
                                     dive.kstnm,
-                                    '01',
+                                    '',
                                     float('nan'),
-                                    np.float32(gps.latitude),
-                                    np.float32(gps.longitude),
-                                    np.float32(0.),
-                                    np.float32(0.),
-                                    'ExternalPressureSensor',
-                                    np.float32(1.),
+                                    format(np.float32(gps.latitude), '.6f'),
+                                    format(np.float32(gps.latitude), '.6f'),
+                                    format(np.float32(0.), '.0f'),
+                                    format(np.float32(0.), '.0f'),
+                                    'MERMAIDHydrophone({:s})'.format(dive.kinst),
                                     float('nan'),
-                                    'm',
                                     float('nan'),
-                                    gps.clockdrift,
-                                    float('nan')])
+                                    '',
+                                    float('nan'),
+                                    format(np.float32(gps.clockdrift), '.6f'),
+                                    float('nan')]
 
+                csvwriter.writerow(measurement_list)
 
         def write_algorithm_row(csvwriter, dive, flag):
             """Write a single row of event measurements (e.g. STDP) and interpolations
@@ -173,23 +173,25 @@ class GeoCSV:
 
             for event in sorted(event_list, key=lambda x: x.station_loc.date):
                 if event.station_loc:
-                    csvwriter.writerow(['Algorithm:automaid:{:s}'.format(setup.get_version()),
-                                        str(event.obspy_trace_stats["starttime"])[:19]+'Z',
-                                        dive.network,
-                                        dive.kstnm,
-                                        '00',
-                                        event.obspy_trace_stats["channel"],
-                                        np.float32(event.obspy_trace_stats.sac["stla"]),
-                                        np.float32(event.obspy_trace_stats.sac["stlo"]),
-                                        np.float32(0.),
-                                        np.float32(event.obspy_trace_stats.sac["stdp"]),
-                                        'MERMAIDHydrophone({:s})'.format(dive.kinst),
-                                        np.float32(event.obspy_trace_stats.sac["scale"]),
-                                        np.float32(1.),
-                                        'Pa',
-                                        np.float32(event.obspy_trace_stats["sampling_rate"]),
-                                        float('nan'),
-                                        -np.float32(event.clockdrift_correction)])
+                    algorithm_list = ['Algorithm:automaid:{:s}'.format(setup.get_version()),
+                                      str(event.obspy_trace_stats["starttime"])[:19]+'Z',
+                                      dive.network,
+                                      dive.kstnm,
+                                      '00',
+                                      event.obspy_trace_stats["channel"],
+                                      format(np.float32(event.obspy_trace_stats.sac["stla"]), '.6f'),
+                                      format(np.float32(event.obspy_trace_stats.sac["stlo"]), '.6f'),
+                                      format(np.float32(0.), '.0f'),
+                                      format(np.float32(event.obspy_trace_stats.sac["stdp"]), '.0f'),
+                                      'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                                      format(np.float32(event.obspy_trace_stats.sac["scale"]), '.0f'),
+                                      format(np.float32(1.), '.1f'),
+                                      'Pa',
+                                      format(np.float32(event.obspy_trace_stats["sampling_rate"]), '.1f'),
+                                      float('nan'),
+                                      format(-np.float32(event.clockdrift_correction), '.6f')]
+
+                    csvwriter.writerow(algorithm_list)
 
 
         # Parse basename from filename to later append "_DET.csv" and "_REQ.csv"
