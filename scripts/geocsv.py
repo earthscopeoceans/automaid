@@ -97,6 +97,12 @@ class GeoCSV:
         """
         #filename.append('geocsv') if filename.split('.')[-1] != 'geocsv' else pass
 
+        # lambdas to convert floats to numpy float32 with specified precision
+        d0 = lambda x: format(np.float32(x), '.0f')
+        d1 = lambda x: format(np.float32(x), '.1f')
+        d6 = lambda x: format(np.float32(x), '.6f')
+        nan = np.float32('nan')
+
         def write_headers(csvwriter):
             """Write GeoCSV header rows
 
@@ -112,7 +118,7 @@ class GeoCSV:
 
 
         def write_measurement_rows(csvwriter, dive, flag):
-            """Write mutliple rows of GPS measurements
+            """Write multiple rows of GPS measurements
 
             Args:
                 dive (dives.Dive instance):
@@ -136,18 +142,18 @@ class GeoCSV:
                                     dive.network,
                                     dive.kstnm,
                                     '',
-                                    float('nan'),
-                                    format(np.float32(gps.latitude), '.6f'),
-                                    format(np.float32(gps.latitude), '.6f'),
-                                    format(np.float32(0.), '.0f'),
-                                    format(np.float32(0.), '.0f'),
+                                    nan,
+                                    d6(gps.latitude),
+                                    d6(gps.latitude),
+                                    d0(0),
+                                    d0(0),
                                     'MERMAIDHydrophone({:s})'.format(dive.kinst),
-                                    float('nan'),
-                                    float('nan'),
+                                    nan,
+                                    nan,
                                     '',
-                                    float('nan'),
-                                    format(np.float32(gps.clockdrift), '.6f'),
-                                    float('nan')]
+                                    nan,
+                                    d6(gps.clockdrift),
+                                    nan]
 
                 csvwriter.writerow(measurement_list)
 
@@ -179,20 +185,19 @@ class GeoCSV:
                                       dive.kstnm,
                                       '00',
                                       event.obspy_trace_stats["channel"],
-                                      format(np.float32(event.obspy_trace_stats.sac["stla"]), '.6f'),
-                                      format(np.float32(event.obspy_trace_stats.sac["stlo"]), '.6f'),
-                                      format(np.float32(0.), '.0f'),
-                                      format(np.float32(event.obspy_trace_stats.sac["stdp"]), '.0f'),
+                                      d6(event.obspy_trace_stats.sac["stla"]),
+                                      d6(event.obspy_trace_stats.sac["stlo"]),
+                                      d0(0),
+                                      d0(event.obspy_trace_stats.sac["stdp"]),
                                       'MERMAIDHydrophone({:s})'.format(dive.kinst),
-                                      format(np.float32(event.obspy_trace_stats.sac["scale"]), '.0f'),
-                                      format(np.float32(1.), '.1f'),
+                                      d0(event.obspy_trace_stats.sac["scale"]),
+                                      d1(np.float32(1.)),
                                       'Pa',
-                                      format(np.float32(event.obspy_trace_stats["sampling_rate"]), '.1f'),
-                                      float('nan'),
-                                      format(-np.float32(event.clockdrift_correction), '.6f')]
+                                      d1(event.obspy_trace_stats["sampling_rate"]),
+                                      nan,
+                                      d6(-1*event.clockdrift_correction)]
 
                     csvwriter.writerow(algorithm_list)
-
 
         # Parse basename from filename to later append "_DET.csv" and "_REQ.csv"
         basename = filename.strip('.csv') if filename.endswith('.csv') else filename
