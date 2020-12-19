@@ -142,25 +142,25 @@ class GeoCSV:
 
             # Loop over all GPS instances and write single line for each
             for gps in sorted(gps_list, key=lambda x:x.date):
-                measurement_list = ['Measurement:GPS:Trimble',
-                                    str(gps.date)[0:19]+'Z',
-                                    dive.network,
-                                    dive.kstnm,
-                                    '',
-                                    nan,
-                                    d6(gps.latitude),
-                                    d6(gps.latitude),
-                                    d0(0),
-                                    d0(0),
-                                    'MERMAIDHydrophone({:s})'.format(dive.kinst),
-                                    nan,
-                                    nan,
-                                    '',
-                                    nan,
-                                    d6(-1*gps.clockdrift), # MER delay = (-) clockdrift
-                                    nan]
+                measurement_row = ['Measurement:GPS:Trimble',
+                                   str(gps.date)[0:19]+'Z',
+                                   dive.network,
+                                   dive.kstnm,
+                                   '',
+                                   nan,
+                                   d6(gps.latitude),
+                                   d6(gps.latitude),
+                                   d0(0),
+                                   d0(0),
+                                   'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                                   nan,
+                                   nan,
+                                   '',
+                                   nan,
+                                   d6(-1*gps.clockdrift), # MER delay = (-) clockdrift
+                                   nan]
 
-                csvwriter.writerow(measurement_list)
+                csvwriter.writerow(measurement_row)
 
         def write_algorithm_rows(csvwriter, dive, flag):
             """Write multiple rows of event (algorithm) values, some measured
@@ -187,27 +187,29 @@ class GeoCSV:
             else:
                 print 'bad flag'
 
-            for event in sorted(event_list, key=lambda x: x.station_loc.date):
-                if event.station_loc:
-                    algorithm_list = ['Algorithm:automaid:{:s}'.format(setup.get_version()),
-                                      str(event.obspy_trace_stats["starttime"])[:19]+'Z',
-                                      dive.network,
-                                      dive.kstnm,
-                                      '00',
-                                      event.obspy_trace_stats["channel"],
-                                      d6(event.obspy_trace_stats.sac["stla"]),
-                                      d6(event.obspy_trace_stats.sac["stlo"]),
-                                      d0(0),
-                                      d0(event.obspy_trace_stats.sac["stdp"]),
-                                      'MERMAIDHydrophone({:s})'.format(dive.kinst),
-                                      d0(event.obspy_trace_stats.sac["scale"]),
-                                      d1(np.float32(1.)),
-                                      'Pa',
-                                      d1(event.obspy_trace_stats["sampling_rate"]),
-                                      nan,
-                                      d6(event.clockdrift_correction)]
+            # Only keep events with an interpolated station location (STLA/STLO)
+            event_list = [event for event in event_list if event.station_loc is not None]
 
-                    csvwriter.writerow(algorithm_list)
+            for event in sorted(event_list, key=lambda x: x.station_loc.date):
+                algorithm_row = ['Algorithm:automaid:{:s}'.format(setup.get_version()),
+                                 str(event.obspy_trace_stats["starttime"])[:19]+'Z',
+                                 dive.network,
+                                 dive.kstnm,
+                                 '00',
+                                 event.obspy_trace_stats["channel"],
+                                 d6(event.obspy_trace_stats.sac["stla"]),
+                                 d6(event.obspy_trace_stats.sac["stlo"]),
+                                 d0(0),
+                                 d0(event.obspy_trace_stats.sac["stdp"]),
+                                 'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                                 d0(event.obspy_trace_stats.sac["scale"]),
+                                 d1(np.float32(1.)),
+                                 'Pa',
+                                 d1(event.obspy_trace_stats["sampling_rate"]),
+                                 nan,
+                                 d6(event.clockdrift_correction)]
+
+                csvwriter.writerow(algorithm_row)
 
         # Parse basename from filename to later append "_DET.csv" and "_REQ.csv"
         basename = filename.strip('.csv') if filename.endswith('.csv') else filename
@@ -268,6 +270,6 @@ class GeoCSV:
 
 
 if __name__ == '__main__':
-    dive_list = pickle.load( open('mdives.p', 'rb') )
+    dive_list = pickle.load(open('P008.p', 'rb'))
     geocsv = GeoCSV(dive_list)
     geocsv.write('test')
