@@ -88,11 +88,11 @@ class GeoCSV:
                                         'TimeCorrection']
 
 
-    def write(self, filename):
+    def write(self, filename='geo.csv'):
         """Write (Geo)CSV file
 
         Args:
-            filename (str): GeoCSV filename
+            filename (str): GeoCSV filename (def: 'geo.csv')
 
         """
         #filename.append('geocsv') if filename.split('.')[-1] != 'geocsv' else pass
@@ -118,7 +118,7 @@ class GeoCSV:
 
 
         def write_measurement_rows(csvwriter, dive, flag):
-            """Write multiple rows of GPS measurements
+            """Write rows of GPS measurements (all, before, or after dive)
 
             Args:
                 dive (dives.Dive instance):
@@ -128,10 +128,15 @@ class GeoCSV:
 
             # Determine what GPS fixes to write
             flag = flag.lower()
-            if flag == 'before_dive':
+            if flag == 'all':
+                gps_list = dive.gps_list
+
+            elif flag == 'before_dive':
                 gps_list = dive.gps_before_dive
+
             elif flag == 'after_dive':
                 gps_list = dive.gps_after_dive
+
             else:
                 print 'bad flag'
 
@@ -152,14 +157,16 @@ class GeoCSV:
                                     nan,
                                     '',
                                     nan,
-                                    d6(gps.clockdrift),
+                                    d6(-1*gps.clockdrift), # MER delay = (-) clockdrift
                                     nan]
 
                 csvwriter.writerow(measurement_list)
 
-        def write_algorithm_row(csvwriter, dive, flag):
-            """Write a single row of event measurements (e.g. STDP) and interpolations
-            (e.g. STLA/STLO)
+        def write_algorithm_rows(csvwriter, dive, flag):
+            """Write multiple rows of event (algorithm) values, some measured
+            (e.g. "Depth", STDP), and some interpolated (e.g., "Latitude", STLA)
+
+
 
             Args:
                 dive (dives.Dive instance):
@@ -170,12 +177,15 @@ class GeoCSV:
             # Determine what events to write
             if flag == 'all':
                 event_list = dive.events
+
             elif flag == 'det':
                 event_list = [event for event in dive.events if not event.is_requested]
+
             elif flag == 'req':
                 event_list = [event for event in dive.events if event.is_requested]
+
             else:
-                print 'bad val'
+                print 'bad flag'
 
             for event in sorted(event_list, key=lambda x: x.station_loc.date):
                 if event.station_loc:
@@ -195,7 +205,7 @@ class GeoCSV:
                                       'Pa',
                                       d1(event.obspy_trace_stats["sampling_rate"]),
                                       nan,
-                                      d6(-1*event.clockdrift_correction)]
+                                      d6(event.clockdrift_correction)]
 
                     csvwriter.writerow(algorithm_list)
 
@@ -219,26 +229,42 @@ class GeoCSV:
             write_headers(csvwriter_req)
 
             # Write metadata rows
-            # Every GPS fix goes in all three files (hence "write...rows" plural)
-            # Events are parsed between REQ and DET files (hence "write..row")
             for dive in self.dives:
-                if dive.gps_before_dive is not None:
-                    write_measurement_rows(csvwriter_all, dive, 'before_dive')
-                    write_measurement_rows(csvwriter_det, dive, 'before_dive')
-                    write_measurement_rows(csvwriter_req, dive, 'before_dive')
+                len_gps = 0;
+                len_gps_before = 0;
+                len_gps_after = 0;
 
-                if dive.events is not None:
-                    for event in dive.events:
-                        write_algorithm_row(csvwriter_all, dive, 'all')
-                        if not event.is_requested:
-                            write_algorithm_row(csvwriter_det, dive, 'det')
-                        else:
-                            write_algorithm_row(csvwriter_req, dive, 'req')
+                if dive.is_dive:
+                    # Write this dive's GPS (mind prev/next dive list overlap)
+                    # Yes: dive.gps_before_dive
+                    # No: dive.gps_before_dive_incl_next_dive
 
-                if dive.gps_after_dive is not None:
-                    write_measurement_rows(csvwriter_all, dive, 'after_dive')
-                    write_measurement_rows(csvwriter_det, dive, 'after_dive')
-                    write_measurement_rows(csvwriter_req, dive, 'after_dive')
+                    len_gps = len(dive.gps_list)
+                    if dive.gps_before_dive is not None:
+                        write_measurement_rows(csvwriter_all, dive, 'before_dive')
+                        write_measurement_rows(csvwriter_det, dive, 'before_dive')
+                        write_measurement_rows(csvwriter_req, dive, 'before_dive')
+                        len_gps_before = len(dive.gps_before_dive)
+
+                    if dive.events is not None:
+                        write_algorithm_rows(csvwriter_all, dive, 'all')
+                        write_algorithm_rows(csvwriter_det, dive, 'det')
+                        write_algorithm_rows(csvwriter_req, dive, 'req')
+
+                    if dive.gps_after_dive is not None:
+                        write_measurement_rows(csvwriter_all, dive, 'after_dive')
+                        write_measurement_rows(csvwriter_det, dive, 'after_dive')
+                        write_measurement_rows(csvwriter_req, dive, 'after_dive')
+                        len_gps_after = len(dive.gps_after_dive)
+
+                else:
+                    if dive.gps_list is not None:
+                        write_measurement_rows(csvwriter_all, dive, 'all')
+                        write_measurement_rows(csvwriter_det, dive, 'all')
+                        write_measurement_rows(csvwriter_req, dive, 'all')
+
+                if len_gps != len_gps_before + len_gps_after:
+                    import ipdb; ipdb.set_trace()
 
 
 if __name__ == '__main__':
