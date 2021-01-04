@@ -4,13 +4,12 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 17-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import glob
 import re
 import subprocess
-import numpy
 from obspy import UTCDateTime
 from obspy.core.stream import Stream
 from obspy.core.trace import Trace
@@ -223,9 +222,9 @@ class Event:
         self.station_loc = gps.linear_interpolation([drift_begin_gps, drift_end_gps], self.date)
 
     def invert_transform(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
-        # If scales == -1 this is a raw signal, just convert binary data to numpy array of int32
+        # If scales == -1 this is a raw signal, just convert binary data to np array of int32
         if self.scales == "-1":
-            self.data = numpy.frombuffer(self.mer_binary_binary, numpy.int32)
+            self.data = np.frombuffer(self.mer_binary_binary, np.int32)
             return
 
         # Get additional information on flavor of invert wavelet transform
@@ -287,7 +286,7 @@ class Event:
             sys.exit(err_mess)
 
         # Read the inverted data
-        self.data = numpy.fromfile(inverted_data_file_name, numpy.int32)
+        self.data = np.fromfile(inverted_data_file_name, np.int32)
 
         # Delete the files of coefficient and inverted data, otherwise a latter
         # .MER with an incomplete binary event block can come along and use the
@@ -373,14 +372,14 @@ class Event:
         obspy_trace_stats holds metadata common to both miniSEED and SAC formats.
         obspy_trace_stats.sac holds extra metadata only found in the SAC format.
 
-        Floats are NOT converted to numpy.float32() in either case.
+        Floats are NOT converted to np.float32() in either case.
 
         NB: the SAC header value shown to the world (e.g., "sac.delta"), and the private SAC header
         written to disk (e.g., "sac._hf[0]"), differ in type.  The relevant float header values that
         actually get written to disk with sac.write are stored in the private "._hf" attribute,
         which is not generated with initialization of the raw Stats() container. Therefore, if
         printing those values to, e.g. a text file, ensure the relevant F (float) fields are cast to
-        numpy.float32 first.
+        np.float32 first.
 
         For example:
         >> from obspy.core.trace import Trace
@@ -389,9 +388,9 @@ class Event:
         >> sac = SACTrace.from_obspy_trace(trace)  <-- this gets called by sac.write (within stream.write)
         >> sac.delta = 1/20
         >> isinstance(sac.delta, float)            <-- True: this is the public attr shown to the world
-        >> isinstance(sac.delta, numpy.float32)    <-- False
+        >> isinstance(sac.delta, np.float32)       <-- False
         >> isinstance(sac._hf[0], float)           <-- False
-        >> isinstance(sac._hf[0], numpy.float32)   <-- True: this is the private attr written to disk
+        >> isinstance(sac._hf[0], np.float32)      <-- True: this is the private attr written to disk
 
         For more detail see: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
 
@@ -401,10 +400,11 @@ class Event:
 
         # Fill metadata common to SAC and miniSEED formats
         stats = Stats()
-        stats.network = "MH"
+        stats.network = utils.network()
         stats.station = kstnm
         stats.location = "00"
         stats.channel = utils.band_code(self.decimated_fs) + "DH"  # SEED manual Appendix A
+        stats.starttime = self.date
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.data)
 
