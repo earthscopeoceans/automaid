@@ -6,7 +6,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 17-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import re
@@ -157,3 +157,10 @@ def band_code(sample_rate=None):
         warnings.warn("No band code defined for {} Hz sample rate".format(sample_rate))
 
     return band_code
+
+def network():
+    """Returns 'MH', MERMAID FDSN network name:
+    https://www.fdsn.org/networks/detail/MH/
+
+    """
+    return 'MH'
