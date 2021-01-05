@@ -16,7 +16,7 @@ Note    Length*   Start    End
   13         1       37     37
   14         1       38     38
   15         1       39     39
-  16         4       40     43
+  16         4       40     43  <-- Time correction, units of 0.0001 (1e-4)
   17         2       44     45
   18         2       46     47
 
