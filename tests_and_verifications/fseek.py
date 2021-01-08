@@ -35,6 +35,7 @@ def seed2struct(field=''):
         # SEED manual v2.4 pg. 33
         # https://docs.python.org/2/library/struct.html#format-characters
 
+        'BYTE': 'B', # unsigned char (8 bit)
         'UWORD': 'H', # unsigned short (16 bit)
         'WORD': 'h', # signed short (16 bit)
         'LONG': 'l', # signed long (32 bit)
@@ -45,11 +46,11 @@ def seed2struct(field=''):
 
     return fmt.get(field)
 
-def hexstr(b_order, field, val):
+def binstr(b_order, field, val):
     """Convert value to Python (hexidecimal) string representing binary data.
 
     Python returns a hex str with file.read(<binary_data>)
-    HEXSTR returns a hex str to write binary data with file.write(<hexstr>)
+    BINSTR returns a hex str to write binary data with file.write(<binstr>)
     (see especially https://docs.python.org/2/search.html?q=struct.pack)
 
     Args:
@@ -72,6 +73,15 @@ def hexstr(b_order, field, val):
     return struct.pack(fmt, val)
 
 
+def readbytes(fileobj, offset, whence, b_order, f_type):
+    fmt = byte_order + seed2struct(f_type)
+    size = struct.calcsize(fmt)
+    f.seek(offset, whence)
+    binstr = f.read(size)
+    val =  struct.unpack(fmt, binstr)[0]
+
+    return val
+
 filename = 'test_data/20201226T005647.08_5FE6DF46.MER.DET.WLT5.mseed'
 
 # Set "time correction applied" activity flag to True for all traces
@@ -87,6 +97,7 @@ byte_order = rec_info.get('byteorder')
 'How Binary Data Fields are Described in This Manual,' pp. 33-34
 
 Field   #Bits    Description
+BYTE        8    Unsigned quantity
 UWORD      16    Unsigned quantity
 LONG       32    Unsigned quantity
 
@@ -122,117 +133,49 @@ Note    Length*   Start    End
 
 """
 
+# "Each data record in a SEED volume consists of a fixed header, followed by
+# optional data blockettes in the variable header." (Chapter 8)
+# I.e., every RECORD in an mseed starts with the fixed 48 byte header, followed
+# by a variable number of data blockettes
+
+# ObsPy seems to write for every record:
+# 48 bytes: Fixed Section of Data Header (pg. 108)
+#  8 bytes: [1001] Data Extension Blockette (pg. 124)
+#  8 bytes: [1000] Data Only SEED Blockette (pg. 123; repeated pg. 196)
+
 # Open the file in binary mode for reading ('r') and writing ('+')
 f = open(filename, 'rb+')
 
 # READ: Number of samples in record (Note 9)
-f.seek(30, 0)
-nsamp_fmt = byte_order + seed2struct('UWORD')
-nsamp_size = struct.calcsize(nsamp_fmt)
-nsamp_hexstr = f.read(nsamp_size)
-nsamp =  struct.unpack(nsamp_fmt, nsamp_hexstr)[0]
+nsamp = readbytes(f, 30, 0, byte_order, 'UWORD')
 
 # READ: Offset in bytes to the beginning of the data (Note 17)
 # The first byte of the data record is byte 0
-f.seek(44, 0)
-offset_beg_dat_fmt = byte_order + seed2struct('UWORD')
-offset_beg_dat_size = struct.calcsize(offset_beg_dat_fmt)
-offset_beg_dat_hexstr = f.read(offset_beg_dat_size)
-offset_beg_dat =  struct.unpack(offset_beg_dat_fmt, offset_beg_dat_hexstr)[0]
+offset_beg_dat = readbytes(f, 44, 0, byte_order, 'UWORD')
 
-# READ: Offset in bytes to the first data blockette in this data record
-# The data blockette is Blockette type - 1000 (Appendix G)
-f.seek(46, 0)
-offset_blkt1000_fmt = byte_order + seed2struct('UWORD')
-offset_blkt1000_size = struct.calcsize(offset_blkt1000_fmt)
-offset_blkt1000_hexstr = f.read(offset_blkt1000_size)
-offset_blkt1000 =  struct.unpack(offset_blkt1000_fmt, offset_blkt1000_hexstr)[0]
+# Every Data Blockette starts with:
+# Blockette type: 'UWORD' (2 bytes)
+# Next blockette's byte number (offset from 0 of this record): 'UWORD' (2 bytes)
 
-# READ: Data blockette number (should be 1000)
-f.seek(46+offset_blkt1000, 0)
+# Require Blockette 1000 -- if not the current Blockette, advance the file
+# pointer two bytes to find the offest of the next Blockette
+offset_blkt = readbytes(f, 46, 0, byte_order, 'UWORD')
+blkt_number = readbytes(f, offset_blkt, 0, byte_order, 'UWORD')
 
+while blkt_number != 1000:
+    # Next blockette's byte offset (Note 2): +2 bytes into current Blockette
+    offset_blkt = readbytes(f, offset_blkt+2, 0, byte_order, 'UWORD')
+    blkt_number = readbytes(f, offset_blkt, 0, byte_order, 'UWORD')
 
-#
+# Encoding Format (Note 3): +4 bytes of blockette
+enc_fmt = readbytes(f, offset_blkt+4, 0, byte_order, 'BYTE')
+
+# !! Problem: I don't have a good way to translate namps * STEIM 2 encoding to
+# !! determine what offest I need to jump to the next fixed header...
 
 
 # WRITE: Time correction value (Note 16)
 # ("time correction applied" bit written with util.set_flags_in_fixed_headers)
 f.seek(40,0)
-hexstr_tcorr = hexstr(byte_order, 'LONG', time_corr_val)
-#tcorr =  struct.unpack(tcorr_fmt, tcorr_hexstr)[0]
-
-
-# Verify time_correction with util.get_record_info?
-
-
-
-
-
-
-# Write the binary data at the proper location
-#
-f.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#return '\\x%02x\\x%02x' % tuple([ ord(x) for x in struct.pack('>H', year) ])
-
-
-
-
-
-
-
-
-
-
-
-
-#year = '\x07\xfc'  # hex(2044) = '0x7fc'
-
-
-# f = open(filename, 'rb+')
-# f.seek(20,0)
-# buffer_year = np.fromfile(f, dtype=np.uint16, count=1);
-# year = np.ndarray(shape=(1,),dtype='>i2', buffer=buffer_year)
-# print(year)
-# f.close()
-
-
-
-
-
-# f = open(filename, 'wb')
-# f.seek(20,0)
-# f.write(struct.pack('>i2', 2020))
-# f.close()
-
-# f = open(filename, 'r+b')  # 'w+b' does not work, even when followed by fseek(0,0)
-# f.seek(20,0)
-#
-# f.write(year)
-# f.close()
+binstr_tcorr = binstr(byte_order, 'LONG', time_corr_val)
+#f.write...
