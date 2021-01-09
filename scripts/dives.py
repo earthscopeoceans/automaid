@@ -4,7 +4,8 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 04-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 08-Jan-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import utils
 import gps
@@ -33,6 +34,9 @@ class Dive:
     recorded during this dive.
 
     '''
+
+    # Class attribute to hold MERMAID "MH" FDSN network code
+    network = utils.network()
 
     def __init__(self, base_path=None, log_name=None, events=None, begin=None, end=None):
         self.base_path = base_path
