@@ -1,6 +1,28 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
+# This test script was abandoned but retained for explanation of mseed headers.
+# It produces no output.
+#
+# Reason for abandonment --
+# Every miniSEED file contains potentially multiple records
+# Every record starts with a 48-byte fixed header (pp. 108-110, SEED manual)
+# The "time correction applied" (bool) and "time correction" (LONG) reside there
+# At some point after the fixed header is the mseed header (blockette 1000)
+# Blockette 1000 gives the record length (how far to skip to next record)
+# Every record must be updated with the time corrections
+# The data within the records (between subsequent fixed headers) is compressed
+# The f.seek(offset) is thus complicated
+# The proper method to skip ahead is contained in clibmseed/obspy
+# But that's a lot of code rewriting...
+#
+# So this was left at the point that I figured out how many samples were in each
+# record and what compression scheme (STEIM 2 encoding) was used, which allows
+# one to figure out the f.seek(offset).
+#
+# But I realized obspy.io.mseed.util.get_record_information() gives that info in
+# a dict so I'm just using that (inelegant solution)...
+#
 # Author: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified by JDS: 07-Jan-2021
@@ -12,12 +34,12 @@ import struct
 import numpy as np
 from obspy.io.mseed import util
 
-# python -m obspy.io.mseed.scripts.recordanalyzer -a 20201226T005647.08_5FE6DF46.MER.DET.WLT5.mseed
-# blockette 1001: struct.unpack('>H',(k[48:50])+8)
-# blockette 1000: struct.unpack('>H',(k[48:50])+8)
+# Use in terminal:
+# $ python -m obspy.io.mseed.scripts.recordanalyzer -a 20201226T005647.08_5FE6DF46.MER.DET.WLT5.mseed
+# to check that every record was properly updated.
 
 # The units of the time correction value are in 0.0001 s (1e-4 s)
-time_corr_val_sec = 18.76
+time_corr_val_sec = 18.76 # fake value
 time_corr_val = time_corr_val_sec / 0.0001 # convert to np.int32?
 
 def seed2struct(field=''):
@@ -40,14 +62,14 @@ def seed2struct(field=''):
         'WORD': 'h', # signed short (16 bit)
         'LONG': 'l', # signed long (32 bit)
 
-        # ...and others I don't curently use...
+        # ...and others I don't currently use...
     }
 
 
     return fmt.get(field)
 
 def binstr(b_order, field, val):
-    """Convert value to Python (hexidecimal) string representing binary data.
+    """Convert value to Python (hexadecimal) string representing binary data.
 
     Python returns a hex str with file.read(<binary_data>)
     BINSTR returns a hex str to write binary data with file.write(<binstr>)
@@ -158,7 +180,7 @@ offset_beg_dat = readbytes(f, 44, 0, byte_order, 'UWORD')
 # Next blockette's byte number (offset from 0 of this record): 'UWORD' (2 bytes)
 
 # Require Blockette 1000 -- if not the current Blockette, advance the file
-# pointer two bytes to find the offest of the next Blockette
+# pointer two bytes to find the offset of the next Blockette
 offset_blkt = readbytes(f, 46, 0, byte_order, 'UWORD')
 blkt_number = readbytes(f, offset_blkt, 0, byte_order, 'UWORD')
 
@@ -170,8 +192,9 @@ while blkt_number != 1000:
 # Encoding Format (Note 3): +4 bytes of blockette
 enc_fmt = readbytes(f, offset_blkt+4, 0, byte_order, 'BYTE')
 
+
 # !! Problem: I don't have a good way to translate namps * STEIM 2 encoding to
-# !! determine what offest I need to jump to the next fixed header...
+# !! determine what offset I need to jump to the next fixed header...
 
 
 # WRITE: Time correction value (Note 16)
