@@ -3,14 +3,22 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
-# Author: Joel. D Simon
+# Original author: Sebastien Bonnieux
+# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified: 17-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 08-Jan-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+
+# Todo:
+#
+# *Write (nested)function docstrings
+# *Verify types, e.g. for 'time correction/delay' (LONG vs. np.int32 etc.)
+
+import csv
+import pickle
+import numpy as np
 
 import setup
-import csv
-import numpy as np
-import pickle
 
 class GeoCSV:
     """Organize MERMAID metadata and write them to GeoCSV format
@@ -33,60 +41,65 @@ class GeoCSV:
         # Define first two header lines
         self.dataset_header = ['#dataset: GeoCSV ' + self.version]
         self.delimiter_header = ['#delimiter: ' + self.delimiter]
-        self.field_unit_header = ['#field_unit',
-                                  'ISO_8601',
-                                  'unitless',
-                                  'unitless',
-                                  'unitless',
-                                  'unitless',
-                                  'degrees_north',
-                                  'degrees_east',
-                                  'meters',
-                                  'meters',
-                                  'unitless',
-                                  'factor',
-                                  'hertz',
-                                  'unitless',
-                                  'hertz',
-                                  'seconds',
-                                  'seconds']
+        self.field_unit_header = [
+            '#field_unit',
+            'ISO_8601',
+            'unitless',
+            'unitless',
+            'unitless',
+            'unitless',
+            'degrees_north',
+            'degrees_east',
+            'meters',
+            'meters',
+            'unitless',
+            'factor',
+            'hertz',
+            'unitless',
+            'hertz',
+            'seconds',
+            'seconds'
+        ]
 
-        self.field_type_header = ['#field_type',
-                                  'datetime',
-                                  'string',
-                                  'string',
-                                  'string',
-                                  'string',
-                                  'float',
-                                  'float',
-                                  'float',
-                                  'float',
-                                  'string',
-                                  'float',
-                                  'float',
-                                  'string',
-                                  'float',
-                                  'float',
-                                  'float']
+        self.field_type_header = [
+            '#field_type',
+            'datetime',
+            'string',
+            'string',
+            'string',
+            'string',
+            'float',
+            'float',
+            'float',
+            'float',
+            'string',
+            'float',
+            'float',
+            'string',
+            'float',
+            'float',
+            'float'
+        ]
 
-        self.MethodIdentifier_header = ['MethodIdentifier',
-                                        'StartTime',
-                                        'Network',
-                                        'Station',
-                                        'Location',
-                                        'Channel',
-                                        'Latitude',
-                                        'Longitude',
-                                        'Elevation',
-                                        'Depth',
-                                        'SensorDescription',
-                                        'Scale',
-                                        'ScaleFrequency',
-                                        'ScaleUnits',
-                                        'SampleRate',
-                                        'TimeDelay',
-                                        'TimeCorrection']
-
+        self.MethodIdentifier_header = [
+            'MethodIdentifier',
+            'StartTime',
+            'Network',
+            'Station',
+            'Location',
+            'Channel',
+            'Latitude',
+            'Longitude',
+            'Elevation',
+            'Depth',
+            'SensorDescription',
+            'Scale',
+            'ScaleFrequency',
+            'ScaleUnits',
+            'SampleRate',
+            'TimeDelay',
+            'TimeCorrection'
+        ]
 
     def write(self, filename='geo.csv'):
         """Write (Geo)CSV file
@@ -95,9 +108,11 @@ class GeoCSV:
             filename (str): GeoCSV filename (def: 'geo.csv')
 
         """
-        #filename.append('geocsv') if filename.split('.')[-1] != 'geocsv' else pass
 
-        # lambdas to convert floats to numpy float32 with specified precision
+        ## Functional prototypes for self.write()
+        ## ___________________________________________________________________________ ##
+
+        # Lambda functions to convert to float32 with specified precision
         d0 = lambda x: format(np.float32(x), '.0f')
         d1 = lambda x: format(np.float32(x), '.1f')
         d6 = lambda x: format(np.float32(x), '.6f')
@@ -117,12 +132,15 @@ class GeoCSV:
                                  self.MethodIdentifier_header])
 
 
-        def write_measurement_rows(csvwriter, dive, flag):
+        def write_measurement_rows(csvwriter_list, dive, flag):
             """Write rows of GPS measurements (all, before, or after dive)
 
+            GPS metadata == 'measurement'
+
             Args:
+                csvwriter_list (list):
                 dive (dives.Dive instance):
-                gps_list (list):
+                flag (str):
 
             """
 
@@ -138,37 +156,42 @@ class GeoCSV:
                 gps_list = dive.gps_after_dive
 
             else:
-                print 'bad flag'
+                raise ValueError("flag must be one of: 'all', 'before_dive', or 'after_dive'")
 
             # Loop over all GPS instances and write single line for each
             for gps in sorted(gps_list, key=lambda x:x.date):
-                measurement_row = ['Measurement:GPS:Trimble',
-                                   str(gps.date)[0:19]+'Z',
-                                   dive.network,
-                                   dive.kstnm,
-                                   '',
-                                   nan,
-                                   d6(gps.latitude),
-                                   d6(gps.latitude),
-                                   d0(0),
-                                   d0(0),
-                                   'MERMAIDHydrophone({:s})'.format(dive.kinst),
-                                   nan,
-                                   nan,
-                                   '',
-                                   nan,
-                                   d6(-1*gps.clockdrift), # MER delay = (-) clockdrift
-                                   nan]
+                measurement_row = [
+                    'Measurement:GPS:Trimble',
+                    str(gps.date)[0:19]+'Z',
+                    dive.network,
+                    dive.kstnm,
+                    '',
+                    nan,
+                    d6(gps.latitude),
+                    d6(gps.latitude),
+                    d0(0),
+                    d0(0),
+                    'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                    nan,
+                    nan,
+                    '',
+                    nan,
+                    d6(-1*gps.clockdrift), # MER delay = (-) clockdrift
+                    nan
+                ]
 
-                csvwriter.writerow(measurement_row)
+                # Write the same line to each file in the input list
+                for csvwriter in csvwriter_list:
+                    csvwriter.writerow(measurement_row)
 
-        def write_algorithm_rows(csvwriter, dive, flag):
+        def write_algorithm_rows(csvwriter_list, dive, flag):
             """Write multiple rows of event (algorithm) values, some measured
             (e.g. "Depth", STDP), and some interpolated (e.g., "Latitude", STLA)
 
-
+            Event metadata == 'algorithm'
 
             Args:
+                csvwriter_list (list):
                 dive (dives.Dive instance):
                 flag (str):
 
@@ -185,31 +208,38 @@ class GeoCSV:
                 event_list = [event for event in dive.events if event.is_requested]
 
             else:
-                print 'bad flag'
+                raise ValueError("flag must be one of: 'all', 'det', or 'req'")
 
             # Only keep events with an interpolated station location (STLA/STLO)
             event_list = [event for event in event_list if event.station_loc is not None]
 
             for event in sorted(event_list, key=lambda x: x.station_loc.date):
-                algorithm_row = ['Algorithm:automaid:{:s}'.format(setup.get_version()),
-                                 str(event.obspy_trace_stats["starttime"])[:19]+'Z',
-                                 dive.network,
-                                 dive.kstnm,
-                                 '00',
-                                 event.obspy_trace_stats["channel"],
-                                 d6(event.obspy_trace_stats.sac["stla"]),
-                                 d6(event.obspy_trace_stats.sac["stlo"]),
-                                 d0(0),
-                                 d0(event.obspy_trace_stats.sac["stdp"]),
-                                 'MERMAIDHydrophone({:s})'.format(dive.kinst),
-                                 d0(event.obspy_trace_stats.sac["scale"]),
-                                 d1(np.float32(1.)),
-                                 'Pa',
-                                 d1(event.obspy_trace_stats["sampling_rate"]),
-                                 nan,
-                                 d6(event.clockdrift_correction)]
+                algorithm_row = [
+                    'Algorithm:automaid:{:s}'.format(setup.get_version()),
+                    str(event.obspy_trace_stats["starttime"])[:19]+'Z',
+                    dive.network,
+                    dive.kstnm,
+                    '00',
+                    event.obspy_trace_stats["channel"],
+                    d6(event.obspy_trace_stats.sac["stla"]),
+                    d6(event.obspy_trace_stats.sac["stlo"]),
+                    d0(0),
+                    d0(event.obspy_trace_stats.sac["stdp"]),
+                    'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                    d0(event.obspy_trace_stats.sac["scale"]),
+                    d1(np.float32(1.)),
+                    'Pa',
+                    d1(event.obspy_trace_stats["sampling_rate"]),
+                    nan,
+                    d6(event.clockdrift_correction)
+                ]
 
-                csvwriter.writerow(algorithm_row)
+                # Write the same line to each file in the input list
+                for csvwriter in csvwriter_list:
+                    csvwriter.writerow(algorithm_row)
+
+        ## Script of self.write()
+        ## ___________________________________________________________________________ ##
 
         # Parse basename from filename to later append "_DET.csv" and "_REQ.csv"
         basename = filename.strip('.csv') if filename.endswith('.csv') else filename
@@ -220,50 +250,44 @@ class GeoCSV:
              open(basename+'_DET.csv', 'wb') as csvfile_det, \
              open(basename+'_REQ.csv', 'wb') as csvfile_req:
 
-            # Define csv.writer object for all three files
+            # Define writer object for all three files
             csvwriter_all = csv.writer(csvfile_all, delimiter=self.delimiter)
             csvwriter_det = csv.writer(csvfile_det, delimiter=self.delimiter)
             csvwriter_req = csv.writer(csvfile_req, delimiter=self.delimiter)
 
-            # Write headers
-            write_headers(csvwriter_all)
-            write_headers(csvwriter_det)
-            write_headers(csvwriter_req)
+            # Compile list of all three files to pass into write functions
+            csvwriter_list = [csvwriter_all, csvwriter_det, csvwriter_req]
 
-            # Write metadata rows
+            # Write headers to all three files
+            for csvwriter in csvwriter_list:
+                write_headers(csvwriter)
+
+            # Write metadata rows to all three files
             for dive in self.dives:
                 len_gps = 0;
                 len_gps_before = 0;
                 len_gps_after = 0;
 
                 if dive.is_dive:
-                    # Write this dive's GPS (mind prev/next dive list overlap)
-                    # Yes: dive.gps_before_dive
-                    # No: dive.gps_before_dive_incl_next_dive
+                    # Write ONLY this dive's GPS list --
+                    # Yes: dive.gps_before_dive (or after dive)
+                    # No: dive.gps_before_dive_incl_next_dive (or after dive)
 
                     len_gps = len(dive.gps_list)
                     if dive.gps_before_dive is not None:
-                        write_measurement_rows(csvwriter_all, dive, 'before_dive')
-                        write_measurement_rows(csvwriter_det, dive, 'before_dive')
-                        write_measurement_rows(csvwriter_req, dive, 'before_dive')
+                        write_measurement_rows(csvwriter_list, dive, 'before_dive')
                         len_gps_before = len(dive.gps_before_dive)
 
                     if dive.events is not None:
-                        write_algorithm_rows(csvwriter_all, dive, 'all')
-                        write_algorithm_rows(csvwriter_det, dive, 'det')
-                        write_algorithm_rows(csvwriter_req, dive, 'req')
+                        write_algorithm_rows(csvwriter_list, dive, 'all')
 
                     if dive.gps_after_dive is not None:
-                        write_measurement_rows(csvwriter_all, dive, 'after_dive')
-                        write_measurement_rows(csvwriter_det, dive, 'after_dive')
-                        write_measurement_rows(csvwriter_req, dive, 'after_dive')
+                        write_measurement_rows(csvwriter_list, dive, 'after_dive')
                         len_gps_after = len(dive.gps_after_dive)
 
                 else:
                     if dive.gps_list is not None:
-                        write_measurement_rows(csvwriter_all, dive, 'all')
-                        write_measurement_rows(csvwriter_det, dive, 'all')
-                        write_measurement_rows(csvwriter_req, dive, 'all')
+                        write_measurement_rows(csvwriter_list, dive, 'all')
 
                 if len_gps != len_gps_before + len_gps_after:
                     import ipdb; ipdb.set_trace()
