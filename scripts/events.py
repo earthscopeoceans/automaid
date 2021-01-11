@@ -4,23 +4,26 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 17-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Jan-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
-import glob
 import re
+import glob
 import subprocess
+import numpy as np
+import matplotlib.pyplot as plt
+import plotly.offline as plotly
+import plotly.graph_objs as graph
+
 from obspy import UTCDateTime
-from obspy.core.stream import Stream
 from obspy.core.trace import Trace
 from obspy.core.trace import Stats
-import plotly.graph_objs as graph
-import plotly.offline as plotly
-import matplotlib.pyplot as plt
-import utils
+from obspy.core.stream import Stream
+
 import gps
 import sys
-import numpy as np
+import utils
 import setup
 
 # Get current version number.
@@ -140,6 +143,7 @@ class Event:
         self.date = None
         self.station_loc = None
         self.clockdrift_correction = None
+        self.seed_time_correction = None
         self.obspy_trace_stats = None
 
         self.is_requested = False
@@ -211,6 +215,12 @@ class Event:
         # Correct the clock drift of the Mermaid board with GPS measurement
         pct = (self.date - gps_descent.date) / (gps_ascent.date - gps_descent.date)
         self.clockdrift_correction = gps_ascent.clockdrift * pct
+
+        # The SEED-convention of a time correction matches that of this program:
+        # it is additive such that a postive correction moves the record start
+        # time forward in time
+        self.seed_time_correction = self.clockdrift_correction
+
         # Apply correction
         self.date = self.date + self.clockdrift_correction
 
@@ -491,9 +501,9 @@ class Event:
         self.obspy_trace_stats = stats
 
     def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
-        # NB, writes mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC", where "D" is the
-        # quality indicator, "D -- The state of quality control of the data is indeterminate" (SEED
-        # v2.4 manual pg. 108)
+        # NB, mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC",
+        # where "D" is the quality indicator, "D -- The state of quality control
+        # of the data is indeterminate" (SEED v2.4 manual pg. 108)
 
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
@@ -504,16 +514,23 @@ class Event:
         if not self.obspy_trace_stats:
             self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
 
-        # Check if file exist
-        export_path_msd = export_path + self.get_export_file_name() + ".mseed"
-        if not force_redo and os.path.exists(export_path_msd):
+        # Check if file exists
+        mseed_filename = export_path + self.get_export_file_name() + ".mseed"
+        if not force_redo and os.path.exists(mseed_filename):
             return
 
         # Get stream object
         stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
 
-        # Save stream object
-        stream.write(export_path_msd, format='MSEED')
+        # Save stream object with the time correction applied but without 'Time
+        # correction applied' flag or 'Time correction' value being set in the
+        # 48-byte fixed header
+        stream.write(mseed_filename, format='MSEED')
+
+        # Update (open and rewrite bits of each 48-byte fixed header that
+        # precedes each record) the mseed file with time-correction metadata
+        if self.seed_time_correction is not None: # !!! `if` statement to be removed 
+            utils.set_mseed_time_correction(mseed_filename, self.seed_time_correction)
 
     def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # Check if the station location has been calculated
@@ -525,16 +542,16 @@ class Event:
         if not self.obspy_trace_stats:
             self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
 
-        # Check if file exist
-        export_path_sac = export_path + self.get_export_file_name() + ".sac"
-        if not force_redo and os.path.exists(export_path_sac):
+        # Check if file exists
+        sac_filename = export_path + self.get_export_file_name() + ".sac"
+        if not force_redo and os.path.exists(sac_filename):
             return
 
         # Get stream object
         stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
 
         # Save stream object
-        stream.write(export_path_sac, format='SAC')
+        stream.write(sac_filename, format='SAC')
 
     def get_stream(self, export_path, kstnm, kinst, force_without_loc=False):
         # Check if an interpolated station location exists
