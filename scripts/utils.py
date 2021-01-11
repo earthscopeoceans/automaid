@@ -6,13 +6,19 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 17-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Jan-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+
+import re
+import struct
+import warnings
+import numpy as np
+import plotly.graph_objs as graph
+
+from obspy import UTCDateTime
+from obspy.io.mseed import util as obspy_util
 
 import setup
-import re
-import warnings
-from obspy import UTCDateTime
-import plotly.graph_objs as graph
 
 # Get current version number.
 version = setup.get_version()
@@ -117,6 +123,9 @@ def get_time_array(length, period):
         i += 1.
     return time_list
 
+#
+# Other utilities (JDS added)
+#
 
 def sac_scale():
     '''Returns the ROUNDED multiplicative factor to convert MERMAID digital counts to pascal
@@ -158,9 +167,86 @@ def band_code(sample_rate=None):
 
     return band_code
 
+
 def network():
     """Returns 'MH', MERMAID FDSN network name:
     https://www.fdsn.org/networks/detail/MH/
 
     """
     return 'MH'
+
+
+def set_mseed_time_correction(mseed_filename, time_corr_secs):
+    """Set 'Time correction applied' bit and 'Time correction' value in every 'Fixed
+    section of Data Header' that precedes every record in an miniSEED file.
+
+    Args:
+        mseed_filename (str): miniSEED filename
+        time_corr_secs (float): Time correction in seconds
+
+    Result:
+        modifies miniSEED file
+
+    See `tests_and_verifications/mseed_fixed_section_data_header.py` for a
+    discussion of the fixed header and subsequent blockettes (e.g., 1001, 1000)
+    that (seem to?) precede every record an mseed file written by ObsPy v1.2.1.
+
+    Use `$ python -m obspy.io.mseed.scripts.recordanalyzer -a <mseed_filename>`
+    before and after applying this function to see the updated miniSEED header.
+
+    """
+
+    # 11-Jan-2021: Verified
+    # (1) Correct: value to stick in header = time_corr_secs / 0.0001
+    # (2) Correct: {'...': {'activity_flags': {'time_correction': True}}}
+    #             (the record time is ALREADY corrected; do not readjust)
+    # (3) Correct: record start + time corr = corrected record start
+    #              (time correction is additive; obs + corr = truth)
+    #
+    # Using
+    # $ `libmseed/example/mseedview -p  <mseed_filename>`
+    # $  python -m obspy.io.mseed.scripts.recordanalyzer -a <mseed_filename>
+
+    # All page numbers refer to the SEED Format Version 2.4 manual
+    # http://www.fdsn.org/pdf/SEEDManual_V2.4.pdf
+
+    # Time correction values are in units of 0.0001 (1e-4) seconds (pg. 109)
+    time_corr_one_ten_thous = np.int32(time_corr_secs / 0.0001)
+
+    # Set "Time correction applied" [Bit 1] (Note 12;  pg. 108)
+    flags = {'...': {'activity_flags': {'time_correction': True}}}
+    obspy_util.set_flags_in_fixed_headers(mseed_filename, flags)
+
+    # Determine how many records (and thus fixed headers) must be updated
+    # The second argument, `offset` is bytes into the mseed file (start at 0)
+    record_info = obspy_util.get_record_information(mseed_filename, offset=0)
+    number_of_records = record_info.get('number_of_records')
+
+    # Open the file for reading ('r') and writing ('+') in binary ('b') mode
+    mseed_file = open(mseed_filename, 'rb+')
+
+    # Loop over every record and apply the proper bits at the proper offsets
+    record_offset = 0
+    for record_number in range(number_of_records):
+        # Retrieve info concerning record at current offset
+        record_info = obspy_util.get_record_information(mseed_filename,
+                                                        offset=record_offset)
+
+        # Format a binary string representing the time correction value
+        # Type: 'LONG' (SEED manual) == 'l' (`struct` builtin)
+        byte_order = record_info.get('byteorder')
+        binstr_fmt = byte_order + 'l'
+        time_correction_binstr = struct.pack(binstr_fmt, time_corr_one_ten_thous)
+
+        # Set 'Time correction' value (Note 17; pg. 109)
+        # Position: bytes 40-43 of the fixed header that precedes each record
+        # The `record_offset` is in bytes relative to the start of the file
+        time_correction_offset = record_offset + 40
+        mseed_file.seek(time_correction_offset, 0)
+        mseed_file.write(time_correction_binstr)
+
+        # Find the offset of the next record relative to the start of the file
+        record_offset += record_info.get('record_length')
+
+    # Conclude
+    mseed_file.close()
