@@ -6,20 +6,22 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 11-Jan-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
-import argparse
-import shutil
+import re
 import glob
+import shutil
+import argparse
 import datetime
-import dives
-import events
-import vitals
+
 import kml
 import gps
 import setup
-import re
+import dives
+import events
+import vitals
 import utils
 
 # Get current version number.
@@ -184,25 +186,30 @@ def main():
             # Generate mermaid environment file
             dive.generate_mermaid_environment_file()
             # Generate dive plot
-            dive.generate_dive_plotly()
+            dive.generate_dive_plotly() # <-- timestamps not corrected for clockdrift
 
-        # Compute clock drift correction for each event
-        for dive in mdives:
-            dive.correct_events_clockdrift()
+        # Lengthen pre/post-dive GPS list by (pre)/(ap)pending the relevant GPS
+        # recorded in the previous/next .LOG and .MER files
+        mdives[0].set_incl_prev_next_dive_gps(None, mdives[1])
 
-        # Interpolate for the locations that MERMAID passed out of/in to the surface and mixed
-        # layers, and where it was when it recorded any events associated with the dive
-        mdives[0].compute_station_locations(None, mdives[1], mixed_layer_depth_m)
+        # Use those pre/post-dive GPS lists to correct MERMAID timestamps and
+        # interpolate for MERMAID location at the time of recording
+        mdives[0].correct_events_clockdrift()
+        mdives[0].compute_station_locations(mixed_layer_depth_m)
+
+        # Repeat for all other dives after intialization at mdives[0] (loop
+        # requires reference to previous dive)
         i = 1
         while i < len(mdives)-1:
-            mdives[i].compute_station_locations(mdives[i-1], mdives[i+1], mixed_layer_depth_m)
+            mdives[i].set_incl_prev_next_dive_gps(mdives[i-1], mdives[i+1])
+            mdives[i].correct_events_clockdrift()
+            mdives[i].compute_station_locations(mixed_layer_depth_m)
             i += 1
 
-        # We skipped event computation for the last dive (awaiting the next dive's GPS) which also
-        # adds a reference to the previous dive; correct that here for the last Dive instance
-        if len(mdives) > 1:
-            mdives[-1].prev_dive_log_name = mdives[-2].log_name
-            mdives[-1].prev_dive_mer_environment_name = mdives[-2].mer_environment_name
+        # Because the last dive was skipped above its GPS lists were not
+        # extended; add filenames for printout
+        mdives[-1].prev_dive_log_name = mdives[-2].log_name
+        mdives[-1].prev_dive_mer_environment_name = mdives[-2].mer_environment_name
 
         # Generate plots, SAC, and miniSEED files for each event
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
