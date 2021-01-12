@@ -4,19 +4,21 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Jan-2021
+# Last modified by JDS: 11-Jan-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
-import utils
-import gps
-import setup
-import sys
-import glob
 import os
 import re
+import sys
+import glob
+
 from obspy import UTCDateTime
-import plotly.graph_objs as graph
 import plotly.offline as plotly
+import plotly.graph_objs as graph
+
+import gps
+import utils
+import setup
 
 # Get current version number.
 version = setup.get_version()
@@ -355,44 +357,7 @@ class Dive:
                     filename=export_path,
                     auto_open=False)
 
-    def correct_events_clockdrift(self):
-        # Return if there is no events
-        if len(self.events) == 0:
-            return
-
-        # Compute clock drift
-        if not self.is_dive:
-            # print "WARNING: Events are not part of a dive, don't do clock drift correction for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return
-        if not self.is_complete_dive:
-            # print "WARNING: Events are not part of a complete dive, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return
-        if not self.gps_before_dive or not self.gps_after_dive:
-            # print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return
-        if self.gps_before_dive[-1].clockfreq <= 0:
-            # print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return
-        if self.gps_after_dive[0].clockfreq <= 0:
-            # print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return
-
-        # Correct clock drift
-        for event in self.events:
-            event.correct_clockdrift(self.gps_before_dive[-1], self.gps_after_dive[0])
-
-    def compute_station_locations(self, prev_dive, next_dive, mixed_layer_depth_m):
-        '''Fills attributes detailing interpolated locations of MERMAID at various
-        points during a Dive (i.e., when it left the surface, reached the mixed
-        layer, etc.)
-
-        '''
-
+    def set_incl_prev_next_dive_gps(self, prev_dive, next_dive):
         # Keep tabs on the MER/LOG files that affect the current dive's GPS interpolation (don't set
         # self.next_dive = next_dive because that creates highly recursive data structures)
         if isinstance(prev_dive, Dive):
@@ -404,15 +369,18 @@ class Dive:
             self.next_dive_log_name = next_dive.log_name
             self.next_dive_mer_environment_name = next_dive.mer_environment_name
 
-        # No dive means no events
-        if not self.is_complete_dive:
-            return
 
-        # By default every .MER and .LOG prints a handful of GPS fixes BEFORE the dive, but only a
-        # single one AFTER the dive; thus to get a good interpolated location we need to append the
-        # NEXT dive's GPS list (we might as well append the previous dive's GPS list as well if case
-        # there were GPS errors before the dive as well)
-        self.gps_before_dive_incl_prev_dive = self.gps_before_dive
+        # By default every .MER and .LOG prints a handful of GPS fixes BEFORE the dive,
+        # but only a single one AFTER the dive; thus to get a good interpolated location
+        # we need to append the NEXT dive's GPS list (we might as well append the previous
+        # dive's GPS list as well if case there were GPS errors before the dive as well)
+
+        # Initialize extended (including previous/next dives') GPS lists from current
+        # dive's GPS list
+        self.gps_before_dive_incl_prev_dive = self.gps_before_dive if self.gps_before_dive else []
+        self.gps_after_dive_incl_next_dive = self.gps_after_dive if self.gps_after_dive else []
+
+        # Add the previous dive's GPS fixes AFTER the previous dive reached the surface
         if prev_dive and prev_dive.gps_list:
             if prev_dive.is_dive:
                 # DO NOT wrap this above into "and" statement (if previous dive exists, we ONLY want
@@ -423,7 +391,7 @@ class Dive:
             else:
                 self.gps_before_dive_incl_prev_dive = prev_dive.gps_list + self.gps_before_dive_incl_prev_dive
 
-        self.gps_after_dive_incl_next_dive = self.gps_after_dive
+        # Add the next dive's GPS fixes BEFORE the next dive left the surface
         if next_dive and next_dive.gps_list:
             if next_dive.is_dive:
                 # DO NOT wrap this above into "and" statement (if next dive exists, we ONLY want
@@ -437,6 +405,64 @@ class Dive:
         # Ensure sorting of the expanded GPS lists
         self.gps_before_dive_incl_prev_dive.sort(key=lambda x: x.date)
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
+
+    def valid_event_gps(self):
+        """Returns true if valid GPS fixes exist to interpolate clock drifts and
+        station locations at the time of recording events
+
+        """
+
+        # Return if there are no events
+        if len(self.events) == 0:
+            return False
+
+        # Verify the necessary GPS fixes exist and and not corrupted
+        if not self.is_dive:
+            # print "WARNING: Events are not part of a dive, don't do clock drift correction for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            return False
+
+        if not self.is_complete_dive:
+            # print "WARNING: Events are not part of a complete dive, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            return False
+
+        if not self.gps_before_dive_incl_prev_dive or not self.gps_after_dive_incl_next_dive:
+            # print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            return False
+
+        if self.gps_before_dive_incl_prev_dive[-1].clockfreq <= 0:
+            # print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            return False
+
+        if self.gps_after_dive_incl_next_dive[0].clockfreq <= 0:
+            # print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
+            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
+            return False
+
+        # Time/location interpolation is appropriate
+        return True
+
+    def correct_events_clockdrift(self):
+        if not self.valid_event_gps():
+            return
+
+        # Correct clock drift
+        for event in self.events:
+            event.correct_clockdrift(self.gps_before_dive_incl_prev_dive[-1],
+                                     self.gps_after_dive_incl_next_dive[0])
+
+    def compute_station_locations(self, mixed_layer_depth_m):
+        '''Fills attributes detailing interpolated locations of MERMAID at various
+        points during a Dive (i.e., when it left the surface, reached the mixed
+        layer, etc.)
+
+        '''
+
+        if not self.valid_event_gps():
+            return
 
         # Require at least a single GPS point before and after each dive; after all, we only have
         # two points to interpolate for mixed-layer drift, which accounts for > 90% of the total
