@@ -143,7 +143,7 @@ class Event:
         self.date = None
         self.station_loc = None
         self.clockdrift_correction = None
-        self.seed_time_correction = None
+        self.mseed_time_correction = None
         self.obspy_trace_stats = None
 
         self.is_requested = False
@@ -207,8 +207,8 @@ class Event:
             sample_offset = float(sample_offset[0])
             self.date = rec_file_date + sample_offset/self.measured_fs
         else:
-            # For a detected event
-            # The recorded date is the STA/LTA trigger date, subtract the time before the trigger.
+            # For a detected event the recorded date is the STA/LTA trigger
+            # date, subtract the time before the trigger.
             self.date = self.date - float(self.trig) / self.decimated_fs
 
     def correct_clockdrift(self, gps_descent, gps_ascent):
@@ -216,10 +216,12 @@ class Event:
         pct = (self.date - gps_descent.date) / (gps_ascent.date - gps_descent.date)
         self.clockdrift_correction = gps_ascent.clockdrift * pct
 
-        # The SEED-convention of a time correction matches that of this program:
-        # it is additive such that a postive correction moves the record start
-        # time forward in time
-        self.seed_time_correction = self.clockdrift_correction
+        # The miniSEED convention of a time correction is of the same sign of
+        # the `clockdrift` (or the `clockdrift_correction') of this program
+        #
+        # positive clockdirft = negative time delay => MER time early w.r.t GPS
+        # negative clockdrift = positive time delay => MER time delayed w.r.t GPS
+        self.mseed_time_correction = self.clockdrift_correction
 
         # Apply correction
         self.date = self.date + self.clockdrift_correction
@@ -483,9 +485,9 @@ class Event:
             stats.sac["user1"] = self.criterion
             stats.sac["user2"] = self.trig # sample index
 
-        # Clock drift is computed for both DET and REQ, unless prevented by GPS error (computation
-        # not determined by DET or REQ status)
-        stats.sac["user3"] = self.clockdrift_correction if self.clockdrift_correction else def_float # seconds
+        # Clock drift correction, which is the 'Time correction' applied in the 48-byte
+        # fixed header in utils.set_mseed_time_correction()
+        stats.sac["user3"] = self.clockdrift_correction # = self.mseed_time_correction
 
         # Generic instrument (e.g., '452.020')
         stats.sac['kinst'] = kinst
@@ -529,8 +531,7 @@ class Event:
 
         # Update (open and rewrite bits of each 48-byte fixed header that
         # precedes each record) the mseed file with time-correction metadata
-        if self.seed_time_correction is not None: # !!! `if` statement to be removed 
-            utils.set_mseed_time_correction(mseed_filename, self.seed_time_correction)
+        utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
     def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # Check if the station location has been calculated
