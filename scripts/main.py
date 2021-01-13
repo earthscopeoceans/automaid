@@ -20,9 +20,10 @@ import kml
 import gps
 import setup
 import dives
+import utils
 import events
 import vitals
-import utils
+import geocsv
 
 # Get current version number.
 version = setup.get_version()
@@ -248,11 +249,16 @@ def main():
         # and .MER files
         events.write_traces_txt(mdives, processed_path, mfloat_path)
 
-        # Write a text file with our best-guess at the location of MERMAID at the time of recording
+        # Write a text file with our best-guess at the location of MERMAID at
+        # the time of recording
         events.write_loc_txt(mdives, processed_path, mfloat_path)
 
         # Write mseed2sac and automaid metadata csv and text files
         events.write_metadata(mdives, processed_path, mfloat_path)
+
+        # Write GeoCSV files
+        geocsv_meta = geocsv.GeoCSV(mdives)
+        geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
