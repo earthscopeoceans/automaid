@@ -6,7 +6,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Jan-2021
+# Last modified by JDS: 12-Jan-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -196,22 +196,39 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
 
     """
 
-    # 11-Jan-2021: Verified
-    # (1) Correct: value to stick in header = time_corr_secs / 0.0001
-    # (2) Correct: {'...': {'activity_flags': {'time_correction': True}}}
-    #             (the record time is ALREADY corrected; do not readjust)
-    # (3) Correct: record start + time corr = corrected record start
-    #              (time correction is additive; obs + corr = truth)
+    # miniSEED convention:
     #
-    # Using
-    # $ `libmseed/example/mseedview -p  <mseed_filename>`
-    # $  python -m obspy.io.mseed.scripts.recordanalyzer -a <mseed_filename>
+    # [1] record start + time correction = corrected record start
+    # [2]  (mer_time)  +  (clockdrift)   =      (gps_time)
+    # (VERIFIED: POSITIVE time correction ADVANCES corrected record start)
+    #
+    # MERMAID convention:
+    #
+    # [3] clockdrift = gps_time - mer_time
+    # [4] mer_time + clockdrift = gps_time = eq. [2]
+    #
+    # MERMAID's clock drift and SEED's time correction are of the same sign
+    # SEED's time correction and time delay are of opposite sign
+    # Therefore, SEED's time delay is opposite sign of MERMAID's clock drift
+    #
+    # positive time correction = record (MER) time EARLY w.r.t. truth (GPS)
+    # ==> (+) time correction = (-) MER delay
+    #
+    # negative time correction = record (MER) time DELAYED w.r.t. truth (GPS)
+    # ==> (-) time correction = (+) MER delay
+    #
+    # Toggle `time_correction` flag between True and False and use:
+    #
+    #     $ `libmseed/example/mseedview -p  <mseed_filename>`
+    #     $ `python -m obspy.io.mseed.scripts.recordanalyzer -a <mseed_filename>`
+    #
+    # to convince yourself of this
 
     # All page numbers refer to the SEED Format Version 2.4 manual
     # http://www.fdsn.org/pdf/SEEDManual_V2.4.pdf
 
     # Time correction values are in units of 0.0001 (1e-4) seconds (pg. 109)
-    time_corr_one_ten_thous = np.int32(time_corr_secs / 0.0001)
+    time_corr_one_ten_thous = np.int32(time_corr_secs * 1e-4)
 
     # Set "Time correction applied" [Bit 1] (Note 12;  pg. 108)
     flags = {'...': {'activity_flags': {'time_correction': True}}}
