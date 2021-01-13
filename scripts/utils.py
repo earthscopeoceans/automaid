@@ -228,7 +228,7 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
     # http://www.fdsn.org/pdf/SEEDManual_V2.4.pdf
 
     # Time correction values are in units of 0.0001 (1e-4) seconds (pg. 109)
-    time_corr_one_ten_thous = np.int32(time_corr_secs * 1e-4)
+    time_corr_one_ten_thous = np.int32(time_corr_secs / 0.0001)
 
     # Set "Time correction applied" [Bit 1] (Note 12;  pg. 108)
     flags = {'...': {'activity_flags': {'time_correction': True}}}
