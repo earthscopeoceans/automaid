@@ -4,13 +4,16 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Nov-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 12-Jan-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
+import os
 import re
-import setup
+
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
-import os
+
+import setup
 
 # Get current version number.
 version = setup.get_version()
@@ -30,6 +33,16 @@ class GPS:
         self.interp_dict = interp_dict # Interpolation parameters from linear_interpolation()
         self.__version__ = version
 
+        # The miniSEED convention of a time delay is of opposite sign of the
+        # `clockdrift` (or the `clockdrift_correction') of this program (is it?)
+        #
+        # (+) clockdrift = MER time EARLY w.r.t GPS = (-) MER (record) time delay
+        # (-) clockdrift = MER time LATE w.r.t GPS = (+) MER (record) time delay
+        if self.clockdrift is not None:
+            self.mseed_time_delay = -self.clockdrift
+
+        else:
+            self.mseed_time_delay = None
 
     def __repr__(self):
         if self.source == 'interpolated':
