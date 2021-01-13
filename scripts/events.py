@@ -4,7 +4,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Jan-2021
+# Last modified by JDS: 13-Jan-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -139,6 +139,8 @@ class Event:
         self.criterion = None
         self.snr = None
         self.scales = None
+        self.normalized = None
+        self.edges_correction = None
 
         self.date = None
         self.station_loc = None
@@ -240,8 +242,8 @@ class Event:
             return
 
         # Get additional information on flavor of invert wavelet transform
-        normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
-        edge_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.mer_environment)[0]
+        self.normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
+        self.edges_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.mer_environment)[0]
 
         # Change to binary directory because these scripts can fail with full paths
         start_dir = os.getcwd();
@@ -270,15 +272,14 @@ class Event:
         # below in a subprocess and its output is verified; determine if edge
         # correction needs to be accounted for
         icdf24_arg_list = list()
-        if edge_correction == "1":
+        if self.edges_correction == "1":
             icdf24_arg_list.append("icdf24_v103ec_test")
 
         else:
             icdf24_arg_list.append("icdf24_v103_test")
 
-
         # Extend the icdf24_v103(ec)_test argument list with other data values
-        icdf24_arg_list.extend([self.scales, normalized, wtcoeffs_data_file_name])
+        icdf24_arg_list.extend([self.scales, self.normalized, wtcoeffs_data_file_name])
 
         # Perform inverse wavelet transform
         stdout = subprocess.check_output(icdf24_arg_list)
@@ -435,7 +436,8 @@ class Event:
                 'user3',
                 'kinst',
                 'kuser0',
-                'kuser1']
+                'kuser1',
+                'kuser2']
         def_float = -12345.
 
         # Default SAC header (we may not will not fill all of these keys)
@@ -500,6 +502,11 @@ class Event:
         reqdet_scales = self.get_export_file_name().split('.')[-2:]
         stats.sac['kuser1'] = '.'.join(reqdet_scales)
 
+        # String detailing the type of (i)CDF24 transform: edge correction and
+        # normalization
+        stats.sac['kuser2'] = 'ec' + self.edges_correction + 'norm' + self.normalized
+
+        # Attach Stats to events object
         self.obspy_trace_stats = stats
 
     def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
@@ -663,24 +670,26 @@ def write_metadata(mdives, processed_path, mfloat_path):
         (01) file name (from automaid; not a SAC header field)
         (02) KNETWK
         (03) KSTNM
-        (04) KCMPNM
-        (05) STLA
-        (06) STLO
-        (07) STEL
-        (08) STDP
-        (09) CMPAZ
-        (10) CMPINC
-        (11) KINST
-        (12) SCALE
-        (13) USER0 (SNR)
-        (14) USER1 (criterion)
-        (15) USER2 (trig)
-        (16) USER3 (clockdrift correction)
-        (17) KUSER0 (automaid version)
-        (18) KUSER1 (REQ or DET and scales)
-        (19) samplerate (not a SAC header field)
-        (20) start (not a SAC header field)
-        (21) end (not a SAC header field)
+        (04) KHOLE
+        (05) KCMPNM
+        (06) STLA
+        (07) STLO
+        (08) STEL
+        (09) STDP
+        (10) CMPAZ
+        (11) CMPINC
+        (12) KINST
+        (13) SCALE
+        (14) USER0 (SNR)
+        (15) USER1 (criterion)
+        (16) USER2 (trig)
+        (17) USER3 (clockdrift correction)
+        (18) KUSER0 (automaid version)
+        (19) KUSER1 (REQ or DET and scales)
+        (20) KUSER2 (CDF24 edge correction and normalization)
+        (21) samplerate (not a SAC header field)
+        (22) start (not a SAC header field)
+        (23) end (not a SAC header field)
 
 
     '''
@@ -697,9 +706,10 @@ def write_metadata(mdives, processed_path, mfloat_path):
     m2s_header_line_txt = "#net    sta   loc   chan           lat            lon      elev     depth   azimuth    SACdip  instrument     scale  scalefreq scaleunits samplerate                  start                    end\n"
     m2s_header_line_csv = ','.join(m2s_header_line_txt.split())  + '\n'
 
-    atm_header_line_txt = "                               filename KNETWK    KSTNM KCMPNM          STLA           STLO STEL      STDP CMPAZ CMPINC      KINST     SCALE            USER0            USER1     USER2            USER3      KUSER0      KUSER1 samplerate                  start                    end\n"
+    # (add pound after comma substitution)
+    atm_header_line_txt = "                               filename KNETWK    KSTNM KHOLE KCMPNM          STLA           STLO STEL      STDP CMPAZ CMPINC      KINST     SCALE            USER0            USER1     USER2            USER3      KUSER0      KUSER1      KUSER2 samplerate                  start                    end\n"
     atm_header_line_csv = '#' + ','.join(atm_header_line_txt.split()) + '\n'
-    atm_header_line_txt = '#' + atm_header_line_txt # add pount after comma substitution
+    atm_header_line_txt = '#' + atm_header_line_txt
 
     # Field specifiers for mseed2sac_metadata.csv and mseed2sac_metadata.txt
     m2s_fmt = ['{:>2s}',    # Network (KNETWK)
@@ -731,6 +741,7 @@ def write_metadata(mdives, processed_path, mfloat_path):
     atm_fmt = ['{:>40s}',   # file name (from automaid; not a SAC header field)
                '{:>3s}',    # KNETWK
                '{:>5s}',    # KSTNM
+               '{:>2s}',    # KHOLE
                '{:>3s}',    # KCMPNM
                '{:>10.6F}', # STLA
                '{:>11.6f}', # STLO
@@ -746,6 +757,7 @@ def write_metadata(mdives, processed_path, mfloat_path):
                '{:>13.6f}', # USER3 (clockdrift correction)
                '{:>8s}',    # KUSER0 (automaid version)
                '{:>8s}',    # KUSER1 (REQ or DET and scales)
+               '{:>8s}',    # KUSER2 (CDF24 edge correction and normalization)
                '{:>7.0f}',  # samplerate (not a SAC header field)
                '{:>19s}',   # start (not a SAC header field)
                '{:>19s}\n'] # end (not a SAC header field)
@@ -805,16 +817,18 @@ def write_metadata(mdives, processed_path, mfloat_path):
             SACdip = np.float32(e.obspy_trace_stats.sac["cmpinc"])
             instrument = e.obspy_trace_stats.sac["kinst"]
             scale = np.float32(e.obspy_trace_stats.sac["scale"])
-            # scalefreq (defined above)
-            # scaleunits (defined above)
+            # scalefreq (local defined above)
+            # scaleunits (local defined above)
             samplerate = np.float32(e.obspy_trace_stats["sampling_rate"])
             start = str(e.obspy_trace_stats["starttime"])[:19]
             end = str(e.obspy_trace_stats["endtime"])[:19]
 
-            # Additional fields defined by automaid that are not in mseed2sac_metadata*
+            # Fields unique to automaid_metadata that are not in mseed2sac_metadata
+            # (commented fields are defined in both files)
             filename = e.get_export_file_name()
             # KNETWK = net  (LHS are SAC names; RHS are their mseed2sac equivalents)
             # KSTNM = sta
+            # KHOLE = loc
             # KCMPNM = chan
             # STLA = lat
             # STLO = lon
@@ -830,7 +844,8 @@ def write_metadata(mdives, processed_path, mfloat_path):
             USER3 = np.float32(e.obspy_trace_stats.sac["user3"])
             KUSER0 = e.obspy_trace_stats.sac["kuser0"]
             KUSER1 = e.obspy_trace_stats.sac["kuser1"]
-            # samplerate (these last three already defined)
+            KUSER2 = e.obspy_trace_stats.sac["kuser2"]
+            # samplerate
             # start
             # end
 
@@ -859,6 +874,7 @@ def write_metadata(mdives, processed_path, mfloat_path):
             atm_meta = [filename,
                         net,
                         sta,
+                        loc,
                         chan,
                         lat,
                         lon,
@@ -874,12 +890,12 @@ def write_metadata(mdives, processed_path, mfloat_path):
                         USER3,
                         KUSER0,
                         KUSER1,
+                        KUSER2,
                         samplerate,
                         start,
                         end]
 
             ## Write to all files.
-
             m2s_f_txt.write(m2s_fmt_txt.format(*m2s_meta))
             m2s_f_csv.write(m2s_fmt_csv.format(*m2s_meta))
 
