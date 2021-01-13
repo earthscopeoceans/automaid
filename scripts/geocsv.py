@@ -3,16 +3,15 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
-# Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
+# Author: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Jan-2021
+# Last modified by JDS: 12-Jan-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
 #
-# *Write (nested)function docstrings
-# *Verify types, e.g. for 'time correction/delay' (LONG vs. np.int32 etc.)
+# *Write (nested) function docstrings
+# *Verify types and signs, e.g. for 'time correction/delay' ([+/-]np.int32)
 
 import csv
 import pickle
@@ -28,9 +27,6 @@ class GeoCSV:
         version (str): GeoCSV version (def: '2.0')
         delimiter (str): GeoCSV delimiter (def: ',')
 
-    Attributes:
-        dives (list): List of dives.Dive instances
-
     """
 
     def __init__(self, dives, version='2.0', delimiter=','):
@@ -38,7 +34,7 @@ class GeoCSV:
         self.version = version
         self.delimiter = ','
 
-        # Define first two header lines
+        # Attach header lines
         self.dataset_header = ['#dataset: GeoCSV ' + self.version]
         self.delimiter_header = ['#delimiter: ' + self.delimiter]
         self.field_unit_header = [
@@ -102,7 +98,7 @@ class GeoCSV:
         ]
 
     def write(self, filename='geo.csv'):
-        """Write (Geo)CSV file
+        """Write three GeoCSV for: all, 'DET', and 'REQ' events
 
         Args:
             filename (str): GeoCSV filename (def: 'geo.csv')
@@ -118,22 +114,23 @@ class GeoCSV:
         d6 = lambda x: format(np.float32(x), '.6f')
         nan = np.float32('nan')
 
-        def write_headers(csvwriter):
+        def write_headers(csvwriter_list):
             """Write GeoCSV header rows
 
             Args:
-                csvwriter (writer): csv.writer object for open file
+                csvwriter_list (list):
 
             """
-            csvwriter.writerows([self.dataset_header,
-                                 self.delimiter_header,
-                                 self.field_unit_header,
-                                 self.field_type_header,
-                                 self.MethodIdentifier_header])
+            for csvwriter in csvwriter_list:
+                csvwriter.writerows([self.dataset_header,
+                                     self.delimiter_header,
+                                     self.field_unit_header,
+                                     self.field_type_header,
+                                     self.MethodIdentifier_header])
 
 
         def write_measurement_rows(csvwriter_list, dive, flag):
-            """Write rows of GPS measurements (all, before, or after dive)
+            """Write rows of GPS measurements
 
             GPS metadata == 'measurement'
 
@@ -176,22 +173,26 @@ class GeoCSV:
                     nan,
                     '',
                     nan,
-                    d6(-1*gps.clockdrift), # MER delay = (-) clockdrift
+                    d6(gps.mseed_time_delay),
                     nan
                 ]
 
-                # Write the same line to each file in the input list
+                # Write the same GPS lines to all GeoCSV files
                 for csvwriter in csvwriter_list:
                     csvwriter.writerow(measurement_row)
 
-        def write_algorithm_rows(csvwriter_list, dive, flag):
+        def write_algorithm_rows(csvwriter, dive, flag):
             """Write multiple rows of event (algorithm) values, some measured
             (e.g. "Depth", STDP), and some interpolated (e.g., "Latitude", STLA)
 
             Event metadata == 'algorithm'
 
+            NB, cannot pass a list of writers here because, unlike the
+            measurement rows (which are the same for all three files), this
+            function must parse event lists between all, 'DET', and 'REQ' types.
+
             Args:
-                csvwriter_list (list):
+                csvwriter (writer): a single CSV writer
                 dive (dives.Dive instance):
                 flag (str):
 
@@ -231,12 +232,11 @@ class GeoCSV:
                     'Pa',
                     d1(event.obspy_trace_stats["sampling_rate"]),
                     nan,
-                    d6(event.clockdrift_correction)
+                    d6(event.mseed_time_correction)
                 ]
 
-                # Write the same line to each file in the input list
-                for csvwriter in csvwriter_list:
-                    csvwriter.writerow(algorithm_row)
+                # Write (possibly multiple) event line(s) to a single CSV file
+                csvwriter.writerow(algorithm_row)
 
         ## Script of self.write()
         ## ___________________________________________________________________________ ##
@@ -259,38 +259,30 @@ class GeoCSV:
             csvwriter_list = [csvwriter_all, csvwriter_det, csvwriter_req]
 
             # Write headers to all three files
-            for csvwriter in csvwriter_list:
-                write_headers(csvwriter)
+            write_headers(csvwriter_list)
 
             # Write metadata rows to all three files
             for dive in self.dives:
-                len_gps = 0;
-                len_gps_before = 0;
-                len_gps_after = 0;
-
                 if dive.is_dive:
                     # Write ONLY this dive's GPS list --
-                    # Yes: dive.gps_before_dive (or after dive)
-                    # No: dive.gps_before_dive_incl_next_dive (or after dive)
-
-                    len_gps = len(dive.gps_list)
+                    # Yes: `dive.gps_before_dive` (or `after_dive`)
+                    # No: `dive.gps_before_dive_incl_next_dive` (or `after_dive`)
                     if dive.gps_before_dive is not None:
                         write_measurement_rows(csvwriter_list, dive, 'before_dive')
-                        len_gps_before = len(dive.gps_before_dive)
 
                     if dive.events is not None:
-                        write_algorithm_rows(csvwriter_list, dive, 'all')
+                        # Cannot input `csvwriter_list` because we must parse
+                        # 'DET' and 'REQ' events to separate files
+                        write_algorithm_rows(csvwriter_all, dive, 'all')
+                        write_algorithm_rows(csvwriter_det, dive, 'det')
+                        write_algorithm_rows(csvwriter_req, dive, 'req')
 
                     if dive.gps_after_dive is not None:
                         write_measurement_rows(csvwriter_list, dive, 'after_dive')
-                        len_gps_after = len(dive.gps_after_dive)
 
                 else:
                     if dive.gps_list is not None:
                         write_measurement_rows(csvwriter_list, dive, 'all')
-
-                if len_gps != len_gps_before + len_gps_after:
-                    import ipdb; ipdb.set_trace()
 
 
 if __name__ == '__main__':
