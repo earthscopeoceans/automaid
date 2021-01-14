@@ -375,10 +375,14 @@ class Dive:
         # we need to append the NEXT dive's GPS list (we might as well append the previous
         # dive's GPS list as well if case there were GPS errors before the dive as well)
 
-        # Initialize extended (including previous/next dives') GPS lists from current
-        # dive's GPS list
-        self.gps_before_dive_incl_prev_dive = self.gps_before_dive if self.gps_before_dive else []
-        self.gps_after_dive_incl_next_dive = self.gps_after_dive if self.gps_after_dive else []
+        # Initialize extended GPS lists from current dive's GPS list
+        # Use slicing `[:]` to generate shallow copy (`=` copies the reference)
+        # so that modifications to the new list are not reflected in the old
+        self.gps_before_dive_incl_prev_dive \
+            = self.gps_before_dive[:] if self.gps_before_dive else []
+
+        self.gps_after_dive_incl_next_dive \
+            = self.gps_after_dive[:] if self.gps_after_dive else []
 
         # Add the previous dive's GPS fixes AFTER the previous dive reached the surface
         if prev_dive and prev_dive.gps_list:
@@ -387,9 +391,10 @@ class Dive:
                 # those GPS after it surfaced -- "and" will attach all GPS if either of those
                 # conditions fails)
                 if prev_dive.gps_after_dive:
-                    self.gps_before_dive_incl_prev_dive = prev_dive.gps_after_dive + self.gps_before_dive_incl_prev_dive
+                    self.gps_before_dive_incl_prev_dive += prev_dive.gps_after_dive
+
             else:
-                self.gps_before_dive_incl_prev_dive = prev_dive.gps_list + self.gps_before_dive_incl_prev_dive
+                self.gps_before_dive_incl_prev_dive += prev_dive.gps_list
 
         # Add the next dive's GPS fixes BEFORE the next dive left the surface
         if next_dive and next_dive.gps_list:
@@ -398,9 +403,10 @@ class Dive:
                 # those GPS before it dove -- "and" will attach all GPS if either of those
                 # conditions fails)
                 if next_dive.gps_before_dive:
-                    self.gps_after_dive_incl_next_dive = self.gps_after_dive_incl_next_dive + next_dive.gps_before_dive
+                    self.gps_after_dive_incl_next_dive += next_dive.gps_before_dive
+
             else:
-                self.gps_after_dive_incl_next_dive = self.gps_after_dive_incl_next_dive + next_dive.gps_list
+                self.gps_after_dive_incl_next_dive += next_dive.gps_list
 
         # Ensure sorting of the expanded GPS lists
         self.gps_before_dive_incl_prev_dive.sort(key=lambda x: x.date)
