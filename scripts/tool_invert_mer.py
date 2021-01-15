@@ -13,7 +13,7 @@
 # Original author: Sebastien Bonnieux
 # Current maintainer: Dr. Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 04-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 14-Dec-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import events
 import re
@@ -65,7 +65,8 @@ def invert_main():
         event.to_sac(mer_file_path, kstnm='xxxxx', kinst='xxxxxxxx',
                      force_without_loc=True, force_redo=True)
         event.to_mseed(mer_file_path, kstnm='xxxxx', kinst='xxxxxxxx',
-                       force_without_loc=True, force_redo=True)
+                       force_without_loc=True, force_redo=True,
+                       force_without_time_correction=True)
         event.plotly(mer_file_path, force_redo=True)
         event.plot_png(mer_file_path, force_redo=True)
 

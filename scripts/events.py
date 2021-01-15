@@ -509,7 +509,8 @@ class Event:
         # Attach Stats to events object
         self.obspy_trace_stats = stats
 
-    def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
+    def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False,
+                 force_redo=False, force_without_time_correction=False):
         # NB, mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC",
         # where "D" is the quality indicator, "D -- The state of quality control
         # of the data is indeterminate" (SEED v2.4 manual pg. 108)
@@ -538,7 +539,8 @@ class Event:
 
         # Update (open and rewrite bits of each 48-byte fixed header that
         # precedes each record) the mseed file with time-correction metadata
-        utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
+        if not force_without_time_correction:
+            utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
     def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
         # Check if the station location has been calculated

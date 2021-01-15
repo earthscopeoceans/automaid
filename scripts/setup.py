@@ -7,7 +7,7 @@
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
-    version = 'v3.4.0-3' # v3.4.0 pre-release (fourth iteration)
+    version = 'v3.4.0-4' # v3.4.0 pre-release (fifth iteration)
     return version
 
 def get_url():
