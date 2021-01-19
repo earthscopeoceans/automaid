@@ -177,8 +177,10 @@ def network():
 
 
 def set_mseed_time_correction(mseed_filename, time_corr_secs):
-    """Set 'Time correction applied' bit and 'Time correction' value in every 'Fixed
-    section of Data Header' that precedes every record in an miniSEED file.
+    """Set 'Time correction applied' flag and 'Time correction' value in every
+    'Fixed section of Data Header' that precedes each miniSEED record.
+
+    Warning: unsets all other 'Activity', 'I/O and clock', 'Data Quality' flags.
 
     Args:
         mseed_filename (str): miniSEED filename
