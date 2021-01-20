@@ -1,0 +1,36 @@
+Some notes previously attached to:
+
+util.set_mseed_time_correction.py
+
+See `tests_and_verifications/mseed_fixed_section_data_header.py` for a
+discussion of the fixed header and subsequent blockettes (e.g., 1001, 1000)
+that (seem to?) precede every record an mseed file written by ObsPy v1.2.1.
+
+# miniSEED convention:
+#
+# [1] record start + time correction = corrected record start
+# [2]  (mer_time)  +  (clockdrift)   =      (gps_time)
+# (VERIFIED: POSITIVE time correction ADVANCES corrected record start)
+#
+# MERMAID convention:
+#
+# [3] clockdrift = gps_time - mer_time
+# [4] mer_time + clockdrift = gps_time = eq. [2]
+#
+# MERMAID's clock drift and SEED's time correction are of the same sign
+# SEED's time correction and time delay are of opposite sign
+# Therefore, SEED's time delay is opposite sign of MERMAID's clock drift
+#
+# positive time correction = record (MER) time EARLY w.r.t. truth (GPS)
+# ==> (+) time correction = (-) MER delay
+#
+# negative time correction = record (MER) time DELAYED w.r.t. truth (GPS)
+# ==> (-) time correction = (+) MER delay
+#
+# Toggle `time_correction` flag between True and False and use:
+#
+#     $ `libmseed/example/mseedview -p  <mseed_filename>`
+#     $ `python -m obspy.io.mseed.scripts.recordanalyzer -a <mseed_filename>`
+#
+# to convince yourself of this
+

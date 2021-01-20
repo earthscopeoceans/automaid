@@ -3,13 +3,18 @@
 #
 # Author: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 14-Jan-2021
+# Last modified by JDS: 15-Jan-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
-    version = 'v3.4.0-4' # v3.4.0 pre-release (fifth iteration)
-    return version
+    """Return automaid version number.
+
+    Versioning goes as vX.X.X-Y, where Y designates a pre-release, 
+    and is one of [0-9], then [A-Z], and finally [a-z].
+
+    """
+    
+    return 'v3.4.0-5'
 
 def get_url():
-    source_code = 'https://github.com/earthscopeoceans/automaid'
-    return source_code
+    return 'https://github.com/earthscopeoceans/automaid'
