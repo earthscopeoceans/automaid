@@ -9,11 +9,11 @@
 def get_version():
     """Return automaid version number.
 
-    Versioning goes as vX.X.X-Y, where Y designates a pre-release, 
+    Versioning goes as vX.X.X-Y, where Y designates a pre-release,
     and is one of [0-9], then [A-Z], and finally [a-z].
 
     """
-    
+
     return 'v3.4.0-5'
 
 def get_url():
