@@ -1,8 +1,7 @@
 automaid -- a Python package to process MERMAID files
 
+Maintained and extended by Joel D. Simon (jdsimon@princeton.edu) for EarthScope-Oceans.
 Originally written by Sebastien Bonnieux.
-Later maintained by Joel D. Simon and Frederik J. Simons.
-Currently maintained and extended by Joel D. Simon (jdsimon@princeton.edu) for EarthScope-Oceans.
 
 This program converts raw data transmitted by Mermaid instruments to classify
 their data, correct clock drifts, interpolate float positions, generate seismic
