@@ -1,10 +1,10 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
+# Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Jan-2021
+# Last modified by JDS: 08-Feb-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -236,14 +236,15 @@ class Event:
         self.station_loc = gps.linear_interpolation([drift_begin_gps, drift_end_gps], self.date)
 
     def invert_transform(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
+        # Get additional information on flavor of invert wavelet transform
+        # Must do this before the `return` statement, in the case of RAW files
+        self.normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
+        self.edges_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.mer_environment)[0]
+
         # If scales == -1 this is a raw signal, just convert binary data to np array of int32
         if self.scales == "-1":
             self.data = np.frombuffer(self.mer_binary_binary, np.int32)
             return
-
-        # Get additional information on flavor of invert wavelet transform
-        self.normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
-        self.edges_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.mer_environment)[0]
 
         # Change to binary directory because these scripts can fail with full paths
         start_dir = os.getcwd();
