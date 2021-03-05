@@ -1,10 +1,10 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
+# Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Jan-2021
+# Last modified by JDS: 05-Mar-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -632,11 +632,6 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
         f.write(version_line)
 
         for dive in dive_list:
-            # Write headers to each dive block
-            f.write("DIVE ID: {:>4d}\n".format(dive.dive_id))
-            f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z'))
-            f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
-
 
             # Compute the percentage of the total interpolate distance for the three regimes:
             # (1) surface-layer drift during the descent
@@ -646,13 +641,14 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
             #     .station.loc['input_dist_m'] same for all events (total mixed-layer drift)
             #
             # (3) surface-layer drift during the ascent
+
             leg_descent = dive.descent_leave_surface_loc
-            interp_dist_descent = leg_descent.interp_dict['interp_drift_dist_m']
-
-            # Same for all event instances ('interp' distance to event is what differs)
-            input_dist_mixed =  dive.events[0].station_loc.interp_dict['input_drift_dist_m']
-
             leg_ascent = dive.ascent_reach_surface_loc
+            if leg_descent is None or leg_ascent is None:
+                continue
+
+            interp_dist_descent = leg_descent.interp_dict['interp_drift_dist_m']
+            input_dist_mixed =  dive.events[0].station_loc.interp_dict['input_drift_dist_m']
             interp_dist_ascent = leg_ascent.interp_dict['interp_drift_dist_m']
 
             if all([interp_dist_descent, input_dist_mixed, interp_dist_ascent]):
@@ -667,6 +663,11 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
                 interp_perc_descent = float("nan")
                 input_perc_mixed = float("nan")
                 interp_perc_ascent = float("nan")
+
+            # Write headers to each dive block
+            f.write("DIVE ID: {:>4d}\n".format(dive.dive_id))
+            f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z'))
+            f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
 
             # Parse the GPS ('input') components of surface drift before dive: these are actual GPS points
             gps_surface_descent, gps_fmt_spec = parse_input_params(leg_descent.interp_dict)
@@ -686,6 +687,9 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
             # mixed-layer drift from leaving the surface layer (passing into the "deep" or
             # mixed-layer drift regime) and recording an event
             for event in dive.events:
+                if event.station_loc_is_preliminary:
+                    continue
+
                 interp_drift_to_event_mixed_layer, interp_fmt_spec = parse_interp_params(event.station_loc.interp_dict)
                 interp_drift_to_event_mixed_layer.append(event.get_export_file_name())
 

@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Feb-2021
+# Last modified by JDS: 05-Mar-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -144,6 +144,7 @@ class Event:
 
         self.date = None
         self.station_loc = None
+        self.station_loc_is_preliminary=None
         self.clockdrift_correction = None
         self.mseed_time_correction = None
         self.obspy_trace_stats = None
@@ -228,12 +229,13 @@ class Event:
         # Apply correction
         self.date = self.date + self.clockdrift_correction
 
-    def compute_station_location(self, drift_begin_gps, drift_end_gps):
+    def compute_station_location(self, drift_begin_gps, drift_end_gps, station_loc_is_preliminary=False):
         '''Fills attribute self.station_loc, the interpolated location of MERMAID when
         it recorded an event
 
         '''
-        self.station_loc = gps.linear_interpolation([drift_begin_gps, drift_end_gps], self.date)
+        self.station_loc = gps.linear_interpolation([drift_begin_gps,  drift_end_gps], self.date)
+        self.station_loc_is_preliminary = station_loc_is_preliminary
 
     def invert_transform(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
         # Get additional information on flavor of invert wavelet transform
@@ -314,13 +316,17 @@ class Event:
     def get_export_file_name(self):
         export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
         if not self.trig:
-            export_file_name = export_file_name + ".REQ"
+            export_file_name += ".REQ"
         else:
-            export_file_name = export_file_name + ".DET"
+            export_file_name += ".DET"
         if self.scales == "-1":
-            export_file_name = export_file_name + ".RAW"
+            export_file_name += ".RAW"
         else:
-            export_file_name = export_file_name + ".WLT" + self.scales
+            export_file_name += ".WLT" + self.scales
+
+        if self.station_loc_is_preliminary:
+            export_file_name += '.prelim'
+
         return export_file_name
 
     def __get_figure_title(self):
@@ -540,7 +546,7 @@ class Event:
 
         # Update (open and rewrite bits of each 48-byte fixed header that
         # precedes each record) the mseed file with time-correction metadata
-        if not force_without_time_correction:
+        if not force_without_time_correction and not self.station_loc_is_preliminary:
             utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
     def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
@@ -594,6 +600,9 @@ def write_traces_txt(mdives, processed_path, mfloat_path):
         f.write(header_line)
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
+            if e.station_loc_is_preliminary:
+                continue
+
             f.write(fmt_spec.format(e.get_export_file_name(),
                                     e.mer_binary_name,
                                     d.prev_dive_log_name,
@@ -623,6 +632,9 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
         f.write(header_line)
 
         for e in sorted(event_list, key=lambda x: x.date):
+            if e.station_loc_is_preliminary:
+                continue
+
             f.write(fmt_spec.format(e.get_export_file_name(),
                                     np.float32(e.obspy_trace_stats.sac["stla"]),
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
@@ -804,6 +816,8 @@ def write_metadata(mdives, processed_path, mfloat_path):
         # Loop over all events for which a station location was computed
         event_list = [event for dive in mdives for event in dive.events if event.station_loc]
         for e in sorted(event_list, key=lambda x: x.date):
+            if e.station_loc_is_preliminary:
+                continue
 
             ## Collect metadata and convert to np.float32()
 

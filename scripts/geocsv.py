@@ -3,9 +3,10 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
-# Author: Joel D. Simon (JDS)
+# Developer: Joel D. Simon (JDS)
+# Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Jan-2021
+# Last modified by JDS: 05-Mar-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -29,14 +30,17 @@ class GeoCSV:
 
     """
 
-    def __init__(self, dives, version='2.0', delimiter=','):
+    def __init__(self, dives, version='2.0', delimiter=',', lineterminator='\n'):
         self.dives = sorted(dives, key=lambda x: x.log_name)
         self.version = version
-        self.delimiter = ','
+        self.delimiter = delimiter
+        self.lineterminator = lineterminator
 
         # Attach header lines
         self.dataset_header = ['#dataset: GeoCSV ' + self.version]
-        self.delimiter_header = ['#delimiter: ' + self.delimiter]
+        self.delimiter_header = ['#delimiter: ' + repr(self.delimiter)]
+        self.lineterminator_header = ['#lineterminator: ' + repr(self.lineterminator)]
+
         self.field_unit_header = [
             '#field_unit',
             'ISO_8601',
@@ -124,6 +128,7 @@ class GeoCSV:
             for csvwriter in csvwriter_list:
                 csvwriter.writerows([self.dataset_header,
                                      self.delimiter_header,
+                                     self.lineterminator_header,
                                      self.field_unit_header,
                                      self.field_type_header,
                                      self.MethodIdentifier_header])
@@ -215,6 +220,9 @@ class GeoCSV:
             event_list = [event for event in event_list if event.station_loc is not None]
 
             for event in sorted(event_list, key=lambda x: x.station_loc.date):
+                if event.station_loc_is_preliminary:
+                    continue
+
                 algorithm_row = [
                     'Algorithm:automaid:{:s}'.format(setup.get_version()),
                     str(event.obspy_trace_stats["starttime"])[:19]+'Z',
@@ -251,9 +259,10 @@ class GeoCSV:
              open(basename+'_REQ.csv', 'wb') as csvfile_req:
 
             # Define writer object for all three files
-            csvwriter_all = csv.writer(csvfile_all, delimiter=self.delimiter)
-            csvwriter_det = csv.writer(csvfile_det, delimiter=self.delimiter)
-            csvwriter_req = csv.writer(csvfile_req, delimiter=self.delimiter)
+            # https://stackoverflow.com/questions/3191528/csv-in-python-adding-an-extra-carriage-return-on-windows
+            csvwriter_all = csv.writer(csvfile_all, delimiter=self.delimiter, lineterminator=self.lineterminator)
+            csvwriter_det = csv.writer(csvfile_det, delimiter=self.delimiter, lineterminator=self.lineterminator)
+            csvwriter_req = csv.writer(csvfile_req, delimiter=self.delimiter, lineterminator=self.lineterminator)
 
             # Compile list of all three files to pass into write functions
             csvwriter_list = [csvwriter_all, csvwriter_det, csvwriter_req]

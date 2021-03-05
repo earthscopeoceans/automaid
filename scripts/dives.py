@@ -1,10 +1,10 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
+# Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Jan-2021
+# Last modified by JDS: 05-Mar-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -460,22 +460,52 @@ class Dive:
             event.correct_clockdrift(self.gps_before_dive_incl_prev_dive[-1],
                                      self.gps_after_dive_incl_next_dive[0])
 
-    def compute_station_locations(self, mixed_layer_depth_m):
+    def compute_station_locations(self, mixed_layer_depth_m, preliminary_location_ok=False):
         '''Fills attributes detailing interpolated locations of MERMAID at various
         points during a Dive (i.e., when it left the surface, reached the mixed
         layer, etc.)
 
         '''
 
-        if not self.valid_event_gps():
-            return
-
         # Require at least a single GPS point before and after each dive; after all, we only have
         # two points to interpolate for mixed-layer drift, which accounts for > 90% of the total
         # drift (despite the higher drift velocities at the surface, the total the surface-drift
         # components are generally not large because comparatively so little time is spent there --
         # see *gps_interpolation.txt for percentages)
-        if len(self.gps_before_dive_incl_prev_dive) < 1 or len(self.gps_after_dive_incl_next_dive) < 1:
+
+        if not self.valid_event_gps() \
+           or len(self.gps_before_dive_incl_prev_dive) < 1 \
+           or len(self.gps_after_dive_incl_next_dive) < 1:
+
+            if preliminary_location_ok:
+                for event in self.events:
+                    # Do not use `_incl_[prev/next]_dive` because the final Dive
+                    # has no "next" dive, yet, and hackily assigning it one with
+                    # `mdives[i].set_incl_prev_next_dive_gps(mdives[i-1], None)`
+                    # in main.py can set `self.valid_event_gps()` to True, when
+                    # it's really false causing this entire conditional to be
+                    # skipped, and generating a non-'prelim.sac', which is bad
+
+                    if self.gps_before_dive and self.gps_after_dive:
+                        # Use last GPS before dive and first GPS after dive, ideally
+                        event.compute_station_location(self.gps_before_dive[-1], \
+                                                       self.gps_after_dive[0], \
+                                                       station_loc_is_preliminary=True)
+
+                    elif self.gps_after_dive:
+                        # Then first after dive, assuming preliminary location for
+                        # event that caused immediate surfacing
+                        event.compute_station_location(self.gps_after_dive[0], \
+                                                       self.gps_after_dive[0], \
+                                                       station_loc_is_preliminary=True)
+
+                    elif self.gps_before_dive:
+                        # Use last before dive as last resort
+                        event.compute_station_location(self.gps_before_dive[-1], \
+                                                       self.gps_before_dive[-1], \
+                                                       station_loc_is_preliminary=True)
+
+            # Always exit this def, regardless of if preliminary location estimated or not
             return
 
         # Find when & where the float left the surface
@@ -726,8 +756,9 @@ def generate_printout(mdives, mfloat_serial):
         d.print_dive_events()
         print ""
 
-    print("    {:s} total: {:d} SAC & miniSEED files\n" \
-          .format(mfloat_serial, sum(bool(e.station_loc) for d in mdives for e in d.events)))
+        print("    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n" \
+            .format(mfloat_serial, \
+            sum(bool(e.station_loc) for d in mdives for e in d.events if not e.station_loc_is_preliminary)))
 
 
 def write_dives_txt(mdives, processed_path, mfloat_path):

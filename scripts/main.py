@@ -1,13 +1,14 @@
-# automaid -- a Python package to process MERMAID files
+# Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Usage: python main.py [-p processed] [-s server]
 #
+# Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Jan-2021
+# Last modified by JDS: 05-Mar-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+
 
 import os
 import re
@@ -30,6 +31,9 @@ version = setup.get_version()
 
 # Set depth of mixed layer (in meters) for drift interpolation
 mixed_layer_depth_m = 50
+
+# Toggle preliminary (rapid) location estimates on and off
+preliminary_location_ok = True
 
 # Set default paths
 automaid_path = os.environ["AUTOMAID"]
@@ -196,19 +200,19 @@ def main():
         # Use those pre/post-dive GPS lists to correct MERMAID timestamps and
         # interpolate for MERMAID location at the time of recording
         mdives[0].correct_events_clockdrift()
-        mdives[0].compute_station_locations(mixed_layer_depth_m)
+        mdives[0].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
         # Repeat for all other dives after intialization at mdives[0] (loop
         # requires reference to previous dive)
         i = 1
-        while i < len(mdives)-1:
+        while i < len(mdives) - 1:
             mdives[i].set_incl_prev_next_dive_gps(mdives[i-1], mdives[i+1])
             mdives[i].correct_events_clockdrift()
-            mdives[i].compute_station_locations(mixed_layer_depth_m)
+            mdives[i].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
             i += 1
 
-        # Because the last dive was skipped above its GPS lists were not
-        # extended; add filenames for printout
+        # Because the last dive was skipped above its GPS lists were not extended;
+        # add filenames for printout
         mdives[-1].prev_dive_log_name = mdives[-2].log_name
         mdives[-1].prev_dive_mer_environment_name = mdives[-2].mer_environment_name
 
@@ -259,6 +263,13 @@ def main():
         # Write GeoCSV files
         geocsv_meta = geocsv.GeoCSV(mdives)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
+
+        # Finally, try for rapid location estimates of the final dive, if requested.
+        mdives[-1].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
+        if events_sac:
+            mdives[-1].generate_events_sac()
+        if events_mseed:
+            mdives[-1].generate_events_mseed()
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
