@@ -428,8 +428,7 @@ class Event:
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.data)
 
-        # Extra metadata only written to SAC files (stel, cmpaz, and cmpinc are included here for
-        # writing to mseed2sac_metadata.csv, but they are left unfilled)
+        # Extra metadata, some of which is only written to SAC files
         keys = ['stla',
                 'stlo',
                 'stel',
