@@ -33,7 +33,7 @@ version = setup.get_version()
 mixed_layer_depth_m = 50
 
 # Toggle preliminary (rapid) location estimates on and off
-preliminary_location_ok = True
+preliminary_location_ok = False
 
 # Set default paths
 automaid_path = os.environ["AUTOMAID"]
