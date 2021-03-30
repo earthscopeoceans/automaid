@@ -4,9 +4,8 @@
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Mar-2021
+# Last modified by JDS: 30-Mar-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -170,7 +169,7 @@ class GeoCSV:
                     '',
                     nan,
                     d6(gps.latitude),
-                    d6(gps.latitude),
+                    d6(gps.longitude),
                     d0(0),
                     d0(0),
                     'MERMAIDHydrophone({:s})'.format(dive.kinst),

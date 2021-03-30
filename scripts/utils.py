@@ -214,7 +214,7 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
     time_corr_one_ten_thous = np.int32(time_corr_secs / 0.0001)
 
     # Set "Time correction applied" [Bit 1] (Note 12;  pg. 108)
-    # Warning: in Obspy v1.2.1 this unsets any other flags that are set
+    # Warning: this unsets any other flags that are set
     flags = {'...': {'activity_flags': {'time_correction': True}}}
     obspy_util.set_flags_in_fixed_headers(mseed_filename, flags)
 

@@ -34,7 +34,7 @@ class GPS:
         self.__version__ = version
 
         # The miniSEED convention of a time delay is of opposite sign of the
-        # `clockdrift` (or the `clockdrift_correction') of this program (is it?)
+        # `clockdrift` (or the `clockdrift_correction`) of this program
         #
         # (+) clockdrift = MER time EARLY w.r.t GPS = (-) MER (record) time delay
         # (-) clockdrift = MER time LATE w.r.t GPS = (+) MER (record) time delay
