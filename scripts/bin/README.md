@@ -1,9 +1,15 @@
-This directory, when the source code has been compiled, will contain
+This directory must contain the executables
 
 `icdf24_v103_test`
 `icdf24_v103ec_test`
 
-And when automaid has been run, it will contain
+These two executables are not git tracked because they are system specific and
+can be remade by running `make` in $AUTOMAID/scripts/src/V103 and
+$AUTOMAID/scripts/src/V103ec.  They must be made in those two respective
+directories and copied here.
+
+And when automaid has been run this directory will additionally (briefly, before
+being deleted to clear the cache for the next seismogram) contain
 
 `wtcoeffs`
 `wtcoeffs.icdf24_5`
