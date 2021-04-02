@@ -4,6 +4,9 @@
 # Demonstrates how various lists of nonunique GPS fixes are merged into lists of
 # unique GPS pairs using the `merge_gps_list` method.
 #
+# See an annotated output of this script at:
+# example_merge_gps_list.pdf; 2017.2 pp. 132-133
+#
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified by JDS: 01-Apr-2021
@@ -55,7 +58,7 @@ for i,x in enumerate(ex2):
 
 ex3 = list(gps_list)
 ex3.pop(-1)
-print('\nLast GPS (from MER) removed (7 GPS; 4 pairs; 3rd pair all MER data)')
+print('\nLast GPS (from MER) removed (7 GPS; 4 pairs; 3rd pair all LOG data)')
 for i,x in enumerate(ex3):
     print('Non-unique GPS fix {:d}: {:s}'.format(i, str(x.date)[:19]))
     print('Date Source: ' + x.source)
