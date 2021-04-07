@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Apr-2021
+# Last modified by JDS: 07-Apr-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -348,11 +348,13 @@ def merge_gps_list(gps_nonunique_list):
         gps2 = gps_nonunique_list[i+1] if i != len(gps_nonunique_list)-1 else gps1
 
         # Generally GPS pairs are separated by 1 s
-        # Other times they are separted by 12 s (and maybe more?)
+        # Other times they are separated by 12 s (and maybe more?)
         # Define a pair to be: < 60 s time diff and same clockdrift (implying no synchronization)
-        tdiff = abs(gps1.date - gps2.date)
+        # NB: clockdrifts are printed with USEC precision in both .LOG and .MER
+        time_diff = abs(gps1.date - gps2.date)
+        clockdrift_diff = abs(gps1.clockdrift-gps2.clockdrift)
 
-        if tdiff < 60 and gps1.clockdrift == gps2.clockdrift:
+        if time_diff < 60 and clockdrift_diff < 10**(-6):
             # Keep the time from the .MER and the location from the .LOG
             if 'LOG' and 'MER' in gps1.source + gps2.source:
                 log_gps = gps1 if 'LOG' in gps1.source else gps2
