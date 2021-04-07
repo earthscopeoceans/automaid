@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Mar-2021
+# Last modified by JDS: 06-Apr-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -65,7 +65,11 @@ class Dive:
         self.mer_bytes_received = None
         self.mer_bytes_expected = None
 
-        self.gps_list = None
+        self.gps_from_log = None
+        self.gps_from_mer_environment = None
+        self.gps_nonunique_list = None
+        self.gps_list = None # Unique GPS via merged GPS pairs in .LOG and .MER
+
         self.gps_before_dive = None
         self.gps_before_dive_incl_prev_dive = None
         self.gps_after_dive = None
@@ -218,9 +222,10 @@ class Dive:
             event.invert_transform()
 
         # Collect all GPS fixes taken in both the .LOG  and .MER file
-        self.gps_list, self.gps_from_log, self.gps_from_mer_environment \
-            = gps.get_gps_list(self.log_name, self.log_content,  self.mer_environment_name,
-                               self.mer_environment, begin, end)
+        self.gps_list, self.gps_nonunique_list, self.gps_from_log, self.gps_from_mer_environment \
+            = gps.get_gps_lists(self.log_name, self.log_content,
+                                self.mer_environment_name, self.mer_environment,
+                                begin, end)
 
         # Split the GPS list into before/after dive sublists
         if self.is_dive:
@@ -251,8 +256,8 @@ class Dive:
             self.p2t_offset_corrected =  self.p2t_offset_measurement - self.p2t_offset_param
 
 
-    def __repr__(self):
-        return "Dive('{}', '{}', {})".format(self.base_path, self.log_name, self.events)
+    # def __repr__(self):
+    #     return "Dive('{}', '{}', {})".format(self.base_path, self.log_name, self.events)
 
     def generate_datetime_log(self):
         # Check if file exist
@@ -369,7 +374,6 @@ class Dive:
             self.next_dive_log_name = next_dive.log_name
             self.next_dive_mer_environment_name = next_dive.mer_environment_name
 
-
         # By default every .MER and .LOG prints a handful of GPS fixes BEFORE the dive,
         # but only a single one AFTER the dive; thus to get a good interpolated location
         # we need to append the NEXT dive's GPS list (we might as well append the previous
@@ -377,7 +381,10 @@ class Dive:
 
         # Initialize extended GPS lists from current dive's GPS list
         # Use slicing `[:]` to generate shallow copy (`=` copies the reference)
-        # so that modifications to the new list are not reflected in the old
+        # A shallow does not copy the container (list) reference, but does copy contents
+        # OK here because we want to expand `_incl` list here w/o also expanding
+        # original list
+
         self.gps_before_dive_incl_prev_dive \
             = self.gps_before_dive[:] if self.gps_before_dive else []
 

@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Mar-2021
+# Last modified by JDS: 06-Apr-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -95,10 +95,8 @@ class Events:
             # Sort by date the list of events contained in this .MER file
             self.events.sort(key=lambda x: x.date)
 
-
-    def __repr__(self):
-        return "Events('{}', '{}')".format(self.base_path, self.mer_name)
-
+    # def __repr__(self):
+    #     return "Events('{}', '{}')".format(self.base_path, self.mer_name)
 
     def get_events_between(self, begin, end):
         catched_events = list()
@@ -168,14 +166,14 @@ class Event:
             date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
             self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
 
-    def __repr__(self):
-        # Hacked repr dunder because I can't print binary...
-        if self.mer_binary_binary:
-            bin_str = '<int32 binary>'
-        else:
-            bin_str = self.mer_binary_binary
+    # def __repr__(self):
+    #     # Hacked repr dunder because I can't print binary...
+    #     if self.mer_binary_binary:
+    #         bin_str = '<int32 binary>'
+    #     else:
+    #         bin_str = self.mer_binary_binary
 
-        return "Event('{}', '{}', {})".format(self.mer_binary_name, self.mer_binary_header, bin_str)
+    #     return "Event('{}', '{}', {})".format(self.mer_binary_name, self.mer_binary_header, bin_str)
 
     def set_environment(self, mer_environment_name, mer_environment):
         self.mer_environment_name = mer_environment_name
