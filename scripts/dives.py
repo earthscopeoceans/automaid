@@ -487,6 +487,8 @@ class Complete_Dive:
         self.ascent_reach_surface_date = complete_dive[-1].ascent_reach_surface_date
         self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
 
+        self.events = flatten([d.events for d in complete_dive])
+
         self.gps_before_dive_incl_prev_dive = None
         self.descent_leave_surface_loc = None
         self.descent_leave_surface_layer_date = None
@@ -498,16 +500,16 @@ class Complete_Dive:
         self.ascent_reach_surface_loc = None
 
     def set_incl_prev_next_dive_gps(self, prev_dive, next_dive):
-        # Keep tabs on the MER/LOG files that affect the current dive's GPS interpolation (don't set
-        # self.next_dive = next_dive because that creates highly recursive data structures)
-        if isinstance(prev_dive, Dive):
-            self.prev_dive_log_name = prev_dive.log_name
-            self.prev_dive_mer_environment_name = prev_dive.mer_environment_name
+        # # Keep tabs on the MER/LOG files that affect the current dive's GPS interpolation (don't set
+        # # self.next_dive = next_dive because that creates highly recursive data structures)
+        # if isinstance(prev_dive, Dive):
+        #     self.prev_dive_log_name = prev_dive.log_name
+        #     self.prev_dive_mer_environment_name = prev_dive.mer_environment_name
 
-        if isinstance(next_dive, Dive):
-            self.next_dive_exists = True
-            self.next_dive_log_name = next_dive.log_name
-            self.next_dive_mer_environment_name = next_dive.mer_environment_name
+        # if isinstance(next_dive, Dive):
+        #     self.next_dive_exists = True
+        #     self.next_dive_log_name = next_dive.log_name
+        #     self.next_dive_mer_environment_name = next_dive.mer_environment_name
 
         # By default every .MER and .LOG prints a handful of GPS fixes BEFORE the dive,
         # but only a single one AFTER the dive; thus to get a good interpolated location
@@ -528,27 +530,11 @@ class Complete_Dive:
 
         # Add the previous dive's GPS fixes AFTER the previous dive reached the surface
         if prev_dive and prev_dive.gps_list:
-            if prev_dive.is_dive:
-                # DO NOT wrap this above into "and" statement (if previous dive exists, we ONLY want
-                # those GPS after it surfaced -- "and" will attach all GPS if either of those
-                # conditions fails)
-                if prev_dive.gps_after_dive:
-                    self.gps_before_dive_incl_prev_dive += prev_dive.gps_after_dive
-
-            else:
-                self.gps_before_dive_incl_prev_dive += prev_dive.gps_list
+            self.gps_before_dive_incl_prev_dive += prev_dive.gps_after_dive
 
         # Add the next dive's GPS fixes BEFORE the next dive left the surface
         if next_dive and next_dive.gps_list:
-            if next_dive.is_dive:
-                # DO NOT wrap this above into "and" statement (if next dive exists, we ONLY want
-                # those GPS before it dove -- "and" will attach all GPS if either of those
-                # conditions fails)
-                if next_dive.gps_before_dive:
-                    self.gps_after_dive_incl_next_dive += next_dive.gps_before_dive
-
-            else:
-                self.gps_after_dive_incl_next_dive += next_dive.gps_list
+            self.gps_after_dive_incl_next_dive += next_dive.gps_before_dive
 
         # Ensure sorting of the expanded GPS lists
         self.gps_before_dive_incl_prev_dive.sort(key=lambda x: x.date)
@@ -563,6 +549,9 @@ class Complete_Dive:
         # Return if there are no events
         if len(self.events) == 0:
             return False
+
+        ## Add requirement of GPS within 1 hour of surfacing since we softened
+        ## requirement that GPS be part of complete dive / not in init mode.
 
         # Verify the necessary GPS fixes exist and and not corrupted
         if not self.is_dive:
