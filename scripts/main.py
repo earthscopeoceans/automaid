@@ -26,6 +26,8 @@ import events
 import vitals
 import geocsv
 
+from pprint import pprint
+
 # Get current version number.
 version = setup.get_version()
 
@@ -119,7 +121,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*.vit")
+    vitfile_path = os.path.join(server_path, "*25.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # Initialize empty dict to hold the instance of every last complete dive for
@@ -180,6 +182,40 @@ def main():
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat_serial))
         mdives = dives.get_dives(mfloat_path, mevents, begin, end)
+
+        # Combine "dive" objects, which individually describe a single .LOG into
+        # complete dives
+
+        # # Combine all nonunqiue GPS into single GPS list
+        # full_gps_nonunique_list = [nonunique_gps for dive in mdives for nonunique_gps in dive.gps_nonunique_list]
+        # full_gps_nonunique_list.sort(key=lambda x: x.date)
+        # full_gps_list = gps.merge_gps_list(full_gps_nonunique_list)
+
+        # gps_dates = [g.date for g in full_gps_list]
+        # dive_end_dates =  [d.end_date for d in mdives]
+
+        # surfacing_dates = [d.ascent_reach_surface_date for d in mdives if d.is_complete_dive]
+
+        # Find first dive
+        for i_d, d in enumerate(mdives):
+            if d.is_dive:
+                first_dive = i_d
+                break
+
+        fragmented_dive = list()
+        complete_dive = list()
+        for d in mdives[first_dive:]:
+            if d.is_complete_dive:
+                complete_dive.append(dives.Complete_Dive([d]))
+
+            else:
+                fragmented_dive.append(d)
+
+                if d.ascent_reach_surface_date:
+                    complete_dive.append(dives.Complete_Dive(fragmented_dive))
+                    fragmented_dive = list()
+
+        from pprint import pprint; import ipdb; ipdb.set_trace()
 
         # Generate logs and plots for each dive
         for dive in mdives:

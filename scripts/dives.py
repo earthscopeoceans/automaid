@@ -45,7 +45,6 @@ class Dive:
         self.log_name = log_name
         self.__version__ = version
 
-        # Defaults (this class does a lot...)
         self.directory_name = None
         self.export_path = None
         self.station_name = None
@@ -76,16 +75,7 @@ class Dive:
         self.gps_after_dive_incl_next_dive = None
 
         self.descent_leave_surface_date = None
-        self.descent_leave_surface_loc = None
-
-        self.descent_leave_surface_layer_date = None
-        self.descent_leave_surface_layer_loc = None
-
-        self.ascent_reach_surface_layer_date = None
-        self.ascent_reach_surface_layer_loc = None
-
         self.ascent_reach_surface_date = None
-        self.ascent_reach_surface_loc = None
 
         self.p2t_offset_param = None
         self.p2t_offset_measurement = None
@@ -121,6 +111,7 @@ class Dive:
         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
         self.end_date = UTCDateTime(int(ed))
         self.len_secs = int(self.end_date - self.start_date)
+        self.len_days = self.len_secs / (60*60*24.)
 
         # Check if the log correspond to the float initialization
         match = re.search("\[TESTMD,\d{3}\]\"yes\"", self.log_content)
@@ -133,12 +124,16 @@ class Dive:
             self.descent_leave_surface_date = diving[0][1]
             self.is_dive = True
 
-            # It's possible that MERMAID physically dove and returned to the surface but there was
-            # an error with the .LOG, so that information was not recorded (ex. 25_5B9CF6CF.LOG)
-            surfin = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
-            if surfin:
-                self.ascent_reach_surface_date = surfin[-1][-1]
-                self.is_complete_dive = True
+        # It's possible that MERMAID physically dove and returned to the surface but there was
+        # an error with the .LOG, so that information was not recorded (ex. 25_5B9CF6CF.LOG)
+        surfin = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.log_content)
+        if surfin:
+            self.ascent_reach_surface_date = surfin[-1][-1]
+
+        # Check if the .LOG is fragemented
+        # Sometimes the .LOG will have errors and only print the dive or surfacing date
+        if self.descent_leave_surface_date and self.ascent_reach_surface_date:
+            self.is_complete_dive = True
 
         # Generate the directory name
         self.directory_name = self.start_date.strftime("%Y%m%d-%Hh%Mm%Ss")
@@ -201,7 +196,11 @@ class Dive:
                 content = f.read()
             self.mer_environment = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)[0]
 
-            # Get dive ID according to .MER (can these be reset?)
+            # Get dive ID according to .MER (this iterator can be reset)
+            # NB, a dive ID does not necessarily mean MERMAID actually dove
+            # It just means the float transmitted a .MER file(?)
+            # See, e.g., dive #97 float 25 (25_5EFEC58E.LOG, 25_5EFF43E0.MER)
+            # That log shows a REBOOT, TESTMD, and an old .MER transmission
             dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
             self.dive_id = int(dive_id.group(1))
 
@@ -216,7 +215,7 @@ class Dive:
             event.set_environment(self.mer_environment_name, self.mer_environment)
             # 2 Find true sampling frequency
             event.find_measured_sampling_frequency()
-            # 3 Correct events date
+            # 3 Compute starttime of event from the TRIG sample index
             event.correct_date()
             # 4 Invert wavelet transform of event
             event.invert_transform()
@@ -228,14 +227,16 @@ class Dive:
                                 begin, end)
 
         # Split the GPS list into before/after dive sublists
-        if self.is_dive:
-            self.gps_before_dive = [x for x in self.gps_list if x.date < self.descent_leave_surface_date]
+        if self.descent_leave_surface_date:
+            pass
+            #self.gps_before_dive = [x for x in self.gps_list if x.date < self.descent_leave_surface_date]
             # if not self.gps_before_dive:
                 # print "WARNING: No GPS synchronization before diving for \"" \
                 #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
 
-        if self.is_complete_dive:
-            self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
+        if self.ascent_reach_surface_date:
+            pass
+            #self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
             # if not self.gps_after_dive:
             #     print "WARNING: No GPS synchronization after surfacing for \"" \
             #         + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
@@ -255,6 +256,8 @@ class Dive:
             # Compute the corrected pressure offset
             self.p2t_offset_corrected =  self.p2t_offset_measurement - self.p2t_offset_param
 
+    def __len__(self):
+        return 1
 
     # def __repr__(self):
     #     return "Dive('{}', '{}', {})".format(self.base_path, self.log_name, self.events)
@@ -361,6 +364,138 @@ class Dive:
         plotly.plot({'data': data, 'layout': layout},
                     filename=export_path,
                     auto_open=False)
+
+    def attach_kstnm_kinst(self):
+        '''Attaches a five-character station name (KSTNM), zero-padded between the letter and number
+        defining the unique MERMAID (if required), and the "generic name of recording instrument"
+        (KINST), defined as the string which precedes the first hyphen in the Osean-defined names
+
+
+        452.112-N-01:   kinst, kstnm = '452.112', 'N0001'
+        452.020-P-08:   kinst, kstnm = '452.020', 'P0008'
+        452.020-P-0050: kinst, kstnm = '452.020', 'P0050'
+
+        Station names may be a max of five characters:
+        https://ds.iris.edu/ds/newsletter/vol1/no1/1/specification-of-seismograms-the-location-identifier/
+
+        '''
+
+        # Split at hyphens to separate kinst, kstnm and pad the middle of the latter
+        self.kinst, kstnm_char, kstnm_num = self.station_name.split('-')
+
+        num_zeros = 5 - len(kstnm_char + kstnm_num)
+        self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
+
+    def generate_events_plotly(self):
+        for event in self.events:
+            event.plotly(self.export_path)
+
+    def generate_events_png(self):
+        for event in self.events:
+            event.plot_png(self.export_path)
+
+    def generate_events_sac(self):
+        for event in self.events:
+            event.to_sac(self.export_path, self.kstnm, self.kinst)
+
+    def generate_events_mseed(self):
+        for event in self.events:
+            event.to_mseed(self.export_path, self.kstnm, self.kinst)
+
+    def print_len(self):
+        print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
+              .format(str(self.start_date)[0:19], str(self.end_date)[0:19], self.len_days, self.log_name))
+
+    def print_dive_gps(self):
+        # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
+        # current dive
+        if self.prev_dive_log_name is not None:
+            if self.prev_dive_mer_environment_name is not None:
+                print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
+                      .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
+            else:
+                print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
+        else:
+            print("    GPS: (...no previous dive...)")
+
+        # By definition 1 .LOG == 1 "dive," so there is always a .log file but
+        # not necessarily an associated .MER (e.g., test or init I think?)
+        if self.mer_environment_name is not None:
+            print("         {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
+                  .format(self.mer_environment_name, self.log_name))
+        else:
+            print("         {:s} [this dive]".format(self.log_name))
+
+        # Repeat printout for the following dive, whose data affect the gps
+        # interpolation of the current dive
+        if self.next_dive_exists:
+            if self.next_dive_mer_environment_name is not None:
+                print("         {:s} (</ENVIRONMENT>) & {:s} [next dive]" \
+                      .format(self.next_dive_mer_environment_name, self.next_dive_log_name))
+            else:
+                print("         {:s} [next dive]".format(self.next_dive_log_name))
+        else:
+            print("         (...awaiting next_dive...)")
+
+    def print_dive_events(self):
+        if not self.events:
+            print("  Event: (no detected or requested events fall within the time window of this dive)")
+        else:
+            for e in self.events:
+                if e.station_loc is None:
+                    print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
+                          .format(e.get_export_file_name(), e.mer_binary_name))
+                else:
+                    print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
+                          .format(e.get_export_file_name(), e.mer_binary_name))
+
+
+class Complete_Dive:
+    def __init__(self, complete_dive=None):
+        flatten = lambda regular_list : [item for sublist in regular_list for item in sublist]
+
+        self.base_path = complete_dive[-1].base_path
+        self.log_name = [d.log_name for d in complete_dive]
+        self.mer_environment_name = [d.mer_environment_name for d in complete_dive]
+        self.__version__ = complete_dive[-1].__version__
+
+        # Might want to rename the directories into something more useful...
+        self.directory_name = complete_dive[-1].directory_name
+        self.export_path = complete_dive[-1].export_path
+        self.export_path = complete_dive[-1].export_path
+
+        self.start_date = complete_dive[0].start_date
+        self.end_date = complete_dive[-1].end_date
+        self.len_secs = self.start_date - self.end_date
+        self.len_days = self.len_secs / (60*60*24.)
+
+        self.station_name = complete_dive[-1].station_name
+        self.station_number = complete_dive[-1].station_number
+        self.kstnm = complete_dive[-1].kstnm
+        self.kinst = complete_dive[-1].kinst
+
+        self.base_path2 = complete_dive[-1].base_path
+        self.directory_name2 = '{:s}_{:s}'.format(str(self.start_date)[:19], str(self.end_date)[:19])
+        self.export_path2 = self.base_path2 + self.directory_name2 + "/"
+
+        self.gps_nonunique_list = flatten([d.gps_nonunique_list for d in complete_dive])
+        self.gps_list = flatten([d.gps_list for d in complete_dive])
+
+        self.descent_leave_surface_date = complete_dive[0].descent_leave_surface_date
+        self.gps_before_dive = [x for x in self.gps_list if x.date < self.descent_leave_surface_date]
+
+        self.ascent_reach_surface_date = complete_dive[-1].ascent_reach_surface_date
+        self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
+
+        self.gps_before_dive_incl_prev_dive = None
+        self.descent_leave_surface_loc = None
+        self.descent_leave_surface_layer_date = None
+        self.descent_leave_surface_layer_loc = None
+
+        self.gps_after_dive_incl_next_dive = None
+        self.ascent_reach_surface_layer_date = None
+        self.ascent_reach_surface_layer_loc = None
+        self.ascent_reach_surface_loc = None
 
     def set_incl_prev_next_dive_gps(self, prev_dive, next_dive):
         # Keep tabs on the MER/LOG files that affect the current dive's GPS interpolation (don't set
@@ -618,90 +753,7 @@ class Dive:
             event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
 
 
-    def attach_kstnm_kinst(self):
-        '''Attaches a five-character station name (KSTNM), zero-padded between the letter and number
-        defining the unique MERMAID (if required), and the "generic name of recording instrument"
-        (KINST), defined as the string which precedes the first hyphen in the Osean-defined names
 
-
-        452.112-N-01:   kinst, kstnm = '452.112', 'N0001'
-        452.020-P-08:   kinst, kstnm = '452.020', 'P0008'
-        452.020-P-0050: kinst, kstnm = '452.020', 'P0050'
-
-        Station names may be a max of five characters:
-        https://ds.iris.edu/ds/newsletter/vol1/no1/1/specification-of-seismograms-the-location-identifier/
-
-        '''
-
-        # Split at hyphens to separate kinst, kstnm and pad the middle of the latter
-        self.kinst, kstnm_char, kstnm_num = self.station_name.split('-')
-
-        num_zeros = 5 - len(kstnm_char + kstnm_num)
-        self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
-
-    def generate_events_plotly(self):
-        for event in self.events:
-            event.plotly(self.export_path)
-
-    def generate_events_png(self):
-        for event in self.events:
-            event.plot_png(self.export_path)
-
-    def generate_events_sac(self):
-        for event in self.events:
-            event.to_sac(self.export_path, self.kstnm, self.kinst)
-
-    def generate_events_mseed(self):
-        for event in self.events:
-            event.to_mseed(self.export_path, self.kstnm, self.kinst)
-
-    def print_len(self):
-        self.len_days = self.len_secs / (60*60*24.)
-        print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
-              .format(str(self.start_date)[0:19], str(self.end_date)[0:19], self.len_days, self.log_name))
-
-    def print_dive_gps(self):
-        # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
-        # current dive
-        if self.prev_dive_log_name is not None:
-            if self.prev_dive_mer_environment_name is not None:
-                print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
-                      .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
-            else:
-                print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
-        else:
-            print("    GPS: (...no previous dive...)")
-
-        # By definition 1 .LOG == 1 "dive," so there is always a .log file but
-        # not necessarily an associated .MER (e.g., test or init I think?)
-        if self.mer_environment_name is not None:
-            print("         {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
-                  .format(self.mer_environment_name, self.log_name))
-        else:
-            print("         {:s} [this dive]".format(self.log_name))
-
-        # Repeat printout for the following dive, whose data affect the gps
-        # interpolation of the current dive
-        if self.next_dive_exists:
-            if self.next_dive_mer_environment_name is not None:
-                print("         {:s} (</ENVIRONMENT>) & {:s} [next dive]" \
-                      .format(self.next_dive_mer_environment_name, self.next_dive_log_name))
-            else:
-                print("         {:s} [next dive]".format(self.next_dive_log_name))
-        else:
-            print("         (...awaiting next_dive...)")
-
-    def print_dive_events(self):
-        if not self.events:
-            print("  Event: (no detected or requested events fall within the time window of this dive)")
-        else:
-            for e in self.events:
-                if e.station_loc is None:
-                    print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mer_binary_name))
-                else:
-                    print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mer_binary_name))
 
 # Create dives object
 def get_dives(path, events, begin, end):
