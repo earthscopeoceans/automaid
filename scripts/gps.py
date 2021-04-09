@@ -59,6 +59,8 @@ class GPS_nonUnique(GPS):
                                             vdop=vdop)
 
         self.source = source
+        self.loc_source = self.source
+        self.date_source = self.source
         self.rawstr_dict = rawstr_dict
 
 
@@ -213,7 +215,7 @@ def linear_interpolation(gps_list, date):
         # Try to get a minimum time between two gps fix of 10 minutes
         while abs(gps_list[j].date - gps_list[i].date) < 10*60 and j < len(gps_list)-1:
             j += 1
-            # Try to get a minimum distance between two gps fix of 20 meters
+        # Try to get a minimum distance between two gps fix of 20 meters
         while gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude,
                                gps_list[i].latitude, gps_list[i].longitude)[0] < 20 and j < len(gps_list)-1:
             j += 1
@@ -227,7 +229,7 @@ def linear_interpolation(gps_list, date):
         # Try to get a minimum time between two gps fix of 10 minutes
         while abs(gps_list[j].date - gps_list[i].date) < 10 * 60 and abs(j) < len(gps_list):
             j -= 1
-            # Try to get a minimum distance between two gps fix of 20 meters
+        # Try to get a minimum distance between two gps fix of 20 meters
         while gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude,
                                gps_list[i].latitude, gps_list[i].longitude)[0] < 20 and abs(j) < len(gps_list):
             j -= 1
@@ -332,14 +334,17 @@ def merge_gps_list(gps_nonunique_list):
     defined as two GPS positions written to a .LOG and .MER w/in 60 s of one
     another.
 
-    Only accounts for nonunique GPS pairs; not triplets, quartets etc.
-    For that modify to handle "date/loc_source" attribute and run recursively
+    Removes any GPS fixes with synchronization errors (anomalous clockfreq)
+
+    Runs recursively to handle GPS triplets, quartets etc.
 
     For more see: $AUTOMAID/tests_and_verifications/example_merge_gps_list.py
 
     '''
+    gps_nonunique_list = sorted(gps_nonunique_list, key=lambda x: x.date)
 
     i = 0
+    pair_merged = False
     gps_merged_list = list()
     while i < len(gps_nonunique_list):
         # Compare adjacent GPS fixes to see if they are nonunique pairs
@@ -354,21 +359,22 @@ def merge_gps_list(gps_nonunique_list):
         time_diff = abs(gps1.date - gps2.date)
         clockdrift_diff = abs(gps1.clockdrift-gps2.clockdrift)
 
-        if time_diff < 60 and clockdrift_diff < 10**(-6):
+        if time_diff < 60 and clockdrift_diff < 1e-6:
             # Keep the time from the .MER and the location from the .LOG
-            if 'LOG' and 'MER' in gps1.source + gps2.source:
-                log_gps = gps1 if 'LOG' in gps1.source else gps2
-                mer_gps = gps1 if 'MER' in gps1.source else gps2
+            if 'LOG' and 'MER' in (gps1.loc_source + gps1.date_source +
+                                   gps2.loc_source + gps2.date_source):
+                log_gps = gps1 if 'LOG' in gps1.loc_source else gps2
+                mer_gps = gps1 if 'MER' in gps1.date_source else gps2
 
                 gps_merged = GPS_unique(date=mer_gps.date,
                                         clockdrift=mer_gps.clockdrift,
                                         clockfreq=mer_gps.clockfreq,
-                                        date_source=mer_gps.source,
+                                        date_source=mer_gps.date_source,
                                         latitude=log_gps.latitude,
                                         longitude=log_gps.longitude,
                                         hdop=log_gps.hdop,
                                         vdop=log_gps.vdop,
-                                        loc_source=log_gps.source)
+                                        loc_source=log_gps.loc_source)
 
             else:
                 # Redundant GPS pair in the same file (does this ever happen?) -OR-
@@ -377,15 +383,18 @@ def merge_gps_list(gps_nonunique_list):
                 gps_merged = GPS_unique(date=gps1.date,
                                         clockdrift=gps1.clockdrift,
                                         clockfreq=gps1.clockfreq,
-                                        date_source=gps1.source,
+                                        date_source=gps1.date_source,
                                         latitude=gps1.latitude,
                                         longitude=gps1.longitude,
                                         hdop=gps1.hdop,
                                         vdop=gps1.vdop,
-                                        loc_source=gps1.source)
+                                        loc_source=gps1.loc_source)
 
-            # Iterate twice since this pair was merged
+            # Iterate twice since this pair was merged (or it was the same GPS fix)
+            # Note the merger of a GPS pair (if it was not the same GPS fix)
             i += 2
+            if gps1 is not gps2:
+                pair_merged = True
 
         else:
             # `gps1` and `gps2` are unpaired due to, e.g., transmission issues
@@ -394,21 +403,28 @@ def merge_gps_list(gps_nonunique_list):
             gps_merged = GPS_unique(date=gps1.date,
                                     clockdrift=gps1.clockdrift,
                                     clockfreq=gps1.clockfreq,
-                                    date_source=gps1.source,
+                                    date_source=gps1.date_source,
                                     latitude=gps1.latitude,
                                     longitude=gps1.longitude,
                                     hdop=gps1.hdop,
                                     vdop=gps1.vdop,
-                                    loc_source=gps1.source)
+                                    loc_source=gps1.loc_source)
 
             # Iterate once since we did not just merge a pair
             i += 1
 
-        # Append to the merged list.
-        gps_merged_list.append(gps_merged)
+        # Finally, append to the merged list if no synchronization error
+        # (MERMAID manual, Ref : 452.000.852 Version 00, pg 16)
+        if 3000000 <= gps_merged.clockfreq <= 4000000:
+            gps_merged_list.append(gps_merged)
 
-    gps_merged_list = sorted(gps_merged_list, key=lambda x: x.date)
-    return gps_merged_list
+    # Run recurively if we had to merge GPS to ensure that no GPS triplets,
+    # quartets etc. were missed (I don't think that every happens)?
+    if pair_merged:
+        return merge_gps_list(gps_merged_list)
+
+    else:
+        return gps_merged_list
 
 def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, end):
     '''Collect GPS fixes from MER environments within an inclusive datetime range
@@ -761,10 +777,11 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
                         leg['input_drift_dist_m'] / 1000      if leg['input_drift_dist_m'] else float("Nan"),
                         leg['input_drift_vel_ms']             if leg['input_drift_vel_ms'] else float("Nan"),
                         leg['input_drift_vel_ms'] * 3.6       if leg['input_drift_vel_ms'] else float("Nan"), # km/hr
-                        leg['input_drift_vel_ms'] * 3.6 * 24  if leg['input_drift_vel_ms'] else float("Nan")] #km/day
+                        leg['input_drift_vel_ms'] * 3.6 * 24  if leg['input_drift_vel_ms'] else float("Nan")] # km/day
 
         input_params = map(abs, input_params)
         input_fmt_spec = '{:>6.0f}        {:>7.1f}        {:>6.0f}        {:>4.1f}        {:>5.2f}        {:>7.2f}        {:>7.2f}'
+
         return (input_params, input_fmt_spec)
 
     # "interp" from gps.linear_interpolation are those GPS instances the algorithm computes given
@@ -776,13 +793,12 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
                         leg['interp_drift_dist_m'] / 1000      if leg['interp_drift_dist_m'] else float("Nan"),
                         leg['interp_drift_vel_ms']             if leg['interp_drift_vel_ms'] else float("Nan"),
                         leg['interp_drift_vel_ms'] * 3.6       if leg['interp_drift_vel_ms'] else float("Nan"), # km/hr
-                        leg['interp_drift_vel_ms'] * 3.6 * 24  if leg['interp_drift_vel_ms'] else float("Nan")] #km/day
+                        leg['interp_drift_vel_ms'] * 3.6 * 24  if leg['interp_drift_vel_ms'] else float("Nan")] # km/day
 
         interp_params = map(abs, interp_params)
         interp_fmt_spec = '{:>6.0f}        {:>7.1f}        {:>6.0f}        {:>4.1f}        {:>5.2f}        {:>7.2f}        {:>7.2f}'
 
         return (interp_params, interp_fmt_spec)
-
 
     # Generate (unique) list of dives with events whose interpolated locations we are able to compute
     dive_set = set(dive for dive in mdives for event in dive.events if event.station_loc)

@@ -6,9 +6,8 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Mar-2021
+# Last modified by JDS: 08-Apr-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
-
 
 import os
 import re
@@ -33,6 +32,14 @@ version = setup.get_version()
 
 # Set depth of mixed layer (in meters) for drift interpolation
 mixed_layer_depth_m = 50
+
+# Mininum number unique GPS fixes before/after each dive required for
+# interpolation
+min_gps_fix = 2
+
+# Maximum-allowed time in seconds before(after) diving(surfacing) to record the
+# minimum-required number of unique GPS fixes
+max_gps_time = 3600
 
 # Toggle preliminary (rapid) location estimates on and off
 preliminary_location_ok = False
@@ -121,7 +128,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*25.vit")
+    vitfile_path = os.path.join(server_path, "*.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # Initialize empty dict to hold the instance of every last complete dive for
@@ -179,8 +186,11 @@ def main():
             end = datetime.datetime(3000, 1, 1)
 
         # Collect all the .LOG files in order (generally 1 .LOG == 1 Dive)
-        # Later we will combine multiple .LOGs in cases when they are fragmented
-        # .LOGs can fragment due to ERR, EMERGENCY, REBOOT etc.
+        # Later we will combine multiple .LOG files in cases when they are fragmented
+        # .LOG files can fragment due to ERR, EMERGENCY, REBOOT etc.
+        # A fragmented .LOG is one that does not include a complete dive
+        # A complete dive is starts with '[DIVING]' and ends with '[SURFIN]'
+        # A complete dive may span multiple fragmented .LOG files
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat_serial))
         dive_logs = dives.get_dives(mfloat_path, mevents, begin, end)
@@ -197,64 +207,83 @@ def main():
             # Generate dive plot
             dive_log.generate_dive_plotly() # <-- timestamps not corrected for clockdrift
 
-
-        # Find first dive
-        for i_d, d in enumerate(dive_logs):
-            if d.is_dive:
-                first_dive = i_d
-                break
-
+        # Combine fragmeneted (incomplete/error/reboot etc.) .LOG files into
+        # complete dives
         fragmented_dive = list()
         complete_dives = list()
-        for d in dive_logs[first_dive:]:
+        for i_d, d in enumerate(dive_logs[:-1]):
+            if d.gps_list is None:
+                # The GPS list is not initialized as empty until the requested begin/end dates
+                continue
+
             if d.is_complete_dive:
                 complete_dives.append(dives.Complete_Dive([d]))
 
             else:
                 fragmented_dive.append(d)
 
-                if d.ascent_reach_surface_date:
+                # If the next .LOG is a complete dive then this log is the last
+                # fragmented/filler .LOG file between complete dives
+                if dive_logs[i_d+1].is_complete_dive:
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
 
+        # # Lengthen pre/post-dive GPS list by (pre)/(ap)pending the relevant GPS
+        # # recorded in the previous/next .LOG and .MER files
+        # complete_dives[0].set_incl_prev_next_dive_gps(prev_dive=None, next_dive=complete_dives[1])
 
-        # Lengthen pre/post-dive GPS list by (pre)/(ap)pending the relevant GPS
-        # recorded in the previous/next .LOG and .MER files
-        complete_dives[0].set_incl_prev_next_dive_gps(None, complete_dives[1])
-        from IPython import embed; embed()
-        # Use those pre/post-dive GPS lists to correct MERMAID timestamps and
-        # interpolate for MERMAID location at the time of recording
-        complete_dives[0].correct_events_clockdrift()
-        complete_dives[0].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
+        # # Use those pre/post-dive GPS lists to correct MERMAID timestamps and
+        # # interpolate for MERMAID location at the time of recording
+        # complete_dives[0].correct_events_clockdrift()
+        # complete_dives[0].validate_gps(num_gps=min_gps_fix, max_time=max_gps_time)
+        # complete_dives[0].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
-        # Repeat for all other dives after intialization at complete_dives[0] (loop
-        # requires reference to previous dive)
-        i = 1
-        while i < len(complete_dives) - 1:
-            complete_dives[i].set_incl_prev_next_dive_gps(complete_dives[i-1], complete_dives[i+1])
-            complete_dives[i].correct_events_clockdrift()
-            complete_dives[i].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
-            i += 1
+        # # Repeat for all other dives after intialization at complete_dives[0] (loop
+        # # requires reference to previous dive)
+        # i = 1
+        # while i < len(complete_dives)-1:
+        #     complete_dives[i].set_incl_prev_next_dive_gps(prev_dive=complete_dives[i-1],
+        #                                                   next_dive=complete_dives[i+1])
+        #     complete_dives[i].validate_gps(num_gps=min_gps_fix, max_time=max_gps_time)
+        #     complete_dives[i].correct_events_clockdrift()
+        #     complete_dives[i].compute_station_locations(mixed_layer_depth_m,
+        #                                                 preliminary_location_ok)
+        #     i += 1
 
+        for i_cd, cd in enumerate(complete_dives[:-1]):
+            if i_cd > 0:
+                prev_dive = complete_dives[i_cd-1]
+            else:
+                prev_dive = None
 
-        # # Because the last dive was skipped above its GPS lists were not extended;
-        # # add filenames for printout
-        # complete_dives[-1].prev_dive_log_name = complete_dives[-2].log_name
-        # complete_dives[-1].prev_dive_mer_environment_name = complete_dives[-2].mer_environment_name
+            next_dive = complete_dives[i_cd+1]
 
-        from IPython import embed; embed()
+            cd.set_incl_prev_next_dive_gps(prev_dive, next_dive)
+            cd.validate_gps(min_gps_fix, max_gps_time)
+            cd.correct_events_clockdrift()
+            cd.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
         # Generate plots, SAC, and miniSEED files for each event
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
-        for dive in dive_logs:
-            if events_png:
-                dive.generate_events_png()
-            if events_plotly:
-                dive.generate_events_plotly()
+        for dive in complete_dives:
             if events_sac:
                 dive.generate_events_sac()
             if events_mseed:
                 dive.generate_events_mseed()
+
+        from IPython import embed; embed()
+
+        # # Generate plots, SAC, and miniSEED files for each event
+        # print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
+        # for dive in dive_logs:
+        #     if events_png:
+        #         dive.generate_events_png()
+        #     if events_plotly:
+        #         dive.generate_events_plotly()
+        #     if events_sac:
+        #         dive.generate_events_sac()
+        #     if events_mseed:
+        #         dive.generate_events_mseed()
 
         # Plot vital data
         kml.generate(mfloat_path, mfloat, dive_logs)

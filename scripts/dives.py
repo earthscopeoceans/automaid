@@ -386,22 +386,6 @@ class Dive:
         num_zeros = 5 - len(kstnm_char + kstnm_num)
         self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
 
-    def generate_events_plotly(self):
-        for event in self.events:
-            event.plotly(self.export_path)
-
-    def generate_events_png(self):
-        for event in self.events:
-            event.plot_png(self.export_path)
-
-    def generate_events_sac(self):
-        for event in self.events:
-            event.to_sac(self.export_path, self.kstnm, self.kinst)
-
-    def generate_events_mseed(self):
-        for event in self.events:
-            event.to_mseed(self.export_path, self.kstnm, self.kinst)
-
     def print_len(self):
         print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
               .format(str(self.start_date)[0:19], str(self.end_date)[0:19], self.len_days, self.log_name))
@@ -452,10 +436,11 @@ class Dive:
 
 class Complete_Dive:
     def __init__(self, complete_dive=None):
-        flatten = lambda regular_list : [item for sublist in regular_list for item in sublist]
+        flatten = lambda toplist: [item for sublist in toplist for item in sublist]
 
         self.base_path = complete_dive[-1].base_path
         self.log_name = [d.log_name for d in complete_dive]
+        self.log_content = ''.join(d.log_content for d in complete_dive)
         self.mer_environment_name = [d.mer_environment_name for d in complete_dive]
         self.__version__ = complete_dive[-1].__version__
 
@@ -466,7 +451,7 @@ class Complete_Dive:
 
         self.start_date = complete_dive[0].start_date
         self.end_date = complete_dive[-1].end_date
-        self.len_secs = self.start_date - self.end_date
+        self.len_secs = self.end_date - self.start_date
         self.len_days = self.len_secs / (60*60*24.)
 
         self.station_name = complete_dive[-1].station_name
@@ -478,16 +463,39 @@ class Complete_Dive:
         self.directory_name2 = '{:s}_{:s}'.format(str(self.start_date)[:19], str(self.end_date)[:19])
         self.export_path2 = self.base_path2 + self.directory_name2 + "/"
 
+        # The nonunique list may include redundant GPS fixes from fragmented .LOG
+        # I.e., an error in the .LOG may result in the redundant printing of GPS
+        # fixes over multiple files
         self.gps_nonunique_list = flatten([d.gps_nonunique_list for d in complete_dive])
-        self.gps_list = flatten([d.gps_list for d in complete_dive])
+        self.gps_nonunique_list = sorted(self.gps_nonunique_list, key=lambda x: x.date)
 
-        self.descent_leave_surface_date = complete_dive[0].descent_leave_surface_date
+        # We must re-merge GPS pairs to find truly unique pairs within
+        # "complete" dives due to the combination of possibly fragmented .LOG
+        # and .MER files that print redundant GPS info that is unique to THAT
+        # SPECIFIC file, but NOT unique to a "complete dive" constructed of
+        # fragmented files
+        self.gps_list = flatten([d.gps_list for d in complete_dive])
+        self.gps_list = gps.merge_gps_list(self.gps_list)
+
+        # Retain date of (first if multiple(?)) "DIVING" (else set to None)
+        for d in complete_dive:
+            self.descent_leave_surface_date = d.descent_leave_surface_date
+            if self.descent_leave_surface_date is not None:
+                break
+
         self.gps_before_dive = [x for x in self.gps_list if x.date < self.descent_leave_surface_date]
 
-        self.ascent_reach_surface_date = complete_dive[-1].ascent_reach_surface_date
+        # Retain date of (last if multiple(?)) "SURFIN" (else set to None)
+        for d in reversed(complete_dive):
+            self.ascent_reach_surface_date = d.ascent_reach_surface_date
+            if self.ascent_reach_surface_date is not None:
+                break
+
         self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
 
         self.events = flatten([d.events for d in complete_dive])
+
+        self.valid_gps = None
 
         self.gps_before_dive_incl_prev_dive = None
         self.descent_leave_surface_loc = None
@@ -495,38 +503,20 @@ class Complete_Dive:
         self.descent_leave_surface_layer_loc = None
 
         self.gps_after_dive_incl_next_dive = None
+        self.ascent_reach_surface_loc = None
         self.ascent_reach_surface_layer_date = None
         self.ascent_reach_surface_layer_loc = None
-        self.ascent_reach_surface_loc = None
 
-    def set_incl_prev_next_dive_gps(self, prev_dive, next_dive):
-        # # Keep tabs on the MER/LOG files that affect the current dive's GPS interpolation (don't set
-        # # self.next_dive = next_dive because that creates highly recursive data structures)
-        # if isinstance(prev_dive, Dive):
-        #     self.prev_dive_log_name = prev_dive.log_name
-        #     self.prev_dive_mer_environment_name = prev_dive.mer_environment_name
+    def set_incl_prev_next_dive_gps(self, prev_dive=None, next_dive=None):
+        # self.gps_before_dive_incl_prev_dive \
+        #     = self.gps_before_dive[:] if self.gps_before_dive else []
 
-        # if isinstance(next_dive, Dive):
-        #     self.next_dive_exists = True
-        #     self.next_dive_log_name = next_dive.log_name
-        #     self.next_dive_mer_environment_name = next_dive.mer_environment_name
+        # self.gps_after_dive_incl_next_dive \
+        #     = self.gps_after_dive[:] if self.gps_after_dive else []
 
-        # By default every .MER and .LOG prints a handful of GPS fixes BEFORE the dive,
-        # but only a single one AFTER the dive; thus to get a good interpolated location
-        # we need to append the NEXT dive's GPS list (we might as well append the previous
-        # dive's GPS list as well if case there were GPS errors before the dive as well)
-
-        # Initialize extended GPS lists from current dive's GPS list
-        # Use slicing `[:]` to generate shallow copy (`=` copies the reference)
-        # A shallow does not copy the container (list) reference, but does copy contents
-        # OK here because we want to expand `_incl` list here w/o also expanding
-        # original list
-
-        self.gps_before_dive_incl_prev_dive \
-            = self.gps_before_dive[:] if self.gps_before_dive else []
-
-        self.gps_after_dive_incl_next_dive \
-            = self.gps_after_dive[:] if self.gps_after_dive else []
+        # Shallow copy lists so the copy may be extended w/o also extending original
+        self.gps_before_dive_incl_prev_dive = list(self.gps_before_dive)
+        self.gps_after_dive_incl_next_dive = list(self.gps_after_dive)
 
         # Add the previous dive's GPS fixes AFTER the previous dive reached the surface
         if prev_dive and prev_dive.gps_list:
@@ -540,50 +530,62 @@ class Complete_Dive:
         self.gps_before_dive_incl_prev_dive.sort(key=lambda x: x.date)
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
 
-    def valid_event_gps(self):
+    def validate_gps(self, num_gps=2, max_time=3600):
         """Returns true if valid GPS fixes exist to interpolate clock drifts and
         station locations at the time of recording events
 
+        Args:
+        num_gps (int): Min. # GPS fixes before/after dive (def=2)
+        max_time (int): Max. time (s) before/after dive within which
+                        `num_gps` are recorded (def=3600)
+
+        NB, synchronization errors (signaled by anomalous clock frequencies) are
+        removed from the list of candidate GPS fixes in `gps.merge_gps_list`
+
         """
 
-        # Return if there are no events
-        if len(self.events) == 0:
-            return False
+        self.valid_gps = False
 
-        ## Add requirement of GPS within 1 hour of surfacing since we softened
-        ## requirement that GPS be part of complete dive / not in init mode.
+        if self.gps_before_dive_incl_prev_dive:
+            gps_before = self.gps_before_dive_incl_prev_dive
+        else:
+            return
 
-        # Verify the necessary GPS fixes exist and and not corrupted
-        if not self.is_dive:
-            # print "WARNING: Events are not part of a dive, don't do clock drift correction for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return False
+        if self.gps_after_dive_incl_next_dive:
+            gps_after = self.gps_after_dive_incl_next_dive
+        else:
+            return
 
-        if not self.is_complete_dive:
-            # print "WARNING: Events are not part of a complete dive, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return False
+        if len(gps_before) < num_gps or len(gps_after) < num_gps:
+            return
 
-        if not self.gps_before_dive_incl_prev_dive or not self.gps_after_dive_incl_next_dive:
-            # print "WARNING: GPS list is incomplete, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return False
+        count = 0
+        for g in reversed(gps_before):
+            tdiff = self.descent_leave_surface_date - g.date
+            if tdiff < max_time:
+                count += 1
+                if count == num_gps:
+                    break
+            else:
+                return
 
-        if self.gps_before_dive_incl_prev_dive[-1].clockfreq <= 0:
-            # print "WARNING: Error with last gps synchronization before diving, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return False
+        count = 0
+        for g in gps_after:
+            tdiff = g.date - self.ascent_reach_surface_date
+            if tdiff < max_time:
+                count += 1
+                if count == num_gps:
+                    break
+            else:
+                return
 
-        if self.gps_after_dive_incl_next_dive[0].clockfreq <= 0:
-            # print "WARNING: Error with first gps synchronization after ascent, do not correct clock drift for \""\
-            #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-            return False
 
-        # Time/location interpolation is appropriate
-        return True
+        self.valid_gps = True
+
+        return
 
     def correct_events_clockdrift(self):
-        if not self.valid_event_gps():
+        if not self.valid_gps:
             return
 
         # Correct clock drift
@@ -604,10 +606,7 @@ class Complete_Dive:
         # components are generally not large because comparatively so little time is spent there --
         # see *gps_interpolation.txt for percentages)
 
-        if not self.valid_event_gps() \
-           or len(self.gps_before_dive_incl_prev_dive) < 1 \
-           or len(self.gps_after_dive_incl_next_dive) < 1:
-
+        if not self.valid_gps:
             if preliminary_location_ok:
                 for event in self.events:
                     # Do not use `_incl_[prev/next]_dive` because the final Dive
@@ -646,7 +645,6 @@ class Complete_Dive:
         # Find when & where the float reached the surface
         self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
                                                                   self.ascent_reach_surface_date)
-
         # Find pressure values
         pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
         pressure_date = [p[1] for p in pressure]
@@ -741,8 +739,21 @@ class Complete_Dive:
         for event in self.events:
             event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
 
+    def generate_events_plotly(self):
+        for event in self.events:
+            event.plotly(self.export_path)
 
+    def generate_events_png(self):
+        for event in self.events:
+            event.plot_png(self.export_path)
 
+    def generate_events_sac(self):
+        for event in self.events:
+            event.to_sac(self.export_path, self.kstnm, self.kinst)
+
+    def generate_events_mseed(self):
+        for event in self.events:
+            event.to_mseed(self.export_path, self.kstnm, self.kinst)
 
 # Create dives object
 def get_dives(path, events, begin, end):
