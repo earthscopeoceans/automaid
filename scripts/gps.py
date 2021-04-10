@@ -334,7 +334,9 @@ def merge_gps_list(gps_nonunique_list):
     defined as two GPS positions written to a .LOG and .MER w/in 60 s of one
     another.
 
-    Removes any GPS fixes with synchronization errors (anomalous clockfreq)
+    Note: does NOT remove GPS with back clock synchronizations because we need
+    to know if those occured immediately before/after dives to determine if this
+    GPS are valid for interpolation. See dives.validate_gps for more.
 
     Runs recursively to handle GPS triplets, quartets etc.
 
@@ -413,10 +415,7 @@ def merge_gps_list(gps_nonunique_list):
             # Iterate once since we did not just merge a pair
             i += 1
 
-        # Finally, append to the merged list if no synchronization error
-        # (MERMAID manual, Ref : 452.000.852 Version 00, pg 16)
-        if 3000000 <= gps_merged.clockfreq <= 4000000:
-            gps_merged_list.append(gps_merged)
+        gps_merged_list.append(gps_merged)
 
     # Run recurively if we had to merge GPS to ensure that no GPS triplets,
     # quartets etc. were missed (I don't think that every happens)?
@@ -425,6 +424,52 @@ def merge_gps_list(gps_nonunique_list):
 
     else:
         return gps_merged_list
+
+def valid_synchro(GPS_object):
+    '''Note that, especially, the last(first) GPS fix taken before(after) the dive
+    cannot display an anomalous clock frequency because that means the MERMAID
+    clock had a synhcornization error. Most usually, JDS has found, the
+    clockdrift just keeps growing and it therefore seemingly would be acceptable
+    to use the previous(next) valid GPS point to compute clockdrifts.
+
+    For example, in this case it looks like the GPS points taken on March 18
+    both failed to synchronize MERMAID's clock thus the clockdrift keep growing
+    until the next GPS on the 24th.  This would imply it would be acceptable to
+    correct for the clockdrift on the 18th using the clockdrfits on the 24th.
+
+    Date                 Date Source      Loc Source       Clockdrift Clockfreq
+    2019-03-01T14:59:55, 25_5C846B54.MER, 25_5C794585.LOG: +0.000062 ; 3686332
+    2019-03-01T15:06:34, 25_5C846B54.MER, 25_5C794585.LOG: +0.000000 ; 3686332
+    2019-03-10T02:14:28, 25_5C8F954C.MER, 25_5C846B61.LOG: -0.659393 ; 3686330
+    2019-03-18T12:58:18, 25_5C96D514.MER, 25_5C8F9558.LOG: -1.045867 ; -1
+    2019-03-18T13:04:25, 25_5C96D514.MER, 25_5C8F9558.LOG: -1.046020 ; -1
+    2019-03-24T00:53:14, 25_5C96D514.MER, 25_5C8F9558.LOG: -1.709381 ; 3686333
+    2019-03-24T00:55:16, 25_5CA1F464.MER, 25_5C96D552.LOG: -0.000030 ; 3686333
+    2019-03-24T00:58:58, 25_5CA1F464.MER, 25_5C96D552.LOG: +0.000000 ; 3686333
+
+    However, one can see here that the first synchronization on April 26th had
+    an error, and then the following one 90 s later was normal. So we would
+    think we could use the second GPS fix after surfacing to compute
+    clockdrifts...but we cannot because it (appears in this case) that the clock
+    partially reset, from -2.23 to -0.63 seconds.  So we have lost information
+    on timing here.
+
+    Date                 Date Source      Loc Source       Clockdrift Clockfreq
+    2019-04-18T08:08:34, 25_5CC34C10.MER, 25_5CB83061.LOG: +0.000000 ; 3686333
+    2019-04-18T08:18:51, 25_5CC34C10.MER, 25_5CB83061.LOG: +0.000000 ; 3686333
+    2019-04-18T08:21:51, 25_5CC34C10.MER, 25_5CB83061.LOG: +0.000000 ; 3686332
+    2019-04-26T18:20:18, 25_5CC34C10.MER, 25_5CB83061.LOG: -2.234710 ; 0
+    2019-04-26T18:21:48, 25_5CCE6E90.MER, 25_5CC34C1D.LOG: -0.634887 ; 3686333
+    2019-04-26T18:26:07, 25_5CC34C1D.LOG, 25_5CC34C1D.LOG: +0.000031 ; 3686332
+    2019-04-26T18:28:25, 25_5CCE6E90.MER, 25_5CC34C1D.LOG: -0.000030 ; 3686332
+
+    '''
+
+    if 3000000 <= GPS_object.clockfreq <= 4000000:
+        return True
+    else:
+        return False
+
 
 def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, end):
     '''Collect GPS fixes from MER environments within an inclusive datetime range

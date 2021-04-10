@@ -495,7 +495,8 @@ class Complete_Dive:
 
         self.events = flatten([d.events for d in complete_dive])
 
-        self.valid_gps = None
+        self.gps_valid4clockdrift_correction = None
+        self.gps_valid4location_interp = None
 
         self.gps_before_dive_incl_prev_dive = None
         self.descent_leave_surface_loc = None
@@ -508,6 +509,11 @@ class Complete_Dive:
         self.ascent_reach_surface_layer_loc = None
 
     def set_incl_prev_next_dive_gps(self, prev_dive=None, next_dive=None):
+        '''Expands a dive's GPS list to include GPS fixes before/after it by inspecting
+        the previous/next dive's GPS list.
+
+        '''
+
         # self.gps_before_dive_incl_prev_dive \
         #     = self.gps_before_dive[:] if self.gps_before_dive else []
 
@@ -519,11 +525,11 @@ class Complete_Dive:
         self.gps_after_dive_incl_next_dive = list(self.gps_after_dive)
 
         # Add the previous dive's GPS fixes AFTER the previous dive reached the surface
-        if prev_dive and prev_dive.gps_list:
+        if self.descent_leave_surface_date and prev_dive and prev_dive.gps_list:
             self.gps_before_dive_incl_prev_dive += prev_dive.gps_after_dive
 
         # Add the next dive's GPS fixes BEFORE the next dive left the surface
-        if next_dive and next_dive.gps_list:
+        if self.ascent_reach_surface_date and  next_dive and next_dive.gps_list:
             self.gps_after_dive_incl_next_dive += next_dive.gps_before_dive
 
         # Ensure sorting of the expanded GPS lists
@@ -539,12 +545,18 @@ class Complete_Dive:
         max_time (int): Max. time (s) before/after dive within which
                         `num_gps` are recorded (def=3600)
 
-        NB, synchronization errors (signaled by anomalous clock frequencies) are
-        removed from the list of candidate GPS fixes in `gps.merge_gps_list`
+        Sets attrs:
+        `gps_valid4clockdrift_correction`: True is good synchronization pre/post dive
+        `gps_valid4location_interp`: True is GPS within requested inputs
+
+        Note that the former may be True when the latter is not: the former is a
+        softer requirement only that the last(first) before(after) diving
+        contain a good onboard clock synchronization.
 
         """
 
-        self.valid_gps = False
+        self.gps_valid4clockdrift_correction = False
+        self.gps_valid4location_interp = False
 
         if self.gps_before_dive_incl_prev_dive:
             gps_before = self.gps_before_dive_incl_prev_dive
@@ -556,9 +568,14 @@ class Complete_Dive:
         else:
             return
 
-        if len(gps_before) < num_gps or len(gps_after) < num_gps:
+        # Ensure MERMAID clock synronized with first GPS after surfacing
+        if gps.valid_synchro(gps_before[-1]) and gps.valid_synchro(gps_after[0]):
+            self.gps_valid4clockdrift_correction = True
+        else:
             return
 
+        # Ensure the required number of GPS exist within the required time
+        # before diving
         count = 0
         for g in reversed(gps_before):
             tdiff = self.descent_leave_surface_date - g.date
@@ -569,6 +586,8 @@ class Complete_Dive:
             else:
                 return
 
+        # Ensure the required number of GPS exist within the required time
+        # after surfacing
         count = 0
         for g in gps_after:
             tdiff = g.date - self.ascent_reach_surface_date
@@ -579,13 +598,13 @@ class Complete_Dive:
             else:
                 return
 
-
-        self.valid_gps = True
+        # If here, all tests passed
+        self.gps_valid4location_interp = True
 
         return
 
-    def correct_events_clockdrift(self):
-        if not self.valid_gps:
+    def correct_clockdrift(self):
+        if not self.gps_valid4clockdrift_correction:
             return
 
         # Correct clock drift
@@ -606,7 +625,7 @@ class Complete_Dive:
         # components are generally not large because comparatively so little time is spent there --
         # see *gps_interpolation.txt for percentages)
 
-        if not self.valid_gps:
+        if not self.gps_valid4location_interp:
             if preliminary_location_ok:
                 for event in self.events:
                     # Do not use `_incl_[prev/next]_dive` because the final Dive

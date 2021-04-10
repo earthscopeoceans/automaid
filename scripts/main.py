@@ -213,7 +213,7 @@ def main():
         complete_dives = list()
         for i_d, d in enumerate(dive_logs[:-1]):
             if d.gps_list is None:
-                # The GPS list is not initialized as empty until the requested begin/end dates
+                # The GPS list is None until the requested begin/end dates
                 continue
 
             if d.is_complete_dive:
@@ -228,41 +228,30 @@ def main():
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
 
-        # # Lengthen pre/post-dive GPS list by (pre)/(ap)pending the relevant GPS
-        # # recorded in the previous/next .LOG and .MER files
-        # complete_dives[0].set_incl_prev_next_dive_gps(prev_dive=None, next_dive=complete_dives[1])
-
-        # # Use those pre/post-dive GPS lists to correct MERMAID timestamps and
-        # # interpolate for MERMAID location at the time of recording
-        # complete_dives[0].correct_events_clockdrift()
-        # complete_dives[0].validate_gps(num_gps=min_gps_fix, max_time=max_gps_time)
-        # complete_dives[0].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
-
         # # Repeat for all other dives after intialization at complete_dives[0] (loop
-        # # requires reference to previous dive)
-        # i = 1
-        # while i < len(complete_dives)-1:
-        #     complete_dives[i].set_incl_prev_next_dive_gps(prev_dive=complete_dives[i-1],
-        #                                                   next_dive=complete_dives[i+1])
-        #     complete_dives[i].validate_gps(num_gps=min_gps_fix, max_time=max_gps_time)
-        #     complete_dives[i].correct_events_clockdrift()
-        #     complete_dives[i].compute_station_locations(mixed_layer_depth_m,
-        #                                                 preliminary_location_ok)
-        #     i += 1
-
         for i_cd, cd in enumerate(complete_dives[:-1]):
+            # Extend dive's GPS list by searching previous/next dive's GPS list
             if i_cd > 0:
                 prev_dive = complete_dives[i_cd-1]
             else:
                 prev_dive = None
-
             next_dive = complete_dives[i_cd+1]
-
             cd.set_incl_prev_next_dive_gps(prev_dive, next_dive)
+
+            # Validate the GPS may be used to correct various MERMAID
+            # timestamps, including diving/surfacing and event starttimes
             cd.validate_gps(min_gps_fix, max_gps_time)
-            cd.correct_events_clockdrift()
+
+            # Apply those clock corrections
+            cd.correct_clockdrift()
+
+            # And interpolate station locations at various points in the dive
             cd.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
+        zz = len([e for d in complete_dives for e in d.events if e.station_loc])
+        print(mfloat_nb, zz)
+
+        continue
         # Generate plots, SAC, and miniSEED files for each event
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
         for dive in complete_dives:
@@ -270,6 +259,7 @@ def main():
                 dive.generate_events_sac()
             if events_mseed:
                 dive.generate_events_mseed()
+
 
         from IPython import embed; embed()
 
