@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Apri-2021
+# Last modified by JDS: 12-Apri-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -117,7 +117,7 @@ class GeoCSV:
         d6 = lambda x: format(np.float32(x), '.6f')
         nan = np.float32('nan')
 
-        def write_headers(csvwriter_list):
+        def write_header_rows(csvwriter_list):
             """Write GeoCSV header rows
 
             Args:
@@ -267,7 +267,7 @@ class GeoCSV:
             csvwriter_list = [csvwriter_all, csvwriter_det, csvwriter_req]
 
             # Write headers to all three files
-            write_headers(csvwriter_list)
+            write_header_rows(csvwriter_list)
 
             # Write metadata rows to all three files
             for dive in self.dives:
