@@ -17,20 +17,25 @@ import csv
 import pickle
 import numpy as np
 
+import dives
 import setup
 
 class GeoCSV:
     """Organize MERMAID metadata and write them to GeoCSV format
 
     Args:
-        dives (list): List of dives.Dive instances
+        complete_dives (list): List of dives.Complete_Dive instances
         version (str): GeoCSV version (def: '2.0')
         delimiter (str): GeoCSV delimiter (def: ',')
+        lineterminator (str): GeoCSV line terminator (def: '\n')
 
     """
 
-    def __init__(self, dives, version='2.0', delimiter=',', lineterminator='\n'):
-        self.dives = sorted(dives, key=lambda x: x.log_name)
+    def __init__(self, complete_dives, version='2.0', delimiter=',', lineterminator='\n'):
+        if not all(isinstance(complete_dive, dives.Complete_Dive) for complete_dive in complete_dives):
+            raise ValueError('Input `complete_dives` must be list of `dives.Complete_Dives` instances')
+
+        self.complete_dives = sorted(complete_dives, key=lambda x: x.log_name[0])
         self.version = version
         self.delimiter = delimiter
         self.lineterminator = lineterminator
@@ -133,14 +138,14 @@ class GeoCSV:
                                      self.MethodIdentifier_header])
 
 
-        def write_measurement_rows(csvwriter_list, dive, flag):
+        def write_measurement_rows(csvwriter_list, complete_dive, flag):
             """Write rows of GPS measurements
 
             GPS metadata == 'measurement'
 
             Args:
                 csvwriter_list (list):
-                dive (dives.Dive instance):
+                complete_dive (dives.Complete_Dive instance):
                 flag (str):
 
             """
@@ -148,13 +153,13 @@ class GeoCSV:
             # Determine what GPS fixes to write
             flag = flag.lower()
             if flag == 'all':
-                gps_list = dive.gps_list
+                gps_list = complete_dive.gps_list
 
             elif flag == 'before_dive':
-                gps_list = dive.gps_before_dive
+                gps_list = complete_dive.gps_before_dive
 
             elif flag == 'after_dive':
-                gps_list = dive.gps_after_dive
+                gps_list = complete_dive.gps_after_dive
 
             else:
                 raise ValueError("flag must be one of: 'all', 'before_dive', or 'after_dive'")
@@ -164,15 +169,15 @@ class GeoCSV:
                 measurement_row = [
                     'Measurement:GPS:Trimble',
                     str(gps.date)[0:19]+'Z',
-                    dive.network,
-                    dive.kstnm,
+                    complete_dive.network,
+                    complete_dive.kstnm,
                     '',
                     nan,
                     d6(gps.latitude),
                     d6(gps.longitude),
                     d0(0),
                     d0(0),
-                    'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                    'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
                     nan,
                     nan,
                     '',
@@ -185,7 +190,7 @@ class GeoCSV:
                 for csvwriter in csvwriter_list:
                     csvwriter.writerow(measurement_row)
 
-        def write_algorithm_rows(csvwriter, dive, flag):
+        def write_algorithm_rows(csvwriter, complete_dive, flag):
             """Write multiple rows of event (algorithm) values, some measured
             (e.g. "Depth", STDP), and some interpolated (e.g., "Latitude", STLA)
 
@@ -197,20 +202,20 @@ class GeoCSV:
 
             Args:
                 csvwriter (writer): a single CSV writer
-                dive (dives.Dive instance):
+                complete_dive (dives.Complete_Dive instance):
                 flag (str):
 
             """
 
             # Determine what events to write
             if flag == 'all':
-                event_list = dive.events
+                event_list = complete_dive.events
 
             elif flag == 'det':
-                event_list = [event for event in dive.events if not event.is_requested]
+                event_list = [event for event in complete_dive.events if not event.is_requested]
 
             elif flag == 'req':
-                event_list = [event for event in dive.events if event.is_requested]
+                event_list = [event for event in complete_dive.events if event.is_requested]
 
             else:
                 raise ValueError("flag must be one of: 'all', 'det', or 'req'")
@@ -225,15 +230,15 @@ class GeoCSV:
                 algorithm_row = [
                     'Algorithm:automaid:{:s}'.format(setup.get_version()),
                     str(event.obspy_trace_stats["starttime"])[:19]+'Z',
-                    dive.network,
-                    dive.kstnm,
+                    complete_dive.network,
+                    complete_dive.kstnm,
                     '00',
                     event.obspy_trace_stats["channel"],
                     d6(event.obspy_trace_stats.sac["stla"]),
                     d6(event.obspy_trace_stats.sac["stlo"]),
                     d0(0),
                     d0(event.obspy_trace_stats.sac["stdp"]),
-                    'MERMAIDHydrophone({:s})'.format(dive.kinst),
+                    'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
                     d0(event.obspy_trace_stats.sac["scale"]),
                     d1(np.float32(1.)),
                     'Pa',
@@ -270,27 +275,22 @@ class GeoCSV:
             write_header_rows(csvwriter_list)
 
             # Write metadata rows to all three files
-            for dive in self.dives:
-                if dive.is_dive:
-                    # Write ONLY this dive's GPS list --
-                    # Yes: `dive.gps_before_dive` (or `after_dive`)
-                    # No: `dive.gps_before_dive_incl_next_dive` (or `after_dive`)
-                    if dive.gps_before_dive is not None:
-                        write_measurement_rows(csvwriter_list, dive, 'before_dive')
+            for complete_dive in self.complete_dives:
+                # Write ONLY this dive's GPS list --
+                # Yes: `complete_dive.gps_before_dive` (or `after_dive`)
+                #  No: `complete_dive.gps_before_dive_incl_next_dive` (or `after_dive`)
+                if complete_dive.gps_before_dive is not None:
+                    write_measurement_rows(csvwriter_list, complete_dive, 'before_dive')
 
-                    if dive.events is not None:
-                        # Cannot input `csvwriter_list` because we must parse
-                        # 'DET' and 'REQ' events to separate files
-                        write_algorithm_rows(csvwriter_all, dive, 'all')
-                        write_algorithm_rows(csvwriter_det, dive, 'det')
-                        write_algorithm_rows(csvwriter_req, dive, 'req')
+                if complete_dive.events is not None:
+                    # Cannot input `csvwriter_list` because we must parse 'DET'
+                    # and 'REQ' events between separate files
+                    write_algorithm_rows(csvwriter_all, complete_dive, 'all')
+                    write_algorithm_rows(csvwriter_det, complete_dive, 'det')
+                    write_algorithm_rows(csvwriter_req, complete_dive, 'req')
 
-                    if dive.gps_after_dive is not None:
-                        write_measurement_rows(csvwriter_list, dive, 'after_dive')
-
-                else:
-                    if dive.gps_list is not None:
-                        write_measurement_rows(csvwriter_list, dive, 'all')
+                if complete_dive.gps_after_dive is not None:
+                    write_measurement_rows(csvwriter_list, complete_dive, 'after_dive')
 
 
 if __name__ == '__main__':

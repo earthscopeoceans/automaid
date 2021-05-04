@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 07-Apr-2021
+# Last modified by JDS: 12-Apr-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -334,7 +334,7 @@ def merge_gps_list(gps_nonunique_list):
     defined as two GPS positions written to a .LOG and .MER w/in 60 s of one
     another.
 
-    Note: does NOT remove GPS with back clock synchronizations because we need
+    Note: does NOT remove GPS with bad clock synchronizations because we need
     to know if those occured immediately before/after dives to determine if this
     GPS are valid for interpolation. See dives.validate_gps for more.
 
@@ -425,17 +425,22 @@ def merge_gps_list(gps_nonunique_list):
     else:
         return gps_merged_list
 
-def valid_synchro(GPS_object):
-    '''Note that, especially, the last(first) GPS fix taken before(after) the dive
+def valid_clockfreq(GPS_object):
+    '''Returns True if the clock frequency associated with a single GPS object is
+    valid, between 3000000 and 4000000 Hz (MERMAID Manual Ref : 452.000.852
+    Version 00, pg. 16), implying that MERMAID's onboard clock was properly
+    synchronized.
+
+    Note that, especially, the last(first) GPS fix taken before(after) the dive
     cannot display an anomalous clock frequency because that means the MERMAID
-    clock had a synhcornization error. Most usually, JDS has found, the
+    clock had a synchronization error. Most usually, JDS has found, the
     clockdrift just keeps growing and it therefore seemingly would be acceptable
     to use the previous(next) valid GPS point to compute clockdrifts.
 
     For example, in this case it looks like the GPS points taken on March 18
     both failed to synchronize MERMAID's clock thus the clockdrift keep growing
     until the next GPS on the 24th.  This would imply it would be acceptable to
-    correct for the clockdrift on the 18th using the clockdrfits on the 24th.
+    correct for the clockdrift on the 18th using the clockdrifts on the 24th.
 
     Date                 Date Source      Loc Source       Clockdrift Clockfreq
     2019-03-01T14:59:55, 25_5C846B54.MER, 25_5C794585.LOG: +0.000062 ; 3686332
@@ -707,8 +712,14 @@ def write_gps(mdives, processed_path, mfloat_path):
     Differs from GeoCSV that writes unique (merged .MER time and .LOG position)
     GPS fixes.
 
+    TODO:
+    [1] Only print fixes with valid clockfreqs (synchronizations)
+    [2] Add clockfreq column to text file
+    [3] Remove changing of "N" and "S" to "+" and "-" in LOG `g.source`
+
     '''
 
+    # Really, should only print GPS with valid clockfreqs
     gps_genexp = (gps for dive in mdives for gps in dive.gps_nonunique_list)
 
     # Version header is the same for both csv and txt files

@@ -3,7 +3,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Apr-2021
+# Last modified by JDS: 03-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
@@ -14,7 +14,7 @@ def get_version():
 
     """
 
-    return 'v3.4.0-A'
+    return 'v3.4.0-B'
 
 def get_url():
     return 'https://github.com/earthscopeoceans/automaid'

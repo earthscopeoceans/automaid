@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Apr-2021
+# Last modified by JDS: 12-Apr-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -211,57 +211,51 @@ def main():
         # complete dives
         fragmented_dive = list()
         complete_dives = list()
-        for i_d, d in enumerate(dive_logs[:-1]):
-            if d.gps_list is None:
+        for i, dive_log in enumerate(dive_logs[:-1]):
+            if dive_log.gps_list is None:
                 # The GPS list is None until the requested begin/end dates
                 continue
 
-            if d.is_complete_dive:
-                complete_dives.append(dives.Complete_Dive([d]))
+            if dive_log.is_complete_dive:
+                complete_dives.append(dives.Complete_Dive([dive_log]))
 
             else:
-                fragmented_dive.append(d)
+                fragmented_dive.append(dive_log)
 
                 # If the next .LOG is a complete dive then this log is the last
                 # fragmented/filler .LOG file between complete dives
-                if dive_logs[i_d+1].is_complete_dive:
+                if dive_logs[i+1].is_complete_dive:
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
 
-        # # Repeat for all other dives after intialization at complete_dives[0] (loop
-        for i_cd, cd in enumerate(complete_dives[:-1]):
+        for i, complete_dive in enumerate(complete_dives[:-1]):
             # Extend dive's GPS list by searching previous/next dive's GPS list
-            if i_cd > 0:
-                prev_dive = complete_dives[i_cd-1]
+            if i > 0:
+                prev_dive = complete_dives[i-1]
             else:
                 prev_dive = None
-            next_dive = complete_dives[i_cd+1]
-            cd.set_incl_prev_next_dive_gps(prev_dive, next_dive)
+            next_dive = complete_dives[i+1]
+            complete_dive.set_incl_prev_next_dive_gps(prev_dive, next_dive)
 
-            # Validate the GPS may be used to correct various MERMAID
+            # Validate that the GPS may be used to correct various MERMAID
             # timestamps, including diving/surfacing and event starttimes
-            cd.validate_gps(min_gps_fix, max_gps_time)
+            complete_dive.validate_gps(min_gps_fix, max_gps_time)
 
             # Apply those clock corrections
-            cd.correct_clockdrift()
+            complete_dive.correct_clockdrift()
 
             # And interpolate station locations at various points in the dive
-            cd.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
+            complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
-        zz = len([e for d in complete_dives for e in d.events if e.station_loc])
-        print(mfloat_nb, zz)
-
-        continue
+        #zz = len([e for d in complete_dives for e in d.events if e.station_loc])
         # Generate plots, SAC, and miniSEED files for each event
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
-        for dive in complete_dives:
+        for complete_dive in complete_dives:
             if events_sac:
-                dive.generate_events_sac()
+                complete_dive.generate_events_sac()
             if events_mseed:
-                dive.generate_events_mseed()
+                complete_dive.generate_events_mseed()
 
-
-        from IPython import embed; embed()
 
         # # Generate plots, SAC, and miniSEED files for each event
         # print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
@@ -275,48 +269,48 @@ def main():
         #     if events_mseed:
         #         dive.generate_events_mseed()
 
-        # Plot vital data
-        kml.generate(mfloat_path, mfloat, dive_logs)
-        vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
-        vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
-        vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
-        if len(dive_logs) > 1:
-            vitals.plot_corrected_pressure_offset(mfloat_path, dive_logs, begin, end)
+        # # Plot vital data
+        # kml.generate(mfloat_path, mfloat, dive_logs)
+        # vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
+        # vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
+        # vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
+        # if len(dive_logs) > 1:
+        #     vitals.plot_corrected_pressure_offset(mfloat_path, dive_logs, begin, end)
 
         # Write csv and txt files containing all GPS fixes from .LOG and .MER
-        gps.write_gps(dive_logs, processed_path, mfloat_path)
+        # gps.write_gps(dive_logs, processed_path, mfloat_path)
 
-        # Write text file detailing event-station location interpolation parameters
-        gps.write_gps_interpolation_txt(dive_logs, processed_path, mfloat_path)
+        # # Write text file detailing event-station location interpolation parameters
+        # gps.write_gps_interpolation_txt(dive_logs, processed_path, mfloat_path)
 
-        # Write helpful printout detailing every dive, and how .LOG and .MER
-        # files connect
-        dives.generate_printout(dive_logs, mfloat_serial)
+        # # Write helpful printout detailing every dive, and how .LOG and .MER
+        # # files connect
+        # dives.generate_printout(dive_logs, mfloat_serial)
 
-        # Write text file detailing how .LOG and .MER files connect
-        dives.write_dives_txt(dive_logs, processed_path, mfloat_path)
+        # # Write text file detailing how .LOG and .MER files connect
+        # dives.write_dives_txt(dive_logs, processed_path, mfloat_path)
 
-        # Write a text file relating all SAC and mSEED to their associated .LOG
-        # and .MER files
-        events.write_traces_txt(dive_logs, processed_path, mfloat_path)
+        # # Write a text file relating all SAC and mSEED to their associated .LOG
+        # # and .MER files
+        # events.write_traces_txt(dive_logs, processed_path, mfloat_path)
 
-        # Write a text file with our best-guess at the location of MERMAID at
-        # the time of recording
-        events.write_loc_txt(dive_logs, processed_path, mfloat_path)
+        # # Write a text file with our best-guess at the location of MERMAID at
+        # # the time of recording
+        # events.write_loc_txt(dive_logs, processed_path, mfloat_path)
 
-        # Write mseed2sac and automaid metadata csv and text files
-        events.write_metadata(dive_logs, processed_path, mfloat_path)
+        # # Write mseed2sac and automaid metadata csv and text files
+        # events.write_metadata(dive_logs, processed_path, mfloat_path)
 
         # Write GeoCSV files
-        geocsv_meta = geocsv.GeoCSV(dive_logs)
+        geocsv_meta = geocsv.GeoCSV(complete_dives)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
-        # Finally, try for rapid location estimates of the final dive, if requested.
-        dive_logs[-1].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
-        if events_sac:
-            dive_logs[-1].generate_events_sac()
-        if events_mseed:
-            dive_logs[-1].generate_events_mseed()
+        # # Finally, try for rapid location estimates of the final dive, if requested.
+        # dive_logs[-1].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
+        # if events_sac:
+        #     dive_logs[-1].generate_events_sac()
+        # if events_mseed:
+        #     dive_logs[-1].generate_events_mseed()
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):

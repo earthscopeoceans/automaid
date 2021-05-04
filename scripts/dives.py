@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Apr-2021
+# Last modified by JDS: 12-Apr-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -36,9 +36,6 @@ class Dive:
     recorded during this dive.
 
     '''
-
-    # Class attribute to hold MERMAID "MH" FDSN network code
-    network = utils.network()
 
     def __init__(self, base_path=None, log_name=None, events=None, begin=None, end=None):
         self.base_path = base_path
@@ -435,6 +432,9 @@ class Dive:
 
 
 class Complete_Dive:
+    # Class attribute to hold MERMAID "MH" FDSN network code
+    network = utils.network()
+
     def __init__(self, complete_dive=None):
         flatten = lambda toplist: [item for sublist in toplist for item in sublist]
 
@@ -569,7 +569,7 @@ class Complete_Dive:
             return
 
         # Ensure MERMAID clock synronized with first GPS after surfacing
-        if gps.valid_synchro(gps_before[-1]) and gps.valid_synchro(gps_after[0]):
+        if gps.valid_clockfreq(gps_before[-1]) and gps.valid_clockfreq(gps_after[0]):
             self.gps_valid4clockdrift_correction = True
         else:
             return
