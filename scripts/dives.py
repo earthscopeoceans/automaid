@@ -285,6 +285,13 @@ class Dive:
             f.write(self.mer_environment)
 
     def generate_dive_plotly(self):
+        '''Generates a dive plot for a SINGLE .LOG file, which usually describes a
+        complete dive, but not always. I.e., this does not plot a
+        `Complete_Dive` instance, but rather generates a single plot for
+        whatever is written to an individual .LOG file.
+
+        '''
+
         # Check if file exist
         export_path = self.export_path + self.log_name[:-4] + '.html'
         if os.path.exists(export_path):
@@ -757,6 +764,11 @@ class Complete_Dive:
         # Compute event locations between interpolated locations of exit and re-entry of surface waters
         for event in self.events:
             event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
+
+    def attach_events_metadata(self):
+        for event in self.events:
+            if event.station_loc is not None:
+                event.attach_obspy_trace_stats(self.kstnm, self.kinst)
 
     def generate_events_plotly(self):
         for event in self.events:

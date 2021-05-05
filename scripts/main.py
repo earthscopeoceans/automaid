@@ -111,12 +111,12 @@ filterDate = {
 redo = False
 
 # Figures commented by default (take heaps of memory)
-events_plotly = False
-events_mseed = True
-events_sac = True
 events_png = False
+events_plotly = False
+events_sac = True
+events_mseed = True
 
-# Dictionary to save data in a file
+# Dictionary  save data in a file
 dives_dict = dict()
 
 def main():
@@ -128,7 +128,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*.vit")
+    vitfile_path = os.path.join(server_path, "*25.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # Initialize empty dict to hold the instance of every last complete dive for
@@ -200,10 +200,13 @@ def main():
             # Create the directory
             if not os.path.exists(dive_log.export_path):
                 os.mkdir(dive_log.export_path)
+
             # Generate log
             dive_log.generate_datetime_log()
+
             # Generate mermaid environment file
             dive_log.generate_mermaid_environment_file()
+
             # Generate dive plot
             dive_log.generate_dive_plotly() # <-- timestamps not corrected for clockdrift
 
@@ -228,12 +231,15 @@ def main():
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
 
+        # Use completed (stitched together) dives to generate event metadata
         for i, complete_dive in enumerate(complete_dives[:-1]):
             # Extend dive's GPS list by searching previous/next dive's GPS list
             if i > 0:
                 prev_dive = complete_dives[i-1]
+
             else:
                 prev_dive = None
+
             next_dive = complete_dives[i+1]
             complete_dive.set_incl_prev_next_dive_gps(prev_dive, next_dive)
 
@@ -244,18 +250,25 @@ def main():
             # Apply those clock corrections
             complete_dive.correct_clockdrift()
 
-            # And interpolate station locations at various points in the dive
+            # Interpolate station locations at various points in the dive
             complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
-        #zz = len([e for d in complete_dives for e in d.events if e.station_loc])
-        # Generate plots, SAC, and miniSEED files for each event
+        # Attach event metadata to data and write events in various formats
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
         for complete_dive in complete_dives:
+            complete_dive.attach_events_metadata()
+
+            if events_png:
+                complete_dive.generate_events_png()
+
+            if events_plotly:
+                complete_dive.generate_events_plotly()
+
             if events_sac:
                 complete_dive.generate_events_sac()
+
             if events_mseed:
                 complete_dive.generate_events_mseed()
-
 
         # # Generate plots, SAC, and miniSEED files for each event
         # print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))

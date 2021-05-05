@@ -279,17 +279,17 @@ class GeoCSV:
                 # Write ONLY this dive's GPS list --
                 # Yes: `complete_dive.gps_before_dive` (or `after_dive`)
                 # No: `complete_dive.gps_before_dive_incl_next_dive` (or `after_dive`)
-                if complete_dive.gps_before_dive is not None:
+                if complete_dive.gps_before_dive:
                     write_measurement_rows(csvwriter_list, complete_dive, 'before_dive')
 
-                if complete_dive.events is not None:
+                if complete_dive.events:
                     # Cannot input `csvwriter_list` because we must parse 'DET'
                     # and 'REQ' events between separate files
                     write_algorithm_rows(csvwriter_all, complete_dive, 'all')
                     write_algorithm_rows(csvwriter_det, complete_dive, 'det')
                     write_algorithm_rows(csvwriter_req, complete_dive, 'req')
 
-                if complete_dive.gps_after_dive is not None:
+                if complete_dive.gps_after_dive:
                     write_measurement_rows(csvwriter_list, complete_dive, 'after_dive')
 
 
