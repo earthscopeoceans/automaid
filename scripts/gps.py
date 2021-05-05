@@ -332,10 +332,11 @@ def merge_gps_list(gps_nonunique_list):
     pairs keeping (when available): .MER time, .LOG position.  If a .LOG or .MER
     is unpaired the complete data from the lone file is returned. A GPS pair is
     defined as two GPS positions written to a .LOG and .MER w/in 60 s of one
-    another.
+    another with identical clockdrifts (implying no clock synchronization
+    between both fixes, i.e., they form a "pair").
 
-    Note: does NOT remove GPS with bad clock synchronizations because we need
-    to know if those occured immediately before/after dives to determine if this
+    Note: does NOT remove GPS with bad clock synchronizations because we need to
+    know if those occurred immediately before/after dives to determine if those
     GPS are valid for interpolation. See dives.validate_gps for more.
 
     Runs recursively to handle GPS triplets, quartets etc.
@@ -472,6 +473,7 @@ def valid_clockfreq(GPS_object):
 
     if 3000000 <= GPS_object.clockfreq <= 4000000:
         return True
+
     else:
         return False
 

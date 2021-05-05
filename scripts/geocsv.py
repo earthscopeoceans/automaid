@@ -278,7 +278,7 @@ class GeoCSV:
             for complete_dive in self.complete_dives:
                 # Write ONLY this dive's GPS list --
                 # Yes: `complete_dive.gps_before_dive` (or `after_dive`)
-                #  No: `complete_dive.gps_before_dive_incl_next_dive` (or `after_dive`)
+                # No: `complete_dive.gps_before_dive_incl_next_dive` (or `after_dive`)
                 if complete_dive.gps_before_dive is not None:
                     write_measurement_rows(csvwriter_list, complete_dive, 'before_dive')
 
