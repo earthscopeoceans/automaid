@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Apr-2021
+# Last modified by JDS: 05-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -111,8 +111,8 @@ filterDate = {
 redo = False
 
 # Figures commented by default (take heaps of memory)
-events_png = False
-events_plotly = False
+events_png = True
+events_plotly = True
 events_sac = True
 events_mseed = True
 
@@ -231,6 +231,14 @@ def main():
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
 
+        # Plot vital data
+        kml.generate(mfloat_path, mfloat, complete_dives)
+        vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
+        vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
+        vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
+        if len(dive_logs) > 1:
+            vitals.plot_corrected_pressure_offset(mfloat_path, complete_dives, begin, end)
+
         # Use completed (stitched together) dives to generate event metadata
         for i, complete_dive in enumerate(complete_dives[:-1]):
             # Extend dive's GPS list by searching previous/next dive's GPS list
@@ -256,6 +264,10 @@ def main():
         # Attach event metadata to data and write events in various formats
         print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
         for complete_dive in complete_dives:
+
+            if not os.path.exists(complete_dive.export_path):
+                os.mkdir(complete_dive.export_path)
+
             complete_dive.attach_events_metadata()
 
             if events_png:
@@ -269,26 +281,6 @@ def main():
 
             if events_mseed:
                 complete_dive.generate_events_mseed()
-
-        # # Generate plots, SAC, and miniSEED files for each event
-        # print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
-        # for dive in dive_logs:
-        #     if events_png:
-        #         dive.generate_events_png()
-        #     if events_plotly:
-        #         dive.generate_events_plotly()
-        #     if events_sac:
-        #         dive.generate_events_sac()
-        #     if events_mseed:
-        #         dive.generate_events_mseed()
-
-        # # Plot vital data
-        # kml.generate(mfloat_path, mfloat, dive_logs)
-        # vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
-        # vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
-        # vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
-        # if len(dive_logs) > 1:
-        #     vitals.plot_corrected_pressure_offset(mfloat_path, dive_logs, begin, end)
 
         # Write csv and txt files containing all GPS fixes from .LOG and .MER
         # gps.write_gps(dive_logs, processed_path, mfloat_path)

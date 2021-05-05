@@ -1,17 +1,20 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
+# Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 05-May-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
-import setup
 import re
 import os
-from obspy import UTCDateTime
 import plotly.graph_objs as graph
 import plotly.offline as plotly
+
+from obspy import UTCDateTime
+
+import setup
 
 # Get current version number
 version = setup.get_version()
@@ -183,9 +186,9 @@ def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
 
     return
 
-def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
-    date  = [d.end_date for d in mdives if d.is_complete_dive]
-    corrected_pressure_offset = [d.p2t_offset_corrected for d in mdives if d.is_complete_dive]
+def plot_corrected_pressure_offset(vital_file_path, complete_dives, begin, end):
+    date  = [d.end_date for d in complete_dives]
+    corrected_pressure_offset = [d.p2t_offset_corrected for d in complete_dives]
 
     # Dead-float adjustment
     if len(date) < 1:

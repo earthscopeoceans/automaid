@@ -1,10 +1,11 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
+# Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 27-Oct-2020, Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last modified by JDS: 05-May-2021
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
 import os
@@ -13,8 +14,8 @@ import random
 # Get current version number.
 version = setup.get_version()
 
-def generate(dest_path, mfloat_name, dives):
-    if len(dives) < 1:
+def generate(dest_path, mfloat_name, complete_dives):
+    if len(complete_dives) < 1:
         return
 
     kml_string = str()
@@ -24,23 +25,23 @@ def generate(dest_path, mfloat_name, dives):
     kml_string += markerstyle()
 
     kml_string += folderbeg("Events marker")
-    kml_string += events_marker(dives)
+    kml_string += events_marker(complete_dives)
     kml_string += folderend()
 
     kml_string += folderbeg("GPS points")
-    kml_string += gps_point_marker(dives)
+    kml_string += gps_point_marker(complete_dives)
     kml_string += folderend()
 
     kml_string += folderbeg("Interpolated points")
-    kml_string += interpolated_point_marker(dives)
+    kml_string += interpolated_point_marker(complete_dives)
     kml_string += folderend()
 
     kml_string += folderbeg("Last position")
-    kml_string += last_pos_marker(dives)
+    kml_string += last_pos_marker(complete_dives)
     kml_string += folderend()
 
     kml_string += folderbeg("Trajectory")
-    kml_string += complex_trajectory(mfloat_name, dives)
+    kml_string += complex_trajectory(mfloat_name, complete_dives)
     kml_string += folderend()
 
     # kmlfile += look_at_auto(mermaid, 0)
@@ -222,9 +223,9 @@ def markerstyle(scale=1):
     return string
 
 
-def events_marker(dives):
+def events_marker(complete_dives):
     string = ""
-    for dive in dives[:-1]:
+    for dive in complete_dives[:-1]:
         for event in dive.events:
             if event.station_loc is None:
                 continue
@@ -247,10 +248,10 @@ def events_marker(dives):
     return string
 
 
-def gps_point_marker(dives):
+def gps_point_marker(complete_dives):
     dfmt = "%d/%m/%y %H:%M"
     string = ""
-    for dive in dives:
+    for dive in complete_dives:
         for gps in dive.gps_list:
             pos = str(gps.longitude) + "," + str(gps.latitude) + ",0"
             string += """
@@ -265,10 +266,10 @@ def gps_point_marker(dives):
     return string
 
 
-def interpolated_point_marker(dives):
+def interpolated_point_marker(complete_dives):
     dfmt = "%d/%m/%y %H:%M"
     string = ""
-    for dive in dives[1:]:
+    for dive in complete_dives[1:]:
         if dive.descent_leave_surface_loc:
             pos = str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0"
             posstr = dive.descent_leave_surface_loc.date.strftime(dfmt)
@@ -324,8 +325,8 @@ def interpolated_point_marker(dives):
     return string
 
 
-def last_pos_marker(dives):
-    last_dive = dives[-1]
+def last_pos_marker(complete_dives):
+    last_dive = complete_dives[-1]
     if len(last_dive.gps_list) < 1 or not last_dive.station_name:
         return ""
     last_pos = last_dive.gps_list[-1]
@@ -343,20 +344,16 @@ def last_pos_marker(dives):
     return string
 
 
-def complex_trajectory(mfloat_name, dives):
+def complex_trajectory(mfloat_name, complete_dives):
     string = ""
 
     # Surface line
     pos = ""
     i = 0
-    while i < len(dives):
-        if dives[i].is_init:
-            pos = ""
-            i += 1
-            continue
+    while i < len(complete_dives):
         # Use the surface drift of the end of the precedent dive
         if i > 1:
-            dive = dives[i-1]
+            dive = complete_dives[i-1]
             if dive.ascent_reach_surface_layer_loc is not None:
                 pos += str(dive.ascent_reach_surface_layer_loc.longitude) + ","\
                        + str(dive.ascent_reach_surface_layer_loc.latitude) + ",0\n"
@@ -365,10 +362,10 @@ def complex_trajectory(mfloat_name, dives):
             if len(dive.gps_list) > 0:
                 pos += str(dive.gps_list[-1].longitude) + "," + str(dive.gps_list[-1].latitude) + ",0\n"
         # Surface drift of the beginning of the current dive
-        dive = dives[i]
+        dive = complete_dives[i]
         for gps in dive.gps_list[:-1]:
             pos += str(gps.longitude) + "," + str(gps.latitude) + ",0\n"
-        if dives[i].descent_leave_surface_loc is not None:
+        if complete_dives[i].descent_leave_surface_loc is not None:
             pos += str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0\n"
         if dive.descent_leave_surface_layer_loc is not None:
             pos += str(dive.descent_leave_surface_layer_loc.longitude) + "," + str(dive.descent_leave_surface_layer_loc.latitude) + ",0\n"
@@ -420,12 +417,10 @@ def complex_trajectory(mfloat_name, dives):
         i += 1
 
     # Add last dive surface position
-    if len(dives[-1].gps_list) > 0:
-        pos += str(dives[-1].gps_list[-1].longitude) + "," + str(dives[-1].gps_list[-1].latitude) + ",0\n"
-    if dives[-1].is_complete_dive:
-        line_style = "#lineStyle_m" + mfloat_name[-2:]
-    else:
-        line_style = "#lineStyle2"
+    if len(complete_dives[-1].gps_list) > 0:
+        pos += str(complete_dives[-1].gps_list[-1].longitude) + "," + str(complete_dives[-1].gps_list[-1].latitude) + ",0\n"
+    
+    line_style = "#lineStyle_m" + mfloat_name[-2:]
     string += """
             <Placemark>
                 <styleUrl>""" + line_style + """</styleUrl>

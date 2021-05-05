@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Apr-2021
+# Last modified by JDS: 05-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -223,34 +223,21 @@ class Dive:
                                 self.mer_environment_name, self.mer_environment,
                                 begin, end)
 
-        # Split the GPS list into before/after dive sublists
-        if self.descent_leave_surface_date:
-            pass
-            #self.gps_before_dive = [x for x in self.gps_list if x.date < self.descent_leave_surface_date]
-            # if not self.gps_before_dive:
-                # print "WARNING: No GPS synchronization before diving for \"" \
-                #     + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-
-        if self.ascent_reach_surface_date:
-            pass
-            #self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
-            # if not self.gps_after_dive:
-            #     print "WARNING: No GPS synchronization after surfacing for \"" \
-            #         + str(self.mer_environment_name) + "\", \"" + str(self.log_name) + "\""
-
         # Find external pressure offset
-        if self.is_complete_dive:
-            # Commanded as "p2t qm!offset ??? "in .cmd file
-            # Reported as "...p2t37: ??x????s, offset ???mbar" in .LOG file
-            catch = re.findall("offset (-?\d+)mbar", self.log_content)
-            self.p2t_offset_param = int(catch[0])
+        # Commanded as "p2t qm!offset ??? "in .cmd file
+        # Reported as "...p2t37: ??x????s, offset ???mbar" in .LOG file
+        offset_param = re.findall("offset (-?\d+)mbar", self.log_content)
+        if offset_param:
+            self.p2t_offset_param = int(offset_param[0])
 
-            # Reported as "Pext ???mbar" in .LOG file, this does not include any
-            # offset correction (self.p2t_offset_param)
-            catch = re.findall("Pext (-?\d+)mbar", self.log_content)
-            self.p2t_offset_measurement = int(catch[0])
+        # Reported as "Pext ???mbar" in .LOG file, this does not include any
+        # offset correction (self.p2t_offset_param)
+        offset_measurement = re.findall("Pext (-?\d+)mbar", self.log_content)
+        if offset_measurement:
+            self.p2t_offset_measurement = int(offset_measurement[0])
 
-            # Compute the corrected pressure offset
+        # Compute the corrected pressure offset
+        if offset_param and offset_measurement:
             self.p2t_offset_corrected =  self.p2t_offset_measurement - self.p2t_offset_param
 
     def __len__(self):
@@ -445,16 +432,10 @@ class Complete_Dive:
     def __init__(self, complete_dive=None):
         flatten = lambda toplist: [item for sublist in toplist for item in sublist]
 
-        self.base_path = complete_dive[-1].base_path
         self.log_name = [d.log_name for d in complete_dive]
         self.log_content = ''.join(d.log_content for d in complete_dive)
         self.mer_environment_name = [d.mer_environment_name for d in complete_dive]
         self.__version__ = complete_dive[-1].__version__
-
-        # Might want to rename the directories into something more useful...
-        self.directory_name = complete_dive[-1].directory_name
-        self.export_path = complete_dive[-1].export_path
-        self.export_path = complete_dive[-1].export_path
 
         self.start_date = complete_dive[0].start_date
         self.end_date = complete_dive[-1].end_date
@@ -466,6 +447,11 @@ class Complete_Dive:
         self.kstnm = complete_dive[-1].kstnm
         self.kinst = complete_dive[-1].kinst
 
+        # Might want to rename the directories into something more useful...
+        self.base_path = complete_dive[-1].base_path
+        self.directory_name = complete_dive[-1].directory_name
+        self.export_path = complete_dive[-1].export_path
+        # ...like this perhaps?
         self.base_path2 = complete_dive[-1].base_path
         self.directory_name2 = '{:s}_{:s}'.format(str(self.start_date)[:19], str(self.end_date)[:19])
         self.export_path2 = self.base_path2 + self.directory_name2 + "/"
@@ -502,6 +488,14 @@ class Complete_Dive:
 
         self.events = flatten([d.events for d in complete_dive])
 
+        # Retain most recent external pressure measurement
+        for d in reversed(complete_dive):
+            self.p2t_offset_param = d.p2t_offset_param
+            self.p2t_offset_measurement = d.p2t_offset_measurement
+            self.p2t_offset_corrected = d.p2t_offset_corrected
+            if d.p2t_offset_corrected is not None:
+                break
+
         self.gps_valid4clockdrift_correction = None
         self.gps_valid4location_interp = None
 
@@ -520,12 +514,6 @@ class Complete_Dive:
         the previous/next dive's GPS list.
 
         '''
-
-        # self.gps_before_dive_incl_prev_dive \
-        #     = self.gps_before_dive[:] if self.gps_before_dive else []
-
-        # self.gps_after_dive_incl_next_dive \
-        #     = self.gps_after_dive[:] if self.gps_after_dive else []
 
         # Shallow copy lists so the copy may be extended w/o also extending original
         self.gps_before_dive_incl_prev_dive = list(self.gps_before_dive)
