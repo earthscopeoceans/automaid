@@ -111,8 +111,8 @@ filterDate = {
 redo = False
 
 # Figures commented by default (take heaps of memory)
-events_png = True
-events_plotly = True
+events_png = False
+events_plotly = False
 events_sac = True
 events_mseed = True
 
@@ -282,11 +282,8 @@ def main():
             if events_mseed:
                 complete_dive.generate_events_mseed()
 
-        # Write csv and txt files containing all GPS fixes from .LOG and .MER
-        # gps.write_gps(dive_logs, processed_path, mfloat_path)
-
-        # # Write text file detailing event-station location interpolation parameters
-        # gps.write_gps_interpolation_txt(dive_logs, processed_path, mfloat_path)
+        # Write text file detailing event-station location interpolation parameters
+        gps.write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path)
 
         # # Write helpful printout detailing every dive, and how .LOG and .MER
         # # files connect

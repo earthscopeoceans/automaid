@@ -808,7 +808,7 @@ def write_gps(mdives, processed_path, mfloat_path):
             f_txt.write(fmt_txt.format(*gps_data))
 
 
-def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
+def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
     '''Writes MERMAID GPS interpolation file, detailing GPS and interpolation parameters for the three
     main regimes of each dive: descent and drift in the surface layer, drift in the mixed layer, and
     ascent and drift in the surface layer
@@ -859,7 +859,7 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
         return (interp_params, interp_fmt_spec)
 
     # Generate (unique) list of dives with events whose interpolated locations we are able to compute
-    dive_set = set(dive for dive in mdives for event in dive.events if event.station_loc)
+    dive_set = set(dive for dive in complete_dives for event in dive.events if event.station_loc)
     dive_list = list(dive_set)
     dive_list = sorted(dive_list, key=lambda x: x.start_date)
 
@@ -904,7 +904,15 @@ def write_gps_interpolation_txt(mdives, processed_path, mfloat_path):
                 interp_perc_ascent = float("nan")
 
             # Write headers to each dive block
-            f.write("DIVE ID: {:>4d}\n".format(dive.dive_id))
+            f.write("DIVE ID: ")
+            for id in dive.dive_id:
+                f.write("{:>4d}".format(id))
+
+                if id != dive.dive_id[-1]:
+                    f.write(", ")
+
+                else:
+                    f.write("\n")
             f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z'))
             f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
 

@@ -439,6 +439,7 @@ class Complete_Dive:
 
         self.start_date = complete_dive[0].start_date
         self.end_date = complete_dive[-1].end_date
+        self.dive_id = [d.dive_id for d in complete_dive]
         self.len_secs = self.end_date - self.start_date
         self.len_days = self.len_secs / (60*60*24.)
 
