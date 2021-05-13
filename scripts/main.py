@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-May-2021
+# Last modified by JDS: 13-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -127,15 +127,15 @@ def main():
     if not os.path.exists(processed_path):
         os.mkdir(processed_path)
 
-    # Search Mermaid floats
-    vitfile_path = os.path.join(server_path, "*25.vit")
+    # Search MERMAID floats
+    vitfile_path = os.path.join(server_path, "*.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # Initialize empty dict to hold the instance of every last complete dive for
     # every MERMAID
     lastdive = dict()
 
-    # For each Mermaid float
+    # For each MERMAID float
     for mfloat in mfloats:
         mfloat_serial = mfloat[-4:]
         print("Processing {:s} .LOG & .MER files...".format(mfloat_serial))
@@ -196,7 +196,11 @@ def main():
         dive_logs = dives.get_dives(mfloat_path, mevents, begin, end)
 
         # Generate logs and plots for each dive
-        for dive_log in dive_logs:
+        # Combine fragmeneted (incomplete/error/reboot etc.) .LOG files into complete dives
+        fragmented_dive = list()
+        complete_dives = list()
+        for i, dive_log in enumerate(dive_logs):
+
             # Create the directory
             if not os.path.exists(dive_log.export_path):
                 os.mkdir(dive_log.export_path)
@@ -210,15 +214,11 @@ def main():
             # Generate dive plot
             dive_log.generate_dive_plotly() # <-- timestamps not corrected for clockdrift
 
-        # Combine fragmeneted (incomplete/error/reboot etc.) .LOG files into
-        # complete dives
-        fragmented_dive = list()
-        complete_dives = list()
-        for i, dive_log in enumerate(dive_logs[:-1]):
+            # The GPS list is None until the requested begin/end dates
             if dive_log.gps_list is None:
-                # The GPS list is None until the requested begin/end dates
                 continue
 
+            # A complete dive includes a both a "[DIVING]" and "[SURFIN]"
             if dive_log.is_complete_dive:
                 complete_dives.append(dives.Complete_Dive([dive_log]))
 
@@ -227,9 +227,10 @@ def main():
 
                 # If the next .LOG is a complete dive then this log is the last
                 # fragmented/filler .LOG file between complete dives
-                if dive_logs[i+1].is_complete_dive:
+                if i < len(dive_logs)-1 and dive_logs[i+1].is_complete_dive:
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
+
 
         # Plot vital data
         kml.generate(mfloat_path, mfloat, complete_dives)
@@ -240,15 +241,12 @@ def main():
             vitals.plot_corrected_pressure_offset(mfloat_path, complete_dives, begin, end)
 
         # Use completed (stitched together) dives to generate event metadata
-        for i, complete_dive in enumerate(complete_dives[:-1]):
+        for i, complete_dive in enumerate(complete_dives):
+
             # Extend dive's GPS list by searching previous/next dive's GPS list
-            if i > 0:
-                prev_dive = complete_dives[i-1]
+            prev_dive = complete_dives[i-1] if i > 0 else None
+            next_dive = complete_dives[i+1] if i < len(complete_dives)-1 else None
 
-            else:
-                prev_dive = None
-
-            next_dive = complete_dives[i+1]
             complete_dive.set_incl_prev_next_dive_gps(prev_dive, next_dive)
 
             # Validate that the GPS may be used to correct various MERMAID
@@ -261,14 +259,12 @@ def main():
             # Interpolate station locations at various points in the dive
             complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
-        # Attach event metadata to data and write events in various formats
-        print(" ...writing {:s} sac/mseed/png/html output files...".format(mfloat_serial))
-        for complete_dive in complete_dives:
+            # Format station-location metadata for ObsPy and attach to complete dive object
+            complete_dive.attach_events_metadata()
 
+            # Write requested output files
             if not os.path.exists(complete_dive.export_path):
                 os.mkdir(complete_dive.export_path)
-
-            complete_dive.attach_events_metadata()
 
             if events_png:
                 complete_dive.generate_events_png()
