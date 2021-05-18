@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-May-2021
+# Last modified by JDS: 17-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -189,14 +189,14 @@ def main():
         # Later we will combine multiple .LOG files in cases when they are fragmented
         # .LOG files can fragment due to ERR, EMERGENCY, REBOOT etc.
         # A fragmented .LOG is one that does not include a complete dive
-        # A complete dive is starts with '[DIVING]' and ends with '[SURFIN]'
-        # A complete dive may span multiple fragmented .LOG files
+        # A single-.LOG complete dive starts with '[DIVING]' and ends with '[SURFIN]'
+        # A multiple-.LOG complete dive is a concatenation of fragmented dives
+        # (i.e., a multi-.LOG complete dive may not actually contain a dive at all)
+        # Therefore, concatenate all fragmented .LOG in-between single-LOG complete dives
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat_serial))
         dive_logs = dives.get_dives(mfloat_path, mevents, begin, end)
 
-        # Generate logs and plots for each dive
-        # Combine fragmeneted (incomplete/error/reboot etc.) .LOG files into complete dives
         fragmented_dive = list()
         complete_dives = list()
         for i, dive_log in enumerate(dive_logs):
@@ -205,20 +205,22 @@ def main():
             if not os.path.exists(dive_log.export_path):
                 os.mkdir(dive_log.export_path)
 
-            # Generate log
+            # Reformat and write .LOG in individual dive directory
             dive_log.generate_datetime_log()
 
-            # Generate mermaid environment file
+            # Write .MER environement in individual directories
             dive_log.generate_mermaid_environment_file()
 
             # Generate dive plot
             dive_log.generate_dive_plotly() # <-- timestamps not corrected for clockdrift
 
-            # The GPS list is None until the requested begin/end dates
+            # The GPS list is None outside of requested begin/end dates, within
+            # which it defaults to an empty list if it is truly empty
             if dive_log.gps_list is None:
                 continue
 
-            # A complete dive includes a both a "[DIVING]" and "[SURFIN]"
+            # Often a single .LOG defines a complete dive: '[DIVING]' --> '[SURFIN]'
+            # Use those "known" complete dives to compile list of in-between fragmented dives
             if dive_log.is_complete_dive:
                 complete_dives.append(dives.Complete_Dive([dive_log]))
 
@@ -226,11 +228,14 @@ def main():
                 fragmented_dive.append(dive_log)
 
                 # If the next .LOG is a complete dive then this log is the last
-                # fragmented/filler .LOG file between complete dives
+                # fragmented/filler .LOG file in-between complete dives
+                # Define the concatenation of all fragmented dives to be one complete dive
+                # Note that this type of complete dive may not define a dive at all
+                # However, we want to group these data so their (possibly legit)
+                # GPS may be used to interpolate previous/succeeding dives
                 if i < len(dive_logs)-1 and dive_logs[i+1].is_complete_dive:
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
-
 
         # Plot vital data
         kml.generate(mfloat_path, mfloat, complete_dives)
@@ -246,7 +251,6 @@ def main():
             # Extend dive's GPS list by searching previous/next dive's GPS list
             prev_dive = complete_dives[i-1] if i > 0 else None
             next_dive = complete_dives[i+1] if i < len(complete_dives)-1 else None
-
             complete_dive.set_incl_prev_next_dive_gps(prev_dive, next_dive)
 
             # Validate that the GPS may be used to correct various MERMAID
@@ -281,9 +285,9 @@ def main():
         # Write text file detailing event-station location interpolation parameters
         gps.write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path)
 
-        # # Write helpful printout detailing every dive, and how .LOG and .MER
-        # # files connect
-        # dives.generate_printout(dive_logs, mfloat_serial)
+        # Write helpful printout detailing every dive, and how .LOG and .MER
+        # files connect
+        dives.generate_printout(complete_dives, mfloat_serial)
 
         # # Write text file detailing how .LOG and .MER files connect
         # dives.write_dives_txt(dive_logs, processed_path, mfloat_path)
@@ -296,8 +300,8 @@ def main():
         # # the time of recording
         # events.write_loc_txt(dive_logs, processed_path, mfloat_path)
 
-        # # Write mseed2sac and automaid metadata csv and text files
-        # events.write_metadata(dive_logs, processed_path, mfloat_path)
+        # Write mseed2sac and automaid metadata csv and text files
+        events.write_metadata(complete_dives, processed_path, mfloat_path)
 
         # Write GeoCSV files
         geocsv_meta = geocsv.GeoCSV(complete_dives)

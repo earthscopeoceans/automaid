@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-May-2021
+# Last modified by JDS: 18-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -64,7 +64,7 @@ class Dive:
         self.gps_from_log = None
         self.gps_from_mer_environment = None
         self.gps_nonunique_list = None
-        self.gps_list = None # Unique GPS via merged GPS pairs in .LOG and .MER
+        self.gps_list = None
 
         self.gps_before_dive = None
         self.gps_before_dive_incl_prev_dive = None
@@ -377,10 +377,6 @@ class Dive:
         num_zeros = 5 - len(kstnm_char + kstnm_num)
         self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
 
-    def print_len(self):
-        print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
-              .format(str(self.start_date)[0:19], str(self.end_date)[0:19], self.len_days, self.log_name))
-
     def print_dive_gps(self):
         # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
         # current dive
@@ -412,20 +408,11 @@ class Dive:
         else:
             print("         (...awaiting next_dive...)")
 
-    def print_dive_events(self):
-        if not self.events:
-            print("  Event: (no detected or requested events fall within the time window of this dive)")
-        else:
-            for e in self.events:
-                if e.station_loc is None:
-                    print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mer_binary_name))
-                else:
-                    print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mer_binary_name))
-
-
 class Complete_Dive:
+    '''
+
+    '''
+
     # Class attribute to hold MERMAID "MH" FDSN network code
     network = utils.network()
 
@@ -440,6 +427,13 @@ class Complete_Dive:
         self.start_date = complete_dive[0].start_date
         self.end_date = complete_dive[-1].end_date
         self.dive_id = [d.dive_id for d in complete_dive]
+
+        if not (len(self.log_name) ==
+                len(self.mer_environment_name) ==
+                len(self.dive_id)):
+            # This would surprise me and imply that something went wrong...
+            from IPython import embed; embed()
+
         self.len_secs = self.end_date - self.start_date
         self.len_days = self.len_secs / (60*60*24.)
 
@@ -775,6 +769,47 @@ class Complete_Dive:
         for event in self.events:
             event.to_mseed(self.export_path, self.kstnm, self.kinst)
 
+    def print_len(self):
+        print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s}/{:s})" \
+              .format(str(self.start_date)[0:19], str(self.end_date)[0:19],
+                      self.len_days, self.log_name[0], self.log_name[-1]))
+
+    def print_log_mer_id(self):
+        for i,_ in enumerate(self.log_name):
+            if self.dive_id[i] is None:
+                id_str = "     ID: <none>"
+
+            else:
+                id_str = "     ID: #{:>5d}".format(self.dive_id[i])
+
+            if self.log_name[i] and self.mer_environment_name[i]:
+                print("{:s} ({:s}, {:s})".format(id_str, self.log_name[i], self.mer_environment_name[i]))
+
+            elif self.log_name[i] and not self.mer_environment_name[i]:
+                # For example, 16_5F9C20FC.MER, which would have been P-16 Dive
+                # #120, and which was supposedly uploaded associated with
+                # 16_5F92A09C.LOG, does not/never existed on the server (no idea
+                # what happened)
+                print("{:s} ({:s}, <none>)".format(id_str, self.log_name[i]))
+
+            elif self.mer_environment_name[i] and not self.log_name[i]:
+                print("{:s} (<none>, {:s})".format(id_str, self.mer_environment_name[i]))
+
+            else:
+                print("(<none>, <none>)\n")
+
+    def print_events(self):
+        if not self.events:
+            print("  Event: (no detected or requested events fall within the time window of this dive)")
+        else:
+            for e in self.events:
+                if e.station_loc is None:
+                    print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
+                          .format(e.get_export_file_name(), e.mer_binary_name))
+                else:
+                    print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
+                          .format(e.get_export_file_name(), e.mer_binary_name))
+
 # Create dives object
 def get_dives(path, events, begin, end):
     # Concatenate log files that need it
@@ -818,26 +853,18 @@ def concatenate_log_files(path):
                 logstring = ""
 
 
-def generate_printout(mdives, mfloat_serial):
+def generate_printout(complete_dives, mfloat_serial):
     print ""
-    i = 0
-    for d in sorted(mdives, key=lambda x: x.start_date):
-        if d.is_dive:
-            if d.dive_id is not None:
-                print("  .DIVE. {:s} #{:>3d}".format(mfloat_serial, d.dive_id))
-            else:
-                # There is no .MER file associated with this dive
-                print("  .DIVE. {:s}".format(mfloat_serial))
-        else:
-            print("  .NO DIVE. {:s}".format(mfloat_serial))
+    for d in sorted(complete_dives, key=lambda x: x.start_date):
+        print("Complete Dive")
         d.print_len()
-        d.print_dive_gps()
-        d.print_dive_events()
+        d.print_log_mer_id()
+        d.print_events()
         print ""
 
-        print("    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n" \
-            .format(mfloat_serial, \
-            sum(bool(e.station_loc) for d in mdives for e in d.events if not e.station_loc_is_preliminary)))
+    print("    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n" \
+        .format(mfloat_serial, \
+        sum(bool(e.station_loc) for d in complete_dives for e in d.events if not e.station_loc_is_preliminary)))
 
 
 def write_dives_txt(mdives, processed_path, mfloat_path):

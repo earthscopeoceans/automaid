@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Apr-2021
+# Last modified by JDS: 17-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -412,7 +412,7 @@ class Event:
 
         For more detail see: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
 
-        Update function "write_metadata" if the fields in this method are changed.
+        Update function `events.write_metadata` if the fields in this method are changed.
 
         '''
 
@@ -637,10 +637,11 @@ def write_loc_txt(mdives, processed_path, mfloat_path):
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
                                     np.float32(e.obspy_trace_stats.sac["stdp"])))
 
-def write_metadata(mdives, processed_path, mfloat_path):
+def write_metadata(complete_dives, processed_path, mfloat_path):
     '''Write mseed2sac metadata and automaid metadata files.
 
-    Update this function if the fields in method "attach_obspy_trace_stats" are changed.
+    Update this function if the fields in method
+    `events.attach_obspy_trace_stats` are changed.
 
     In total four files are written:
 
@@ -674,7 +675,6 @@ def write_metadata(mdives, processed_path, mfloat_path):
         (16) Start time, used for matching
         (17) End time, used for matching
 
-
     automaid_metadata.csv/txt:
 
         Prints ALL and ONLY the non-default SAC headers filled by automaid:
@@ -702,7 +702,6 @@ def write_metadata(mdives, processed_path, mfloat_path):
         (21) samplerate (not a SAC header field)
         (22) start (not a SAC header field)
         (23) end (not a SAC header field)
-
 
     '''
 
@@ -811,7 +810,7 @@ def write_metadata(mdives, processed_path, mfloat_path):
         atm_f_txt.write(atm_header_line_txt)
 
         # Loop over all events for which a station location was computed
-        event_list = [event for dive in mdives for event in dive.events if event.station_loc]
+        event_list = [event for dive in complete_dives for event in dive.events if event.station_loc]
         for e in sorted(event_list, key=lambda x: x.date):
             if e.station_loc_is_preliminary:
                 continue
