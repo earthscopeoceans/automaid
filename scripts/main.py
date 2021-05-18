@@ -285,12 +285,14 @@ def main():
         # Write text file detailing event-station location interpolation parameters
         gps.write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path)
 
-        # Write helpful printout detailing every dive, and how .LOG and .MER
-        # files connect
-        dives.generate_printout(complete_dives, mfloat_serial)
+        # Write text file detailing which SINGLE .LOG and .MER files define
+        # (possibly incomplete) dives
+        dives.write_dives_txt(dive_logs, processed_path, mfloat_path)
 
-        # # Write text file detailing how .LOG and .MER files connect
-        # dives.write_dives_txt(dive_logs, processed_path, mfloat_path)
+        # Write text file and printout detailing which (and potentially
+        # MULTIPLE) .LOG and .MER files define complete dives
+        dives.write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat_serial)
+
 
         # # Write a text file relating all SAC and mSEED to their associated .LOG
         # # and .MER files

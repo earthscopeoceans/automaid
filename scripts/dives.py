@@ -770,11 +770,14 @@ class Complete_Dive:
             event.to_mseed(self.export_path, self.kstnm, self.kinst)
 
     def print_len(self):
-        print("   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s}/{:s})" \
-              .format(str(self.start_date)[0:19], str(self.end_date)[0:19],
-                      self.len_days, self.log_name[0], self.log_name[-1]))
+        len_str  = "   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s}/{:s})" \
+                   .format(str(self.start_date)[0:19], str(self.end_date)[0:19],
+                           self.len_days, self.log_name[0], self.log_name[-1])
+        print(len_str)
+        return len_str + "\n"
 
     def print_log_mer_id(self):
+        log_mer_str = ""
         for i,_ in enumerate(self.log_name):
             if self.dive_id[i] is None:
                 id_str = "     ID: <none>"
@@ -783,32 +786,39 @@ class Complete_Dive:
                 id_str = "     ID: #{:>5d}".format(self.dive_id[i])
 
             if self.log_name[i] and self.mer_environment_name[i]:
-                print("{:s} ({:s}, {:s})".format(id_str, self.log_name[i], self.mer_environment_name[i]))
+                temp_str = "{:s} ({:s}, {:s})".format(id_str, self.log_name[i], self.mer_environment_name[i])
 
             elif self.log_name[i] and not self.mer_environment_name[i]:
                 # For example, 16_5F9C20FC.MER, which would have been P-16 Dive
                 # #120, and which was supposedly uploaded associated with
                 # 16_5F92A09C.LOG, does not/never existed on the server (no idea
                 # what happened)
-                print("{:s} ({:s}, <none>)".format(id_str, self.log_name[i]))
+                temp_str = "{:s} ({:s}, <none>)".format(id_str, self.log_name[i])
 
             elif self.mer_environment_name[i] and not self.log_name[i]:
-                print("{:s} (<none>, {:s})".format(id_str, self.mer_environment_name[i]))
+                temp_str = "{:s} (<none>, {:s})".format(id_str, self.mer_environment_name[i])
 
             else:
-                print("(<none>, <none>)\n")
+                temp_str = "(<none>, <none>)".format()
+
+            print(temp_str)
+            log_mer_str += temp_str + "\n"
+
+        return log_mer_str
 
     def print_events(self):
         if not self.events:
-            print("  Event: (no detected or requested events fall within the time window of this dive)")
+            evt_str = "  Event: (no detected or requested events fall within the time window of this dive)"
         else:
             for e in self.events:
                 if e.station_loc is None:
-                    print("  Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mer_binary_name))
+                    evt_str = " Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
+                              .format(e.get_export_file_name(), e.mer_binary_name)
                 else:
-                    print("  Event: {:s}.sac (</EVENT> binary in {:s})" \
-                          .format(e.get_export_file_name(), e.mer_binary_name))
+                    evt_str = "  Event: {:s}.sac (</EVENT> binary in {:s})" \
+                              .format(e.get_export_file_name(), e.mer_binary_name)
+        print(evt_str)
+        return evt_str + "\n"
 
 # Create dives object
 def get_dives(path, events, begin, end):
@@ -853,26 +863,57 @@ def concatenate_log_files(path):
                 logstring = ""
 
 
-def generate_printout(complete_dives, mfloat_serial):
-    print ""
-    for d in sorted(complete_dives, key=lambda x: x.start_date):
-        print("Complete Dive")
-        d.print_len()
-        d.print_log_mer_id()
-        d.print_events()
-        print ""
+def write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat_serial):
+    '''Writes complete_dives.txt and prints the same info to stdout
 
-    print("    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n" \
-        .format(mfloat_serial, \
-        sum(bool(e.station_loc) for d in complete_dives for e in d.events if not e.station_loc_is_preliminary)))
+    A complete dive is either: (1) wholly defined in a single .LOG file, or (2)
+    a concatenation of many (fragmented/error/reboot/testmd) .LOG files that lie
+    in-between single-.LOG complete dives
+
+    Prints all data for every .LOG/.MER in the server; does not, e.g., only
+    print info associated with those .LOG/.MER within datetime range of `main.py`
+
+    '''
+
+    complete_dives_file = os.path.join(processed_path, mfloat_path, "complete_dives.txt")
+    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+
+    with open(complete_dives_file, "w+") as f:
+        f.write(version_line)
+
+        for d in sorted(complete_dives, key=lambda x: x.start_date):
+            print("Complete Dive")
+            f.write("Complete Dive\n")
+
+            # These methods both return, and print to stdout, the same formatted string
+            f.write(d.print_len())
+            f.write(d.print_log_mer_id())
+            f.write(d.print_events())
+
+            print ""
+            f.write("\n")
+
+        sac_str = "    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n" \
+                  .format(mfloat_serial, \
+                          sum(bool(e.station_loc) for d in complete_dives for e in d.events if not e.station_loc_is_preliminary))
+
+        print(sac_str)
+        f.write(sac_str)
 
 
 def write_dives_txt(mdives, processed_path, mfloat_path):
+    '''Writes dives.txt, which treats every .LOG as a single (possibly incomplete) dive
+
+    Prints all data for every .LOG/.MER in the server; does not, e.g., only
+    print info associated with those .LOG/.MER within datetime range of  `main.py`
+
+    '''
+
     dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
     fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "dive_id              dive_start                dive_end   len_secs  len_days           log_name       mer_env_name\n".format()
+    header_line = "dive_id               log_start                 log_end   len_secs  len_days           log_name       mer_env_name\n".format()
 
     with open(dives_file, "w+") as f:
         f.write(version_line)
