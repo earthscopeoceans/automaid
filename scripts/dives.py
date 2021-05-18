@@ -377,36 +377,36 @@ class Dive:
         num_zeros = 5 - len(kstnm_char + kstnm_num)
         self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
 
-    def print_dive_gps(self):
-        # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
-        # current dive
-        if self.prev_dive_log_name is not None:
-            if self.prev_dive_mer_environment_name is not None:
-                print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
-                      .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
-            else:
-                print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
-        else:
-            print("    GPS: (...no previous dive...)")
+    # def print_dive_gps(self):
+    #     # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
+    #     # current dive
+    #     if self.prev_dive_log_name is not None:
+    #         if self.prev_dive_mer_environment_name is not None:
+    #             print("    GPS: {:s} (</ENVIRONMENT>) & {:s} [prev dive]" \
+    #                   .format(self.prev_dive_mer_environment_name, self.prev_dive_log_name))
+    #         else:
+    #             print("    GPS: {:s} [prev dive]".format(self.prev_dive_log_name))
+    #     else:
+    #         print("    GPS: (...no previous dive...)")
 
-        # By definition 1 .LOG == 1 "dive," so there is always a .log file but
-        # not necessarily an associated .MER (e.g., test or init I think?)
-        if self.mer_environment_name is not None:
-            print("         {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
-                  .format(self.mer_environment_name, self.log_name))
-        else:
-            print("         {:s} [this dive]".format(self.log_name))
+    #     # By definition 1 .LOG == 1 "dive," so there is always a .log file but
+    #     # not necessarily an associated .MER (e.g., test or init I think?)
+    #     if self.mer_environment_name is not None:
+    #         print("         {:s} (</ENVIRONMENT>) & {:s} [this dive]" \
+    #               .format(self.mer_environment_name, self.log_name))
+    #     else:
+    #         print("         {:s} [this dive]".format(self.log_name))
 
-        # Repeat printout for the following dive, whose data affect the gps
-        # interpolation of the current dive
-        if self.next_dive_exists:
-            if self.next_dive_mer_environment_name is not None:
-                print("         {:s} (</ENVIRONMENT>) & {:s} [next dive]" \
-                      .format(self.next_dive_mer_environment_name, self.next_dive_log_name))
-            else:
-                print("         {:s} [next dive]".format(self.next_dive_log_name))
-        else:
-            print("         (...awaiting next_dive...)")
+    #     # Repeat printout for the following dive, whose data affect the gps
+    #     # interpolation of the current dive
+    #     if self.next_dive_exists:
+    #         if self.next_dive_mer_environment_name is not None:
+    #             print("         {:s} (</ENVIRONMENT>) & {:s} [next dive]" \
+    #                   .format(self.next_dive_mer_environment_name, self.next_dive_log_name))
+    #         else:
+    #             print("         {:s} [next dive]".format(self.next_dive_log_name))
+    #     else:
+    #         print("         (...awaiting next_dive...)")
 
 class Complete_Dive:
     '''
