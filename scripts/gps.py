@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Apr-2021
+# Last modified by JDS: 18-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -721,7 +721,6 @@ def write_gps(mdives, processed_path, mfloat_path):
 
     '''
 
-    # Really, should only print GPS with valid clockfreqs
     gps_genexp = (gps for dive in mdives for gps in dive.gps_nonunique_list)
 
     # Version header is the same for both csv and txt files

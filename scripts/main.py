@@ -287,6 +287,9 @@ def main():
             if events_mseed:
                 complete_dive.generate_events_mseed()
 
+        # Write csv and txt files containing all GPS fixes from .LOG and .MER
+        gps.write_gps(dive_logs, processed_path, mfloat_path)
+
         # Write text file detailing event-station location interpolation parameters
         gps.write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path)
 
