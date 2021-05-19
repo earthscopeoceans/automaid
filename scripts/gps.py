@@ -709,25 +709,20 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
     return gps_out
 
 
-def write_gps(mdives, processed_path, mfloat_path):
+def write_gps(dive_logs, processed_path, mfloat_path):
     '''Write complete (raw, full, all, nonunique) GPS data from .LOG and .MER.
-    Differs from GeoCSV that writes unique (merged .MER time and .LOG position)
-    GPS fixes.
-
-    TODO:
-    [1] Only print fixes with valid clockfreqs (synchronizations)
-    [2] Add clockfreq column to text file
-    [3] Remove changing of "N" and "S" to "+" and "-" in LOG `g.source`
+    Differs from GeoCSV, which writes unique (merged .MER time and .LOG
+    position) GPS fixes.
 
     '''
 
-    gps_genexp = (gps for dive in mdives for gps in dive.gps_nonunique_list)
+    gps_genexp = (gps for dive in dive_logs for gps in dive.gps_nonunique_list)
 
     # Version header is the same for both csv and txt files
     version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
     # Specify field headers of both csv and txt files
-    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time             source raw_gps_lat(deg_min) raw_gps_lon(deg_min)\n"
+    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time mer_clockfreq             source       raw_gps_lat        raw_gps_lon\n"
     header_line_csv = '#' + ','.join(header_line_txt.split()) + '\n'
     header_line_txt = '#' + header_line_txt # add pound sign after comma substitution
 
@@ -738,10 +733,10 @@ def write_gps(mdives, processed_path, mfloat_path):
            '{:>6.3f}',
            '{:>6.3f}',
            '{:>17.6f}',
+           '{:>10.0f}',
            '{:>15s}',
-           '{:>9s}_{:<7s}',   # lat ('3s') specified as '9s' to accommodate long header
-           '{:>9s}_{:<7s}\n'] # lon ('4s') specified as '9s' to accommodate long header
-
+           '{:>14s}',
+           '{:>15s}\n']
 
     # Add four spaces between each field for the txt file
     fmt_txt  = '    '.join(fmt)
@@ -768,26 +763,12 @@ def write_gps(mdives, processed_path, mfloat_path):
                 g.hdop = float("NaN")
             if g.vdop is None:
                 g.vdop = float("NaN")
+            if g.clockfreq is None:
+                g.clockfreq = float("NaN")
 
             # Parse and format the raw strings.
             raw_lat = g.rawstr_dict['latitude']
             raw_lon = g.rawstr_dict['longitude']
-
-            if 'LOG' in g.source:
-                raw_lat_deg, raw_lat_mn = raw_lat.split('deg')
-                raw_lat_deg = raw_lat_deg.replace('N','+') if 'N' in raw_lat_deg else raw_lat_deg.replace('S','-')
-                raw_lat_mn = raw_lat_mn.strip('mn')
-
-                raw_lon_deg, raw_lon_mn = raw_lon.split('deg')
-                raw_lon_deg = raw_lon_deg.replace('E','+') if 'E' in raw_lon_deg else raw_lon_deg.replace('W','-')
-                raw_lon_mn = raw_lon_mn.strip('mn')
-
-            else:
-                raw_lat_deg = raw_lat[:3]
-                raw_lat_mn = raw_lat[3:]
-
-                raw_lon_deg = raw_lon[:4]
-                raw_lon_mn = raw_lon[4:]
 
             # Collect list of GPS data
             gps_data = [str(g.date)[:19] + 'Z',
@@ -796,11 +777,10 @@ def write_gps(mdives, processed_path, mfloat_path):
                         g.hdop,
                         g.vdop,
                         g.clockdrift,
+                        g.clockfreq,
                         g.source,
-                        raw_lat_deg,
-                        raw_lat_mn,
-                        raw_lon_deg,
-                        raw_lon_mn]
+                        raw_lat,
+                        raw_lon]
 
             # Write data to .csv and .txt formats
             f_csv.write(fmt_csv.format(*gps_data))

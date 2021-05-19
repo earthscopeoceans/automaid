@@ -14,7 +14,7 @@ def get_version():
 
     """
 
-    return 'v3.4.0-J'
+    return 'v3.4.0-K'
 
 def get_url():
     return 'https://github.com/earthscopeoceans/automaid'
