@@ -589,8 +589,8 @@ def write_traces_txt(mdives, processed_path, mfloat_path):
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
 
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               file_name            bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n".format()
+    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "#                                filename                   bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n"
 
     with open(traces_file, "w+") as f:
         f.write(version_line)
@@ -607,28 +607,25 @@ def write_traces_txt(mdives, processed_path, mfloat_path):
                                     d.next_dive_mer_environment_name))
 
 
-def write_loc_txt(mdives, processed_path, mfloat_path):
+def write_loc_txt(dive_logs, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each
     individual float
 
     '''
 
-    event_list = [event for dive in mdives for event in dive.events if event.station_loc]
+    event_list = [event for dive in dive_logs for event in dive.events if event.station_loc]
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
-    fmt_spec = "{:>40s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
+    fmt_spec = "{:<47s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
 
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "                               file_name   interp_STLA    interp_STLO      STDP\n"
+    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "#                               filename          interp_STLA    interp_STLO      STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)
         f.write(header_line)
 
         for e in sorted(event_list, key=lambda x: x.date):
-            if e.station_loc_is_preliminary:
-                continue
-
             f.write(fmt_spec.format(e.get_export_file_name(),
                                     np.float32(e.obspy_trace_stats.sac["stla"]),
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),

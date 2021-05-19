@@ -886,7 +886,7 @@ def write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat
     '''
 
     complete_dives_file = os.path.join(processed_path, mfloat_path, "complete_dives.txt")
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
     with open(complete_dives_file, "w+") as f:
         f.write(version_line)
@@ -920,10 +920,10 @@ def write_dives_txt(mdives, processed_path, mfloat_path):
     '''
 
     dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
-    fmt_spec = "{:>7s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
+    fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
 
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "dive_id               log_start                 log_end   len_secs  len_days           log_name       mer_env_name\n".format()
+    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    header_line = "#dive_id               log_start                 log_end   len_secs  len_days           log_name       mer_env_name\n".format()
 
     with open(dives_file, "w+") as f:
         f.write(version_line)

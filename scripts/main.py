@@ -305,9 +305,9 @@ def main():
         # and .MER files
         events.write_traces_txt(dive_logs, processed_path, mfloat_path)
 
-        # # Write a text file with our best-guess at the location of MERMAID at
-        # # the time of recording
-        # events.write_loc_txt(dive_logs, processed_path, mfloat_path)
+        # Write a text file with our best-guess at the location of MERMAID at
+        # the time of recording
+        events.write_loc_txt(dive_logs, processed_path, mfloat_path)
 
         # Write mseed2sac and automaid metadata csv and text files
         events.write_metadata(complete_dives, processed_path, mfloat_path)

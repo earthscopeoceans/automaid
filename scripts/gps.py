@@ -844,7 +844,7 @@ def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
 
     # Print GPS interpolation information for every dive that includes an event all three dive regimes
     gps_interp_file = os.path.join(processed_path, mfloat_path, "gps_interpolation.txt")
-    version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
 
     with open(gps_interp_file, "w+") as f:
         f.write(version_line)
