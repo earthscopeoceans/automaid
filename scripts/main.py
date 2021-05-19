@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 17-May-2021
+# Last modified by JDS: 18-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -201,6 +201,11 @@ def main():
         complete_dives = list()
         for i, dive_log in enumerate(dive_logs):
 
+            # Attach reference to previous / next .LOG and .MER files
+            prev_dive = dive_logs[i-1] if i > 0 else None
+            next_dive = dive_logs[i+1] if i < len(dive_logs)-1 else None
+            dive_log.attach_prev_next_dive(prev_dive, next_dive)
+
             # Create the directory
             if not os.path.exists(dive_log.export_path):
                 os.mkdir(dive_log.export_path)
@@ -293,10 +298,9 @@ def main():
         # MULTIPLE) .LOG and .MER files define complete dives
         dives.write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat_serial)
 
-
-        # # Write a text file relating all SAC and mSEED to their associated .LOG
-        # # and .MER files
-        # events.write_traces_txt(dive_logs, processed_path, mfloat_path)
+        # Write a text file relating all SAC and mSEED to their associated .LOG
+        # and .MER files
+        events.write_traces_txt(dive_logs, processed_path, mfloat_path)
 
         # # Write a text file with our best-guess at the location of MERMAID at
         # # the time of recording

@@ -86,7 +86,6 @@ class Dive:
         self.prev_dive_log_name = None
         self.prev_dive_mer_environment_name = None
 
-        self.next_dive_exists = False
         self.next_dive_log_name = None
         self.next_dive_mer_environment_name = None
 
@@ -376,6 +375,17 @@ class Dive:
 
         num_zeros = 5 - len(kstnm_char + kstnm_num)
         self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
+
+
+    def attach_prev_next_dive(self, prev_dive, next_dive):
+        if prev_dive:
+            self.prev_dive_log_name = prev_dive.log_name
+            self.prev_dive_mer_environment_name = prev_dive.mer_environment_name
+
+        if next_dive:
+            self.next_dive_log_name = next_dive.log_name
+            self.next_dive_mer_environment_name = next_dive.mer_environment_name
+
 
     # def print_dive_gps(self):
     #     # Repeat printout for the previous dive, whose data affect the GPS interpolation of the

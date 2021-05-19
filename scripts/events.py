@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 17-May-2021
+# Last modified by JDS: 18-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -587,7 +587,7 @@ def write_traces_txt(mdives, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
-    fmt_spec = '{:>40s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
+    fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
 
     version_line = "automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
     header_line = "                               file_name            bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n".format()
@@ -597,9 +597,6 @@ def write_traces_txt(mdives, processed_path, mfloat_path):
         f.write(header_line)
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
-            if e.station_loc_is_preliminary:
-                continue
-
             f.write(fmt_spec.format(e.get_export_file_name(),
                                     e.mer_binary_name,
                                     d.prev_dive_log_name,
