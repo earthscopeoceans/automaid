@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 18-May-2021
+# Last modified by JDS: 19-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -205,16 +205,15 @@ class Dive:
         # attached events and their binary data).
         self.events = events.get_events_between(self.start_date, self.end_date)
 
-        # For each event
+        # Set and parse info from .MER file and invert wavelet transform any binary data
         for event in self.events:
-            # 1 Set the environment information
             event.set_environment(self.mer_environment_name, self.mer_environment)
-            # 2 Find true sampling frequency
             event.find_measured_sampling_frequency()
-            # 3 Compute starttime of event from the TRIG sample index
             event.correct_date()
-            # 4 Invert wavelet transform of event
             event.invert_transform()
+
+        # Re-sort events based on date after correction
+        self.events.sort(key=lambda x: x.date)
 
         # Collect all GPS fixes taken in both the .LOG  and .MER file
         self.gps_list, self.gps_nonunique_list, self.gps_from_log, self.gps_from_mer_environment \
@@ -438,11 +437,8 @@ class Complete_Dive:
         self.end_date = complete_dive[-1].end_date
         self.dive_id = [d.dive_id for d in complete_dive]
 
-        if not (len(self.log_name) ==
-                len(self.mer_environment_name) ==
-                len(self.dive_id)):
-            # This would surprise me and imply that something went wrong...
-            from IPython import embed; embed()
+        if len(self.log_name) != len(self.mer_environment_name):
+            raise ValueError('Expected equal-length lists: .LOG, .MER (.MER can be `None`)')
 
         self.len_secs = self.end_date - self.start_date
         self.len_days = self.len_secs / (60*60*24.)
@@ -619,22 +615,9 @@ class Complete_Dive:
 
         '''
 
-        # Require at least a single GPS point before and after each dive; after all, we only have
-        # two points to interpolate for mixed-layer drift, which accounts for > 90% of the total
-        # drift (despite the higher drift velocities at the surface, the total the surface-drift
-        # components are generally not large because comparatively so little time is spent there --
-        # see *gps_interpolation.txt for percentages)
-
         if not self.gps_valid4location_interp:
             if preliminary_location_ok:
                 for event in self.events:
-                    # Do not use `_incl_[prev/next]_dive` because the final Dive
-                    # has no "next" dive, yet, and hackily assigning it one with
-                    # `mdives[i].set_incl_prev_next_dive_gps(mdives[i-1], None)`
-                    # in main.py can set `self.valid_event_gps()` to True, when
-                    # it's really false causing this entire conditional to be
-                    # skipped, and generating a non-'prelim.sac', which is bad
-
                     if self.gps_before_dive and self.gps_after_dive:
                         # Use last GPS before dive and first GPS after dive, ideally
                         event.compute_station_location(self.gps_before_dive[-1], \
@@ -911,7 +894,7 @@ def write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat
         f.write(sac_str)
 
 
-def write_dives_txt(mdives, processed_path, mfloat_path):
+def write_dives_txt(dive_logs, processed_path, mfloat_path):
     '''Writes dives.txt, which treats every .LOG as a single (possibly incomplete) dive
 
     Prints all data for every .LOG/.MER in the server; does not, e.g., only
@@ -930,7 +913,7 @@ def write_dives_txt(mdives, processed_path, mfloat_path):
 	f.write(header_line)
 
         # 1 .LOG == 1 dive
-        for d in sorted(mdives, key=lambda x: x.start_date):
+        for d in sorted(dive_logs, key=lambda x: x.start_date):
             f.write(fmt_spec.format(str(d.dive_id),
                                     str(d.start_date)[:19] + 'Z',
                                     str(d.end_date)[:19] + 'Z',

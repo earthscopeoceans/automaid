@@ -1,10 +1,10 @@
-# Part of automaid -- a Python package to process MERMAID files
+ Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 18-May-2021
+# Last modified by JDS: 19-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -103,7 +103,7 @@ class Events:
         for event in self.events:
             if begin < event.date < end:
                 catched_events.append(event)
-        return catched_events
+        return sorted(catched_events, key=lambda x: x.date)
 
 
 class Event:
@@ -232,7 +232,7 @@ class Event:
         it recorded an event
 
         '''
-        self.station_loc = gps.linear_interpolation([drift_begin_gps,  drift_end_gps], self.date)
+        self.station_loc = gps.linear_interpolation([drift_begin_gps, drift_end_gps], self.date)
         self.station_loc_is_preliminary = station_loc_is_preliminary
 
     def invert_transform(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
@@ -572,7 +572,6 @@ class Event:
         if self.station_loc is None and not force_without_loc:
             return
 
-
         # Save data into a Stream object
         trace = Trace()
         trace.stats = self.obspy_trace_stats
@@ -582,9 +581,8 @@ class Event:
 
         return stream
 
-
-def write_traces_txt(mdives, processed_path, mfloat_path):
-    event_dive_tup = ((event, dive) for dive in mdives for event in dive.events if event.station_loc)
+def write_traces_txt(dive_logs, processed_path, mfloat_path):
+    event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
@@ -605,7 +603,6 @@ def write_traces_txt(mdives, processed_path, mfloat_path):
                                     d.mer_environment_name,
                                     d.next_dive_log_name,
                                     d.next_dive_mer_environment_name))
-
 
 def write_loc_txt(dive_logs, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each

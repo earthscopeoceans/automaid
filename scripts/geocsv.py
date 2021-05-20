@@ -35,7 +35,7 @@ class GeoCSV:
         if not all(isinstance(complete_dive, dives.Complete_Dive) for complete_dive in complete_dives):
             raise ValueError('Input `complete_dives` must be list of `dives.Complete_Dives` instances')
 
-        self.complete_dives = sorted(complete_dives, key=lambda x: x.log_name[0])
+        self.complete_dives = complete_dives
         self.version = version
         self.delimiter = delimiter
         self.lineterminator = lineterminator
@@ -165,7 +165,7 @@ class GeoCSV:
                 raise ValueError("flag must be one of: 'all', 'before_dive', or 'after_dive'")
 
             # Loop over all GPS instances and write single line for each
-            for gps in sorted(gps_list, key=lambda x:x.date):
+            for gps in sorted(gps_list, key=lambda x: x.date):
                 measurement_row = [
                     'Measurement:GPS:Trimble',
                     str(gps.date)[0:19]+'Z',
@@ -223,7 +223,7 @@ class GeoCSV:
             # Only keep events with an interpolated station location (STLA/STLO)
             event_list = [event for event in event_list if event.station_loc is not None]
 
-            for event in sorted(event_list, key=lambda x: x.station_loc.date):
+            for event in sorted(event_list, key=lambda x: x.date):
                 if event.station_loc_is_preliminary:
                     continue
 
@@ -275,7 +275,7 @@ class GeoCSV:
             write_header_rows(csvwriter_list)
 
             # Write metadata rows to all three files
-            for complete_dive in self.complete_dives:
+            for complete_dive in sorted(self.complete_dives, key=lambda x: x.start_date):
                 # Write ONLY this dive's GPS list --
                 # Yes: `complete_dive.gps_before_dive` (or `after_dive`)
                 # No: `complete_dive.gps_before_dive_incl_next_dive` (or `after_dive`)

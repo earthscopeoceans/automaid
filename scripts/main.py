@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 18-May-2021
+# Last modified by JDS: 19-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -197,6 +197,14 @@ def main():
               .format(mfloat_serial))
         dive_logs = dives.get_dives(mfloat_path, mevents, begin, end)
 
+        # Verify dive logs are sorted as expected
+        if dive_logs!= sorted(dive_logs, key=lambda x: x.start_date):
+            raise ValueError('`dive_logs` (single .LOG files) improperly sorted')
+
+        # Verify events sublists are sorted as expected
+        if events_list != sorted(events_list, key=lambda x: x.date):
+            raise ValueError('`dive_logs[*].events` improperly sorted')
+
         fragmented_dive = list()
         complete_dives = list()
         for i, dive_log in enumerate(dive_logs):
@@ -241,6 +249,11 @@ def main():
                 if i < len(dive_logs)-1 and dive_logs[i+1].is_complete_dive:
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
                     fragmented_dive = list()
+
+        # Verify complete dives are sorted as expected
+        if complete_dives != sorted(complete_dives, key=lambda x: x.start_date) \
+           or complete_dives !=  sorted(complete_dives, key=lambda x: x.end_date):
+            raise ValueError('`complete_dives` (potentially concatenated .LOG files) improperly sorted')
 
         # Plot vital data
         kml.generate(mfloat_path, mfloat, complete_dives)

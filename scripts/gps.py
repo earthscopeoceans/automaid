@@ -839,8 +839,6 @@ def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
 
     # Generate (unique) list of dives with events whose interpolated locations we are able to compute
     dive_set = set(dive for dive in complete_dives for event in dive.events if event.station_loc)
-    dive_list = list(dive_set)
-    dive_list = sorted(dive_list, key=lambda x: x.start_date)
 
     # Print GPS interpolation information for every dive that includes an event all three dive regimes
     gps_interp_file = os.path.join(processed_path, mfloat_path, "gps_interpolation.txt")
@@ -849,7 +847,7 @@ def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
     with open(gps_interp_file, "w+") as f:
         f.write(version_line)
 
-        for dive in dive_list:
+        for dive in sorted(dive_set, key=lambda x: x.start_date)
 
             # Compute the percentage of the total interpolate distance for the three regimes:
             # (1) surface-layer drift during the descent
@@ -913,8 +911,8 @@ def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
             # mixed-layer drift from leaving the surface layer (passing into the "deep" or
             # mixed-layer drift regime) and recording an event
             for event in dive.events:
-                if event.station_loc_is_preliminary:
-                    continue
+                # if event.station_loc_is_preliminary:
+                #     continue
 
                 interp_drift_to_event_mixed_layer, interp_fmt_spec = parse_interp_params(event.station_loc.interp_dict)
                 interp_drift_to_event_mixed_layer.append(event.get_export_file_name())
