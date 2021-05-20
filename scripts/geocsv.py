@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Apri-2021
+# Last modified by JDS: 20-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -14,7 +14,7 @@
 # *Verify types and signs, e.g. for 'time correction/delay' ([+/-]np.int32)
 
 import csv
-import pickle
+import warnings
 import numpy as np
 
 import dives
@@ -105,6 +105,14 @@ class GeoCSV:
             'TimeCorrection'
         ]
 
+    def header_lines(self):
+        return [self.dataset_header,
+                self.delimiter_header,
+                self.lineterminator_header,
+                self.field_unit_header,
+                self.field_type_header,
+                self.MethodIdentifier_header]
+
     def write(self, filename='geo.csv'):
         """Write three GeoCSV for: all, 'DET', and 'REQ' events
 
@@ -130,13 +138,7 @@ class GeoCSV:
 
             """
             for csvwriter in csvwriter_list:
-                csvwriter.writerows([self.dataset_header,
-                                     self.delimiter_header,
-                                     self.lineterminator_header,
-                                     self.field_unit_header,
-                                     self.field_type_header,
-                                     self.MethodIdentifier_header])
-
+                csvwriter.writerows(self.header_lines())
 
         def write_measurement_rows(csvwriter_list, complete_dive, flag):
             """Write rows of GPS measurements
@@ -223,6 +225,8 @@ class GeoCSV:
             # Only keep events with an interpolated station location (STLA/STLO)
             event_list = [event for event in event_list if event.station_loc is not None]
 
+            # Initialize an "previous" row to check for redundancies
+            prev_algorithm_row = list()
             for event in sorted(event_list, key=lambda x: x.date):
                 if event.station_loc_is_preliminary:
                     continue
@@ -247,8 +251,14 @@ class GeoCSV:
                     d6(event.mseed_time_correction)
                 ]
 
-                # Write (possibly multiple) event line(s) to a single CSV file
-                csvwriter.writerow(algorithm_row)
+                # Write event ("algorithm") line to a single CSV file
+                # (skipping redundant lines, e.g., for multiply-requested "REQ" files)
+                if algorithm_row != prev_algorithm_row:
+                    csvwriter.writerow(algorithm_row)
+
+                # Overwrite "previous" row used to check for redundancies
+                prev_algorithm_row = algorithm_row
+
 
         ## Script of self.write()
         ## ___________________________________________________________________________ ##
@@ -292,8 +302,34 @@ class GeoCSV:
                 if complete_dive.gps_after_dive:
                     write_measurement_rows(csvwriter_list, complete_dive, 'after_dive')
 
+        print("Wrote: {}".format(csvfile_all.name))
+        print("Wrote: {}".format(csvfile_det.name))
+        print("Wrote: {}\n".format(csvfile_req.name))
 
-if __name__ == '__main__':
-    dive_list = pickle.load(open('P008.p', 'rb'))
-    geocsv = GeoCSV(dive_list)
-    geocsv.write('test')
+        # Extra verifications: read file and check that lines are (1) sorted, and (2) unique
+        with open(csvfile_all.name, 'r') as csvfile_all, \
+             open(csvfile_det.name, 'r') as csvfile_det, \
+             open(csvfile_req.name, 'r') as csvfile_req:
+
+            len_header = len(self.header_lines())
+            csvfile_list = [csvfile_all, csvfile_det, csvfile_req]
+
+            for csvfile in csvfile_list:
+                # Read
+                csvreader = csv.reader(csvfile, delimiter=self.delimiter, lineterminator=self.lineterminator)
+                rows = list(csvreader)
+
+                # (1) Verify all dates sorted (skip header lines)
+                dates = [row[1] for row in rows[len_header:]]
+                if dates == sorted(dates):
+                    print("Verified: {} rows properly sorted".format(csvfile.name))
+                else:
+                    raise ValueError("Error: {} rows not properly sorted".format(csvfile.name))
+
+                # (2) Verify all rows unique (include header lines)
+                str_rows = [(',').join(row) for row in rows]
+                if len(str_rows) == len(set(str_rows)):
+                    print("Verified: {} rows unique\n".format(csvfile.name))
+
+                else:
+                    raise ValueError("Error: {} rows not unique\n".format(csvfile.name))
