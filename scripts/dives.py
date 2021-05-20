@@ -426,8 +426,6 @@ class Complete_Dive:
     network = utils.network()
 
     def __init__(self, complete_dive=None):
-        flatten = lambda toplist: [item for sublist in toplist for item in sublist]
-
         self.log_name = [d.log_name for d in complete_dive]
         self.log_content = ''.join(d.log_content for d in complete_dive)
         self.mer_environment_name = [d.mer_environment_name for d in complete_dive]
@@ -460,7 +458,7 @@ class Complete_Dive:
         # The nonunique list may include redundant GPS fixes from fragmented .LOG
         # I.e., an error in the .LOG may result in the redundant printing of GPS
         # fixes over multiple files
-        self.gps_nonunique_list = flatten([d.gps_nonunique_list for d in complete_dive])
+        self.gps_nonunique_list = utils.flattenList([d.gps_nonunique_list for d in complete_dive])
         self.gps_nonunique_list = sorted(self.gps_nonunique_list, key=lambda x: x.date)
 
         # We must re-merge GPS pairs to find truly unique pairs within
@@ -468,7 +466,7 @@ class Complete_Dive:
         # and .MER files that print redundant GPS info that is unique to THAT
         # SPECIFIC file, but NOT unique to a "complete dive" constructed of
         # fragmented files
-        self.gps_list = flatten([d.gps_list for d in complete_dive])
+        self.gps_list = utils.flattenList([d.gps_list for d in complete_dive])
         self.gps_list = gps.merge_gps_list(self.gps_list)
 
         # Retain date of (first if multiple(?)) "DIVING" (else set to None)
@@ -487,7 +485,7 @@ class Complete_Dive:
 
         self.gps_after_dive = [x for x in self.gps_list if x.date > self.ascent_reach_surface_date]
 
-        self.events = flatten([d.events for d in complete_dive])
+        self.events = utils.flattenList([d.events for d in complete_dive])
 
         # Retain most recent external pressure measurement
         for d in reversed(complete_dive):

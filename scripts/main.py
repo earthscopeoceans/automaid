@@ -202,6 +202,7 @@ def main():
             raise ValueError('`dive_logs` (single .LOG files) improperly sorted')
 
         # Verify events sublists are sorted as expected
+        events_list = [e for d in dive_logs for e in d.events]
         if events_list != sorted(events_list, key=lambda x: x.date):
             raise ValueError('`dive_logs[*].events` improperly sorted')
 

@@ -847,7 +847,7 @@ def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
     with open(gps_interp_file, "w+") as f:
         f.write(version_line)
 
-        for dive in sorted(dive_set, key=lambda x: x.start_date)
+        for dive in sorted(dive_set, key=lambda x: x.start_date):
 
             # Compute the percentage of the total interpolate distance for the three regimes:
             # (1) surface-layer drift during the descent

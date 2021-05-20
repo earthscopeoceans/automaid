@@ -3,10 +3,10 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
+# Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
-# Current maintainer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-Jan-2021
+# Last modified by JDS: 20-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -188,7 +188,7 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
     Result:
         modifies miniSEED file (see warnings and notes)
 
-    Warnings: 
+    Warnings:
     * Unsets all other 'Activity', 'I/O and clock', and 'Data Quality' flags.
     * Only adds time correction to header; does not also adjust start/end times.
 
@@ -200,7 +200,7 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
     [2] Verify the 'Timing correction' VALUE has been noted for N records:
 
         `$ python -m obspy.io.mseed.scripts.recordanalyzer -a mseed_filename`
-    
+
     Notes:
     * Time correction value in [1] appears to be a bug/percentage?
     * Time correction value in [2] is in units of 0.0001 seconds.
@@ -246,3 +246,10 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
 
             # Find the offset of the next record relative to the start of the file
             record_offset += record_info.get('record_length')
+
+
+def flattenList(toplist):
+    ''' Flatten/merge a two-layer-deep nested list
+
+    '''
+    return [item for sublist in toplist for item in sublist]
