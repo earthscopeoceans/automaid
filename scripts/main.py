@@ -104,8 +104,9 @@ filterDate = {
     "452.020-P-0054": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1))
 }
 # *I found dates in the same range (~minutes before) as misalo.txt and set these filterDates to the
-# actual corresponding date in the LOG; if the date did not match exactly I looked for the first
-# date where the clock drift reset and the associated LOG recorded an actual dive
+# actual corresponding date in the LOG (GPS time pairs are printed in .LOG then .MER, in that order,
+# so it is valid to use the .LOG time here) ; if the date did not match exactly I looked for the
+# first date where the clock drift reset and the associated LOG recorded an actual dive
 
 # Boolean set to true in order to delete every processed data and redo everything
 redo = False

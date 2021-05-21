@@ -550,7 +550,7 @@ class Complete_Dive:
         diving contain a good onboard clock synchronization.
 
         If max_time is ignored if num_gps=1.
-        
+
         """
 
         self.gps_valid4clockdrift_correction = False
