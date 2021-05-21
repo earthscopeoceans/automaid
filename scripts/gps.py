@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 18-May-2021
+# Last modified by JDS: 20-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -202,10 +202,6 @@ def linear_interpolation(gps_list, date):
     gps_list.sort(key=lambda x: x.date)
 
     # Identify the reference GPS points (gps_list[i]):
-    # * last GPS before dive (descent)
-    # * last interpolated location (i.e., when it leaves surface layer and crosses into mixed layer)
-    #   before deep drift (mixed-layer drift; data acquisition phase)
-    # * first GPS after dive (ascent)
 
     # If date is before any gps fix compute drift from the two first gps fix
     if date < gps_list[0].date:
@@ -236,6 +232,8 @@ def linear_interpolation(gps_list, date):
 
     else:
         # If date is between two gps fix find the appropriate gps fix
+        # In this case gps_list[i] is the LAST GPS fix BEFORE the interpolation date
+        # In this case gps_list[j] is the FIRST GPS fix AFTER the interpolation date
         i = 0
         j = 1
         while not gps_list[i].date < date < gps_list[j].date and j < len(gps_list)-1:
@@ -254,7 +252,7 @@ def linear_interpolation(gps_list, date):
         interp_lat = gps_list[i].latitude
         interp_lon = gps_list[i].longitude
         date = gps_list[i].date  # overwrite: we did not interpolate at the requested date
-        description = description + "; retained points too close for interpolation; location and date fixed to one of input gps_list"
+        description = description + "; retained points too close (spatially) for interpolation; location and date fixed to one of input gps_list"
 
     else:
         input_drift_dist_m = gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, \
@@ -790,7 +788,8 @@ def write_gps(dive_logs, processed_path, mfloat_path):
 def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
     '''Writes MERMAID GPS interpolation file, detailing GPS and interpolation parameters for the three
     main regimes of each dive: descent and drift in the surface layer, drift in the mixed layer, and
-    ascent and drift in the surface layer
+    ascent and drift in the surface layer.
+
 
     '''
 
@@ -858,8 +857,8 @@ def write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path):
             #
             # (3) surface-layer drift during the ascent
 
-            leg_descent = dive.descent_leave_surface_loc
-            leg_ascent = dive.ascent_reach_surface_loc
+            leg_descent = dive.descent_last_loc_before_event
+            leg_ascent = dive.ascent_first_loc_after_event
             if leg_descent is None or leg_ascent is None:
                 continue
 

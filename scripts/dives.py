@@ -502,11 +502,13 @@ class Complete_Dive:
         self.descent_leave_surface_loc = None
         self.descent_leave_surface_layer_date = None
         self.descent_leave_surface_layer_loc = None
+        self.descent_last_loc_before_event = None
 
         self.gps_after_dive_incl_next_dive = None
         self.ascent_reach_surface_loc = None
         self.ascent_reach_surface_layer_date = None
         self.ascent_reach_surface_layer_loc = None
+        self.ascent_first_loc_after_event = None
 
     def set_incl_prev_next_dive_gps(self, prev_dive=None, next_dive=None):
         '''Expands a dive's GPS list to include GPS fixes before/after it by inspecting
@@ -676,7 +678,7 @@ class Complete_Dive:
                 descent_date_in_surface_layer = self.descent_leave_surface_date
                 descent_depth_in_surface_layer = 0
 
-            # Compute when the float leaves the surface and reaches the mixed layer
+            # Compute when the float leaves the surface layer and reaches the mixed layer
             descent_vel = (descent_depth_in_mixed_layer - descent_depth_in_surface_layer) \
                           / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
             descent_dist_to_mixed_layer = mixed_layer_depth_m - descent_depth_in_surface_layer
@@ -711,7 +713,7 @@ class Complete_Dive:
                 ascent_depth_in_surface_layer = 0
 
             # Compute when the float leaves the mixed layer and reaches the surface (flipped
-            # subtraction order so that ascent is velocity is positive)
+            # subtraction order so that ascent velocity is positive)
             ascent_vel = (ascent_depth_in_mixed_layer - ascent_depth_in_surface_layer) \
                          / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
             ascent_dist_to_mixed_layer = ascent_depth_in_mixed_layer - mixed_layer_depth_m
@@ -725,17 +727,19 @@ class Complete_Dive:
 
             # MERMAID passed through the surface layer and into the mixed layer -- interpolate the
             # location of the recorded event assuming a multi-layer (surface and mixed) ocean
-            last_descent_loc_before_event = self.descent_leave_surface_layer_loc
-            first_ascent_loc_after_event = self.ascent_reach_surface_layer_loc
+            self.descent_last_loc_before_event = self.descent_leave_surface_layer_loc
+            self.ascent_first_loc_after_event = self.ascent_reach_surface_layer_loc
+
         else:
             # MERMAID never passed through the surface layer and into the mixed layer -- interpolate
             # the location of the recorded event assuming a single-layer ocean
-            last_descent_loc_before_event = self.descent_leave_surface_loc
-            first_ascent_loc_after_event = self.ascent_reach_surface_loc
+            self.descent_last_loc_before_event = self.descent_leave_surface_loc
+            self.ascent_first_loc_after_event = self.ascent_reach_surface_loc
 
         # Compute event locations between interpolated locations of exit and re-entry of surface waters
         for event in self.events:
-            event.compute_station_location(last_descent_loc_before_event, first_ascent_loc_after_event)
+            event.compute_station_location(self.descent_last_loc_before_event,
+                                           self.ascent_first_loc_after_event)
 
     def attach_events_metadata(self):
         for event in self.events:
