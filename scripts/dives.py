@@ -546,9 +546,11 @@ class Complete_Dive:
         `gps_valid4location_interp`: True is GPS within requested inputs
 
         Note that the former may be True when the latter is not: the former is a
-        softer requirement only that the last(first) before(after) diving
-        contain a good onboard clock synchronization.
+        softer requirement that only the last(first) GPS fix before(after)
+        diving contain a good onboard clock synchronization.
 
+        If max_time is ignored if num_gps=1.
+        
         """
 
         self.gps_valid4clockdrift_correction = False
@@ -570,27 +572,28 @@ class Complete_Dive:
         else:
             return
 
-        # Ensure the required number of GPS exist within the required time
-        # before diving
-        count = 0
-        for g in reversed(gps_before):
-            tdiff = self.descent_leave_surface_date - g.date
-            if tdiff < max_time:
-                count += 1
+        if num_gps > 1:
+            # Ensure the required number of GPS exist within the required time
+            # before diving
+            count = 0
+            for g in reversed(gps_before):
+                tdiff = self.descent_leave_surface_date - g.date
+                if tdiff < max_time:
+                    count += 1
 
-        if count < num_gps:
-            return
+            if count < num_gps:
+                return
 
-        # Ensure the required number of GPS exist within the required time
-        # after surfacing
-        count = 0
-        for g in gps_after:
-            tdiff = g.date - self.ascent_reach_surface_date
-            if tdiff < max_time:
-                count += 1
+            # Ensure the required number of GPS exist within the required time
+            # after surfacing
+            count = 0
+            for g in gps_after:
+                tdiff = g.date - self.ascent_reach_surface_date
+                if tdiff < max_time:
+                    count += 1
 
-        if count < num_gps:
-            return
+            if count < num_gps:
+                return
 
         # If here, all tests passed
         self.gps_valid4location_interp = True
