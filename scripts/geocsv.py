@@ -322,9 +322,9 @@ class GeoCSV:
                 # (1) Verify all dates sorted (skip header lines)
                 dates = [row[1] for row in rows[len_header:]]
                 if dates == sorted(dates):
-                    print("Verified: {} rows properly sorted".format(csvfile.name))
+                    print("Verified: {} rows sorted".format(csvfile.name))
                 else:
-                    raise ValueError("Error: {} rows not properly sorted".format(csvfile.name))
+                    raise ValueError("Error: {} rows not sorted".format(csvfile.name))
 
                 # (2) Verify all rows unique (include header lines)
                 str_rows = [(',').join(row) for row in rows]

@@ -575,10 +575,9 @@ class Complete_Dive:
             tdiff = self.descent_leave_surface_date - g.date
             if tdiff < max_time:
                 count += 1
-                if count == num_gps:
-                    break
-            else:
-                return
+
+        if count < num_gps:
+            return
 
         # Ensure the required number of GPS exist within the required time
         # after surfacing
@@ -587,10 +586,9 @@ class Complete_Dive:
             tdiff = g.date - self.ascent_reach_surface_date
             if tdiff < max_time:
                 count += 1
-                if count == num_gps:
-                    break
-            else:
-                return
+
+        if count < num_gps:
+            return
 
         # If here, all tests passed
         self.gps_valid4location_interp = True
