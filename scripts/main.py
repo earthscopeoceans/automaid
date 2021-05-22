@@ -39,7 +39,7 @@ min_gps_fix = 2
 
 # Maximum-allowed time in seconds before(after) diving(surfacing) to record the
 # minimum-required number of unique GPS fixes
-max_gps_time = 3600
+max_gps_time = 5400
 
 # Toggle preliminary (rapid) location estimates on and off
 preliminary_location_ok = False

@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 19-May-2021
+# Last modified by JDS: 21-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -532,14 +532,14 @@ class Complete_Dive:
         self.gps_before_dive_incl_prev_dive.sort(key=lambda x: x.date)
         self.gps_after_dive_incl_next_dive.sort(key=lambda x: x.date)
 
-    def validate_gps(self, num_gps=2, max_time=3600):
+    def validate_gps(self, num_gps=2, max_time=5400):
         """Returns true if valid GPS fixes exist to interpolate clock drifts and
         station locations at the time of recording events
 
         Args:
-        num_gps (int): Min. # GPS fixes before/after dive (def=2)
-        max_time (int): Max. time (s) before/after dive within which
-                        `num_gps` are recorded (def=3600)
+        num_gps (int): Min. # GPS fixes before(after) diving(surfacing) (def=2)
+        max_time (int): Max. time (s) before(after) diving(surfacing) within
+                        which `num_gps` must be  recorded (def=3600)
 
         Sets attrs:
         `gps_valid4clockdrift_correction`: True is good synchronization pre/post dive
@@ -782,39 +782,45 @@ class Complete_Dive:
                 id_str = "     ID: #{:>5d}".format(self.dive_id[i])
 
             if self.log_name[i] and self.mer_environment_name[i]:
-                temp_str = "{:s} ({:s}, {:s})".format(id_str, self.log_name[i], self.mer_environment_name[i])
+                tmp_str = "{:s} ({:s}, {:s})".format(id_str, self.log_name[i], self.mer_environment_name[i])
 
             elif self.log_name[i] and not self.mer_environment_name[i]:
                 # For example, 16_5F9C20FC.MER, which would have been P-16 Dive
                 # #120, and which was supposedly uploaded associated with
                 # 16_5F92A09C.LOG, does not/never existed on the server (no idea
                 # what happened)
-                temp_str = "{:s} ({:s}, <none>)".format(id_str, self.log_name[i])
+                tmp_str = "{:s} ({:s}, <none>)".format(id_str, self.log_name[i])
 
             elif self.mer_environment_name[i] and not self.log_name[i]:
-                temp_str = "{:s} (<none>, {:s})".format(id_str, self.mer_environment_name[i])
+                tmp_str = "{:s} (<none>, {:s})".format(id_str, self.mer_environment_name[i])
 
             else:
-                temp_str = "(<none>, <none>)".format()
+                tmp_str = "(<none>, <none>)".format()
 
-            print(temp_str)
-            log_mer_str += temp_str + "\n"
+            print(tmp_str)
+            log_mer_str += tmp_str + "\n"
 
         return log_mer_str
 
     def print_events(self):
+        evt_str = ""
         if not self.events:
-            evt_str = "  Event: (no detected or requested events fall within the time window of this dive)"
+            tmp_str = "  Event: (no detected or requested events fall within the time window of this dive)"
+            print(tmp_str)
+            evt_str += tmp_str + "\n"
+
         else:
             for e in self.events:
                 if e.station_loc is None:
-                    evt_str = " Event: ! NOT MADE (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
+                    tmp_str = " Event: ! NOT MADE ! (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
                               .format(e.get_export_file_name(), e.mer_binary_name)
                 else:
-                    evt_str = "  Event: {:s}.sac (</EVENT> binary in {:s})" \
+                    tmp_str = "  Event: {:s}.sac (</EVENT> binary in {:s})" \
                               .format(e.get_export_file_name(), e.mer_binary_name)
-        print(evt_str)
-        return evt_str + "\n"
+                print(tmp_str)
+                evt_str += tmp_str + "\n"
+
+        return evt_str
 
 # Create dives object
 def get_dives(path, events, begin, end):
