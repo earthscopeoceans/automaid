@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-May-2021
+# Last modified by JDS: 21-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -60,14 +60,14 @@ class GPS_nonUnique(GPS):
 
         self.source = source
         self.loc_source = self.source
-        self.date_source = self.source
+        self.time_source = self.source
         self.rawstr_dict = rawstr_dict
 
 
 class GPS_unique(GPS):
     def __init__(self, date=None, latitude=None, longitude=None,
                  clockdrift=None, clockfreq=None, hdop=None, vdop=None,
-                 loc_source=None, date_source=None):
+                 loc_source=None, time_source=None):
 
         super(GPS_unique, self).__init__(date=date, latitude=latitude,
                                          longitude=longitude,
@@ -76,8 +76,40 @@ class GPS_unique(GPS):
                                          vdop=vdop)
 
         self.loc_source = loc_source
-        self.date_source = date_source
+        self.time_source = time_source
 
+
+    def mer_time_log_loc(self):
+        '''Returns True if timing info is sourced from a .MER file and location info is
+        sourced from a .LOG file in a GPS_unique object.
+
+        It is my understanding that:
+        *time in the .MER file is BEFORE the onboard clock has been synced with GPS time
+        *time in the .LOG file is AFTER the onboard clock has been synced with GPS time
+
+        but both the .LOG and .MER within a "GPS pair" will record the same
+        clockdrift, even though strictly speaking that clockdrift has actually
+        been removed from the .LOG time but not the .MER time?
+
+        Therefore, Seb suggests, "I think that for the clock information, such
+        as GPSACK, you should use only the .MER file. Use the LOG file only for
+        GPS position and hvdop," because, as I reason it, we want to use the
+        uncorrected (.MER time) and the measured correction to compute
+        proportionally how much of that time delay was acquired at the time of
+        recording events.
+
+        This explains why .MER times are always after .LOG times: for the same
+        GPS session, the time written to .MER is the uncorrected, time-delayed
+        time on of the MERMAID clock, while the .LOG time is the time after
+        correction (gps_time-mer_time is almost always negative, meaning that
+        MERMAID time is late compared to GPS time).
+
+        '''
+
+        if 'MER' in self.time_source and 'LOG' in self.loc_source:
+            return True
+        else:
+            return False
 
 class GPS_interp(GPS):
     def __init__(self, date=None, latitude=None, longitude=None,
@@ -330,8 +362,7 @@ def merge_gps_list(gps_nonunique_list):
     pairs keeping (when available): .MER time, .LOG position.  If a .LOG or .MER
     is unpaired the complete data from the lone file is returned. A GPS pair is
     defined as two GPS positions written to a .LOG and .MER w/in 60 s of one
-    another with identical clockdrifts (implying no clock synchronization
-    between both fixes, i.e., they form a "pair").
+    another with identical clockdrifts (implying that they form a "pair").
 
     Note: does NOT remove GPS with bad clock synchronizations because we need to
     know if those occurred immediately before/after dives to determine if those
@@ -362,15 +393,15 @@ def merge_gps_list(gps_nonunique_list):
 
         if time_diff < 60 and clockdrift_diff < 1e-6:
             # Keep the time from the .MER and the location from the .LOG
-            if 'LOG' and 'MER' in (gps1.loc_source + gps1.date_source +
-                                   gps2.loc_source + gps2.date_source):
+            if 'LOG' and 'MER' in (gps1.loc_source + gps1.time_source +
+                                   gps2.loc_source + gps2.time_source):
                 log_gps = gps1 if 'LOG' in gps1.loc_source else gps2
-                mer_gps = gps1 if 'MER' in gps1.date_source else gps2
+                mer_gps = gps1 if 'MER' in gps1.time_source else gps2
 
                 gps_merged = GPS_unique(date=mer_gps.date,
                                         clockdrift=mer_gps.clockdrift,
                                         clockfreq=mer_gps.clockfreq,
-                                        date_source=mer_gps.date_source,
+                                        time_source=mer_gps.time_source,
                                         latitude=log_gps.latitude,
                                         longitude=log_gps.longitude,
                                         hdop=log_gps.hdop,
@@ -384,7 +415,7 @@ def merge_gps_list(gps_nonunique_list):
                 gps_merged = GPS_unique(date=gps1.date,
                                         clockdrift=gps1.clockdrift,
                                         clockfreq=gps1.clockfreq,
-                                        date_source=gps1.date_source,
+                                        time_source=gps1.time_source,
                                         latitude=gps1.latitude,
                                         longitude=gps1.longitude,
                                         hdop=gps1.hdop,
@@ -404,7 +435,7 @@ def merge_gps_list(gps_nonunique_list):
             gps_merged = GPS_unique(date=gps1.date,
                                     clockdrift=gps1.clockdrift,
                                     clockfreq=gps1.clockfreq,
-                                    date_source=gps1.date_source,
+                                    time_source=gps1.time_source,
                                     latitude=gps1.latitude,
                                     longitude=gps1.longitude,
                                     hdop=gps1.hdop,
@@ -475,8 +506,8 @@ def valid_clockfreq(GPS_object):
     else:
         return False
 
-
 def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, end):
+
     '''Collect GPS fixes from MER environments within an inclusive datetime range
 
     '''

@@ -126,7 +126,7 @@ class Dive:
         if surfin:
             self.ascent_reach_surface_date = surfin[-1][-1]
 
-        # Check if the .LOG is fragemented
+        # Check if the .LOG is fragmented
         # Sometimes the .LOG will have errors and only print the dive or surfacing date
         if self.descent_leave_surface_date and self.ascent_reach_surface_date:
             self.is_complete_dive = True
@@ -534,7 +534,7 @@ class Complete_Dive:
 
     def validate_gps(self, num_gps=2, max_time=5400):
         """Returns true if valid GPS fixes exist to interpolate clock drifts and
-        station locations at the time of recording events
+        station locations at the time of recording events.
 
         Args:
         num_gps (int): Min. # GPS fixes before(after) diving(surfacing) (def=2)
@@ -566,29 +566,39 @@ class Complete_Dive:
         else:
             return
 
-        # Ensure MERMAID clock synronized with first GPS after surfacing
-        if gps.valid_clockfreq(gps_before[-1]) and gps.valid_clockfreq(gps_after[0]):
-            self.gps_valid4clockdrift_correction = True
+        # Ensure MERMAID clock synchronized with first GPS after surfacing
+        # (this also handles the case of verifying `gps.mer_time_log_loc` if `num_gps=1`)
+        if gps.valid_clockfreq(gps_before[-1]) and gps_before[-1].mer_time_log_loc() \
+           and gps.valid_clockfreq(gps_after[0]) and gps_after[0].mer_time_log_loc():
+           self.gps_valid4clockdrift_correction = True
         else:
             return
 
+        # We only require that `gps.mer_time_log_loc()` be true for the
+        # last(first) GPS fix before(after) diving(surfacing) because we those
+        # are the two that are used to correct MERMAID's onboard clock and we
+        # are (1) not as concerned with timing for GPS fixes that are only used
+        # for location interpolation (which, already, has uncertainty), and (2)
+        # more importantly we know that clock drifts while at the surface are
+        # small because the onboard clock is constantly being resynced.
+
         if num_gps > 1:
-            # Ensure the required number of GPS exist within the required time
-            # before diving
+            # Ensure the required number of valid GPS exist within the required
+            # time before diving
             count = 0
-            for g in reversed(gps_before):
-                tdiff = self.descent_leave_surface_date - g.date
+            for gb in reversed(gps_before):
+                tdiff = self.descent_leave_surface_date - gb.date
                 if tdiff < max_time:
                     count += 1
 
             if count < num_gps:
                 return
 
-            # Ensure the required number of GPS exist within the required time
-            # after surfacing
+            # Ensure the required number of valid GPS exist within the required
+            # time after surfacing
             count = 0
-            for g in gps_after:
-                tdiff = g.date - self.ascent_reach_surface_date
+            for ga in gps_after:
+                tdiff = ga.date - self.ascent_reach_surface_date
                 if tdiff < max_time:
                     count += 1
 
