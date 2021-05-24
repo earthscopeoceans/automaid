@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 21-May-2021
+# Last modified by JDS: 24-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -922,10 +922,10 @@ def write_dives_txt(dive_logs, processed_path, mfloat_path):
     '''
 
     dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
-    fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>7d}    {:>6.3f}    {:>15s}    {:>15s}\n"
+    fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>10d}    {:>9.3f}    {:>15s}    {:>15s}\n"
 
     version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "#dive_id               log_start                 log_end   len_secs  len_days           log_name       mer_env_name\n".format()
+    header_line = "#dive_id               log_start                 log_end      len_secs     len_days           log_name       mer_env_name\n".format()
 
     with open(dives_file, "w+") as f:
         f.write(version_line)
