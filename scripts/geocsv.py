@@ -16,6 +16,7 @@
 import csv
 import warnings
 import numpy as np
+from datetime import datetime as date
 
 import dives
 import setup
@@ -42,6 +43,8 @@ class GeoCSV:
 
         # Attach header lines
         self.dataset_header = ['#dataset: GeoCSV ' + self.version]
+        self.created_header = ['#created: {}Z'.format(date.now().isoformat()[:-7])]
+        self.version_header = ['#automaid: {} ({})'.format(setup.get_version(), setup.get_url())]
         self.delimiter_header = ['#delimiter: ' + repr(self.delimiter)]
         self.lineterminator_header = ['#lineterminator: ' + repr(self.lineterminator)]
 
@@ -107,6 +110,8 @@ class GeoCSV:
 
     def header_lines(self):
         return [self.dataset_header,
+                self.created_header,
+                self.version_header,
                 self.delimiter_header,
                 self.lineterminator_header,
                 self.field_unit_header,
