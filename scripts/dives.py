@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 24-May-2021
+# Last modified by JDS: 25-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -875,7 +875,7 @@ def concatenate_log_files(path):
                 logstring = ""
 
 
-def write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat_serial):
+def write_complete_dives_txt(complete_dives, creation_date, processed_path, mfloat_path, mfloat_serial):
     '''Writes complete_dives.txt and prints the same info to stdout
 
     A complete dive is either: (1) wholly defined in a single .LOG file, or (2)
@@ -888,10 +888,12 @@ def write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat
     '''
 
     complete_dives_file = os.path.join(processed_path, mfloat_path, "complete_dives.txt")
-    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
+    created_line = "#created {}Z\n".format(creation_date[:-7])
 
     with open(complete_dives_file, "w+") as f:
         f.write(version_line)
+        f.write(created_line)
 
         for d in sorted(complete_dives, key=lambda x: x.start_date):
             print("Complete Dive")
@@ -913,7 +915,7 @@ def write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat
         f.write(sac_str)
 
 
-def write_dives_txt(dive_logs, processed_path, mfloat_path):
+def write_dives_txt(dive_logs, creation_date, processed_path, mfloat_path):
     '''Writes dives.txt, which treats every .LOG as a single (possibly incomplete) dive
 
     Prints all data for every .LOG/.MER in the server; does not, e.g., only
@@ -924,11 +926,13 @@ def write_dives_txt(dive_logs, processed_path, mfloat_path):
     dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
     fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>10d}    {:>9.3f}    {:>15s}    {:>15s}\n"
 
-    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
+    created_line = "#created {}Z\n".format(creation_date[:-7])
     header_line = "#dive_id               log_start                 log_end      len_secs     len_days           log_name       mer_env_name\n".format()
 
     with open(dives_file, "w+") as f:
         f.write(version_line)
+        f.write(created_line)
 	f.write(header_line)
 
         # 1 .LOG == 1 dive

@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 19-May-2021
+# Last modified by JDS: 25-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -581,17 +581,19 @@ class Event:
 
         return stream
 
-def write_traces_txt(dive_logs, processed_path, mfloat_path):
+def write_traces_txt(dive_logs, creation_date, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
 
-    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
-    header_line = "#                                filename                   bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n"
+    version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
+    created_line = "#created {}Z\n".format(creation_date[:-7])
+    header_line = "#                               filename                   bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n"
 
     with open(traces_file, "w+") as f:
         f.write(version_line)
+        f.write(created_line)
         f.write(header_line)
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
@@ -604,7 +606,7 @@ def write_traces_txt(dive_logs, processed_path, mfloat_path):
                                     d.next_dive_log_name,
                                     d.next_dive_mer_environment_name))
 
-def write_loc_txt(dive_logs, processed_path, mfloat_path):
+def write_loc_txt(dive_logs, creation_date, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each
     individual float
 
@@ -615,11 +617,13 @@ def write_loc_txt(dive_logs, processed_path, mfloat_path):
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
     fmt_spec = "{:<47s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
 
-    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
+    created_line = "#created {}Z\n".format(creation_date[:-7])
     header_line = "#                               filename          interp_STLA    interp_STLO      STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)
+        f.write(created_line)
         f.write(header_line)
 
         for e in sorted(event_list, key=lambda x: x.date):
@@ -628,7 +632,7 @@ def write_loc_txt(dive_logs, processed_path, mfloat_path):
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
                                     np.float32(e.obspy_trace_stats.sac["stdp"])))
 
-def write_metadata(complete_dives, processed_path, mfloat_path):
+def write_metadata(complete_dives, creation_date, processed_path, mfloat_path):
     '''Write mseed2sac metadata and automaid metadata files.
 
     Update this function if the fields in method
@@ -700,8 +704,9 @@ def write_metadata(complete_dives, processed_path, mfloat_path):
     ## m2s_* == mseed2sac
     ## atm_* == automaid*
 
-    # Version line is the same for both
-    version_line = "#automaid {} ({})\n\n".format(setup.get_version(), setup.get_url())
+    # Version and creation-date lines are the same for both
+    version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
+    created_line = "#created {}Z\n".format(creation_date[:-7])
 
     # Generate header lines for all four files: generate .csv by replacing
     # spaces with commas in text format
@@ -789,15 +794,19 @@ def write_metadata(complete_dives, processed_path, mfloat_path):
         ## Write version line and header line to all four files
 
         m2s_f_csv.write(version_line)
+        m2s_f_csv.write(created_line)
         m2s_f_csv.write(m2s_header_line_csv)
 
         m2s_f_txt.write(version_line)
+        m2s_f_txt.write(created_line)
         m2s_f_txt.write(m2s_header_line_txt)
 
         atm_f_csv.write(version_line)
+        atm_f_csv.write(created_line)
         atm_f_csv.write(atm_header_line_csv)
 
         atm_f_txt.write(version_line)
+        atm_f_txt.write(created_line)
         atm_f_txt.write(atm_header_line_txt)
 
         # Loop over all events for which a station location was computed

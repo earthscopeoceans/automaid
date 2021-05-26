@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 19-May-2021
+# Last modified by JDS: 25-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -26,6 +26,9 @@ import vitals
 import geocsv
 
 from pprint import pprint
+
+# Log a creation date for metadata files
+creation_date = datetime.datetime.now().isoformat()
 
 # Get current version number.
 version = setup.get_version()
@@ -303,40 +306,33 @@ def main():
                 complete_dive.generate_events_mseed()
 
         # Write csv and txt files containing all GPS fixes from .LOG and .MER
-        gps.write_gps(dive_logs, processed_path, mfloat_path)
+        gps.write_gps(dive_logs, creation_date, processed_path, mfloat_path)
 
         # Write text file detailing event-station location interpolation parameters
-        gps.write_gps_interpolation_txt(complete_dives, processed_path, mfloat_path)
+        gps.write_gps_interpolation_txt(complete_dives,creation_date, processed_path, mfloat_path)
 
         # Write text file detailing which SINGLE .LOG and .MER files define
         # (possibly incomplete) dives
-        dives.write_dives_txt(dive_logs, processed_path, mfloat_path)
+        dives.write_dives_txt(dive_logs, creation_date,  processed_path, mfloat_path)
 
         # Write text file and printout detailing which (and potentially
         # MULTIPLE) .LOG and .MER files define complete dives
-        dives.write_complete_dives_txt(complete_dives, processed_path, mfloat_path, mfloat_serial)
+        dives.write_complete_dives_txt(complete_dives, creation_date,  processed_path, mfloat_path, mfloat_serial)
 
         # Write a text file relating all SAC and mSEED to their associated .LOG
         # and .MER files
-        events.write_traces_txt(dive_logs, processed_path, mfloat_path)
+        events.write_traces_txt(dive_logs, creation_date, processed_path, mfloat_path)
 
         # Write a text file with our best-guess at the location of MERMAID at
         # the time of recording
-        events.write_loc_txt(dive_logs, processed_path, mfloat_path)
+        events.write_loc_txt(dive_logs, creation_date, processed_path, mfloat_path)
 
         # Write mseed2sac and automaid metadata csv and text files
-        events.write_metadata(complete_dives, processed_path, mfloat_path)
+        events.write_metadata(complete_dives, creation_date, processed_path, mfloat_path)
 
         # Write GeoCSV files
-        geocsv_meta = geocsv.GeoCSV(complete_dives)
+        geocsv_meta = geocsv.GeoCSV(complete_dives, creation_date)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
-
-        # # Finally, try for rapid location estimates of the final dive, if requested.
-        # dive_logs[-1].compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
-        # if events_sac:
-        #     dive_logs[-1].generate_events_sac()
-        # if events_mseed:
-        #     dive_logs[-1].generate_events_mseed()
 
         # Clean directories
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):

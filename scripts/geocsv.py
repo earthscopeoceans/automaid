@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-May-2021
+# Last modified by JDS: 25-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -15,8 +15,8 @@
 
 import csv
 import warnings
+import datetime
 import numpy as np
-from datetime import datetime as date
 
 import dives
 import setup
@@ -26,24 +26,33 @@ class GeoCSV:
 
     Args:
         complete_dives (list): List of dives.Complete_Dive instances
+        creation_date (str): File-creation date in ISO 8601 format
+                             (def: datetime.datetime.now().isoformat())
         version (str): GeoCSV version (def: '2.0')
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
 
     """
 
-    def __init__(self, complete_dives, version='2.0', delimiter=',', lineterminator='\n'):
+    def __init__(self,
+                 complete_dives,
+                 creation_date=datetime.datetime.now().isoformat(),
+                 version='2.0',
+                 delimiter=',',
+                 lineterminator='\n'):
+
         if not all(isinstance(complete_dive, dives.Complete_Dive) for complete_dive in complete_dives):
             raise ValueError('Input `complete_dives` must be list of `dives.Complete_Dives` instances')
 
         self.complete_dives = complete_dives
+        self.creation_date = creation_date
         self.version = version
         self.delimiter = delimiter
         self.lineterminator = lineterminator
 
         # Attach header lines
         self.dataset_header = ['#dataset: GeoCSV ' + self.version]
-        self.created_header = ['#created: {}Z'.format(date.now().isoformat()[:-7])]
+        self.created_header = ['#created: {}Z'.format(self.creation_date[:-7])]
         self.version_header = ['#automaid: {} ({})'.format(setup.get_version(), setup.get_url())]
         self.delimiter_header = ['#delimiter: ' + repr(self.delimiter)]
         self.lineterminator_header = ['#lineterminator: ' + repr(self.lineterminator)]
@@ -273,7 +282,7 @@ class GeoCSV:
 
         # Open as as 'wb' in Python 2 rather than 'w' with newline='' in Python 3
         # https://docs.python.org/2/library/csv.html#csv.writer
-        with open(basename+'.csv', 'wb') as csvfile_all, \
+        with open(basename+'_DET_REQ.csv', 'wb') as csvfile_all, \
              open(basename+'_DET.csv', 'wb') as csvfile_det, \
              open(basename+'_REQ.csv', 'wb') as csvfile_req:
 
