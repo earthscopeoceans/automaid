@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 25-May-2021
+# Last modified by JDS: 26-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -581,14 +581,14 @@ class Event:
 
         return stream
 
-def write_traces_txt(dive_logs, creation_date, processed_path, mfloat_path):
+def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
-    created_line = "#created {}Z\n".format(creation_date[:-7])
+    created_line = "#created {}\n".format(creation_datestr)
     header_line = "#                               filename                   bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n"
 
     with open(traces_file, "w+") as f:
@@ -606,7 +606,7 @@ def write_traces_txt(dive_logs, creation_date, processed_path, mfloat_path):
                                     d.next_dive_log_name,
                                     d.next_dive_mer_environment_name))
 
-def write_loc_txt(dive_logs, creation_date, processed_path, mfloat_path):
+def write_loc_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each
     individual float
 
@@ -618,7 +618,7 @@ def write_loc_txt(dive_logs, creation_date, processed_path, mfloat_path):
     fmt_spec = "{:<47s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
-    created_line = "#created {}Z\n".format(creation_date[:-7])
+    created_line = "#created {}\n".format(creation_datestr)
     header_line = "#                               filename          interp_STLA    interp_STLO      STDP\n"
 
     with open(loc_file, "w+") as f:
@@ -632,7 +632,7 @@ def write_loc_txt(dive_logs, creation_date, processed_path, mfloat_path):
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
                                     np.float32(e.obspy_trace_stats.sac["stdp"])))
 
-def write_metadata(complete_dives, creation_date, processed_path, mfloat_path):
+def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Write mseed2sac metadata and automaid metadata files.
 
     Update this function if the fields in method
@@ -706,7 +706,7 @@ def write_metadata(complete_dives, creation_date, processed_path, mfloat_path):
 
     # Version and creation-date lines are the same for both
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
-    created_line = "#created {}Z\n".format(creation_date[:-7])
+    created_line = "#created {}\n".format(creation_datestr)
 
     # Generate header lines for all four files: generate .csv by replacing
     # spaces with commas in text format

@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 25-May-2021
+# Last modified by JDS: 26-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -14,6 +14,7 @@
 # *Verify types and signs, e.g. for 'time correction/delay' ([+/-]np.int32)
 
 import csv
+import pytz
 import warnings
 import datetime
 import numpy as np
@@ -26,8 +27,8 @@ class GeoCSV:
 
     Args:
         complete_dives (list): List of dives.Complete_Dive instances
-        creation_date (str): File-creation date in ISO 8601 format
-                             (def: datetime.datetime.now().isoformat())
+        creation_date (str): File-creation datestr
+                             (def: current UTC time ("Z" designation) in minutes precision)
         version (str): GeoCSV version (def: '2.0')
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
@@ -36,7 +37,7 @@ class GeoCSV:
 
     def __init__(self,
                  complete_dives,
-                 creation_date=datetime.datetime.now().isoformat(),
+                 creation_datestr=datetime.datetime.now(pytz.UTC).isoformat().split(".")[0]+"Z",
                  version='2.0',
                  delimiter=',',
                  lineterminator='\n'):
@@ -45,14 +46,14 @@ class GeoCSV:
             raise ValueError('Input `complete_dives` must be list of `dives.Complete_Dives` instances')
 
         self.complete_dives = complete_dives
-        self.creation_date = creation_date
+        self.creation_datestr = creation_datestr
         self.version = version
         self.delimiter = delimiter
         self.lineterminator = lineterminator
 
         # Attach header lines
         self.dataset_header = ['#dataset: GeoCSV ' + self.version]
-        self.created_header = ['#created: {}Z'.format(self.creation_date[:-7])]
+        self.created_header = ['#created: ' + self.creation_datestr]
         self.version_header = ['#automaid: {} ({})'.format(setup.get_version(), setup.get_url())]
         self.delimiter_header = ['#delimiter: ' + repr(self.delimiter)]
         self.lineterminator_header = ['#lineterminator: ' + repr(self.lineterminator)]

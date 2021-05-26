@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 25-May-2021
+# Last modified by JDS: 26-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -738,7 +738,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
     return gps_out
 
 
-def write_gps(dive_logs, creation_date, processed_path, mfloat_path):
+def write_gps(dive_logs, creation_datestr, processed_path, mfloat_path):
     '''Write complete (raw, full, all, nonunique) GPS data from .LOG and .MER.
     Differs from GeoCSV, which writes unique (merged .MER time and .LOG
     position) GPS fixes.
@@ -749,7 +749,7 @@ def write_gps(dive_logs, creation_date, processed_path, mfloat_path):
 
     # Version and creation-date lines are the same for both csv and txt files
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
-    created_line = "#created {}Z\n".format(creation_date[:-7])
+    created_line = "#created {}\n".format(creation_datestr)
 
     # Specify field headers of both csv and txt files
     header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time mer_clockfreq             source       raw_gps_lat        raw_gps_lon\n"
@@ -819,7 +819,7 @@ def write_gps(dive_logs, creation_date, processed_path, mfloat_path):
             f_txt.write(fmt_txt.format(*gps_data))
 
 
-def write_gps_interpolation_txt(complete_dives, creation_date, processed_path, mfloat_path):
+def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Writes MERMAID GPS interpolation file, detailing GPS and interpolation parameters for the three
     main regimes of each dive: descent and drift in the surface layer, drift in the mixed layer, and
     ascent and drift in the surface layer.
@@ -876,7 +876,7 @@ def write_gps_interpolation_txt(complete_dives, creation_date, processed_path, m
     # Print GPS interpolation information for every dive that includes an event all three dive regimes
     gps_interp_file = os.path.join(processed_path, mfloat_path, "gps_interpolation.txt")
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
-    created_line = "#created {}Z\n".format(creation_date[:-7])
+    created_line = "#created {}\n".format(creation_datestr)
 
     with open(gps_interp_file, "w+") as f:
         f.write(version_line)
