@@ -638,15 +638,17 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
     Update this function if the fields in method
     `events.attach_obspy_trace_stats` are changed.
 
-    In total four files are written:
+    In total six files are written:
 
-    mseed2sac_metadata.csv (actually used by mseed2sac)
-    mseed2sac_metadata.txt (same info; more human-readable)
+    mseed2sac_metadata_DET_REQ.csv (DET and REQ files, used by mseed2sac)
+    mseed2sac_metadata_DET.csv (DET files only)
+    mseed2sac_metadata_REQ.csv (REQ files only)
 
-    automaid_metadata.csv (ALL and ONLY SAC info defined in automaid)
-    automaid_metadata.txt (same info; more human-readable)
+    automaid_metadata_DET_REQ.csv (DET and REQ files, ALL and ONLY SAC info defined in automaid)
+    automaid_metadata_DET.csv (DET files only)
+    automaid_metadata_REQ.csv (REQ files only)
 
-    msee2sac_metadata.csv/txt:
+    msee2sac_metadata*.csv:
 
         Usage: mseed2sac -m mseed2sac_metadata.csv *mseed
 
@@ -670,7 +672,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
         (16) Start time, used for matching
         (17) End time, used for matching
 
-    automaid_metadata.csv/txt:
+    automaid_metadata*.csv:
 
         Prints ALL and ONLY the non-default SAC headers filled by automaid:
 
@@ -703,6 +705,13 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
     ## NB, concerning filename abbreviations:
     ## m2s_* == mseed2sac
     ## atm_* == automaid*
+    ##
+    ## Previous versions wrote formatted text files for easy human readability.
+    ## Those have since been nixed because it turned out that mseed2sac would
+    ## actually generate convert miniSEED and generate SAC files with those
+    ## metadata*.txt files, without warning that it only partially filled the
+    ## header (e.g., skipping STLA/STLO because the .txt was not formatted in
+    ## the expected .csv style).  The code to generate those is left here...
 
     # Version and creation-date lines are the same for both
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
@@ -716,7 +725,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
     # (add pound after comma substitution)
     atm_header_line_txt = "                               filename KNETWK    KSTNM KHOLE KCMPNM          STLA           STLO STEL      STDP CMPAZ CMPINC      KINST     SCALE            USER0            USER1     USER2            USER3      KUSER0      KUSER1      KUSER2 samplerate                  start                    end\n"
     atm_header_line_csv = '#' + ','.join(atm_header_line_txt.split()) + '\n'
-    atm_header_line_txt = '#' + atm_header_line_txt
+    #atm_header_line_txt = '#' + atm_header_line_txt
 
     # Field specifiers for mseed2sac_metadata.csv and mseed2sac_metadata.txt
     m2s_fmt = ['{:>2s}',    # Network (KNETWK)
@@ -738,7 +747,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
                '{:>19s}\n'] # End time, used for matching
 
     # Add four spaces between each field to format the text file
-    m2s_fmt_txt  = '    '.join(m2s_fmt)
+    #m2s_fmt_txt  = '    '.join(m2s_fmt)
 
     # Add comma between each field and remove field width (non-decimal) to format the csv
     m2s_fmt_csv  = ','.join(m2s_fmt)
@@ -759,8 +768,8 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
                '{:s}',      # KINST
                '{:>.0f}',   # SCALE
                '{:>13.6f}', # USER0 (detection SNR)
-               '{:>13.6f}', # USER1 (detecion criterion)
-               '{:>6.0f}',  # USER2 (detecion trigger sample index)
+               '{:>13.6f}', # USER1 (detection criterion)
+               '{:>6.0f}',  # USER2 (detection trigger sample index)
                '{:>13.6f}', # USER3 (clockdrift correction)
                '{:>8s}',    # KUSER0 (automaid version)
                '{:>8s}',    # KUSER1 (REQ or DET and scales)
@@ -770,7 +779,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
                '{:>19s}\n'] # end (not a SAC header field)
 
     # Add four spaces between each field to format the text file
-    atm_fmt_txt  = '    '.join(atm_fmt)
+    #atm_fmt_txt  = '    '.join(atm_fmt)
 
     # Add comma between each field and remove field width (non-decimal) to format the csv
     atm_fmt_csv  = ','.join(atm_fmt)
@@ -785,29 +794,50 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
     scalefreq = np.float32(1.)
     scaleunits = 'Pa'
 
-    # Open all four files
-    with open(m2s_path+".txt", "w+") as m2s_f_txt, \
-         open(m2s_path+".csv", "w+") as m2s_f_csv, \
-         open(atm_path+'.txt', "w+") as atm_f_txt, \
-         open(atm_path+'.csv', "w+") as atm_f_csv:
+    # Open all files
+    with open(m2s_path+"_DET_REQ.csv", "w+") as m2s_dr_csv, \
+         open(m2s_path+"_DET.csv", "w+") as m2s_d_csv, \
+         open(m2s_path+"_REQ.csv", "w+") as m2s_r_csv, \
+         open(atm_path+'_DET_REQ.csv', "w+") as atm_dr_csv, \
+         open(atm_path+'_DET.csv', "w+") as atm_d_csv, \
+         open(atm_path+'_REQ.csv', "w+") as atm_r_csv:
+
+         # open(m2s_path+".txt", "w+") as m2s_f_txt, \
+         # open(atm_path+'.txt', "w+") as atm_f_txt, \
 
         ## Write version line and header line to all four files
 
-        m2s_f_csv.write(version_line)
-        m2s_f_csv.write(created_line)
-        m2s_f_csv.write(m2s_header_line_csv)
+        m2s_dr_csv.write(version_line)
+        m2s_dr_csv.write(created_line)
+        m2s_dr_csv.write(m2s_header_line_csv)
 
-        m2s_f_txt.write(version_line)
-        m2s_f_txt.write(created_line)
-        m2s_f_txt.write(m2s_header_line_txt)
+        m2s_d_csv.write(version_line)
+        m2s_d_csv.write(created_line)
+        m2s_d_csv.write(m2s_header_line_csv)
 
-        atm_f_csv.write(version_line)
-        atm_f_csv.write(created_line)
-        atm_f_csv.write(atm_header_line_csv)
+        m2s_r_csv.write(version_line)
+        m2s_r_csv.write(created_line)
+        m2s_r_csv.write(m2s_header_line_csv)
 
-        atm_f_txt.write(version_line)
-        atm_f_txt.write(created_line)
-        atm_f_txt.write(atm_header_line_txt)
+        # m2s_f_txt.write(version_line)
+        # m2s_f_txt.write(created_line)
+        # m2s_f_txt.write(m2s_header_line_txt)
+
+        atm_dr_csv.write(version_line)
+        atm_dr_csv.write(created_line)
+        atm_dr_csv.write(atm_header_line_csv)
+
+        atm_d_csv.write(version_line)
+        atm_d_csv.write(created_line)
+        atm_d_csv.write(atm_header_line_csv)
+
+        atm_r_csv.write(version_line)
+        atm_r_csv.write(created_line)
+        atm_r_csv.write(atm_header_line_csv)
+
+        # atm_f_txt.write(version_line)
+        # atm_f_txt.write(created_line)
+        # atm_f_txt.write(atm_header_line_txt)
 
         # Loop over all events for which a station location was computed
         event_list = [event for dive in complete_dives for event in dive.events if event.station_loc]
@@ -817,7 +847,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
 
             ## Collect metadata and convert to np.float32()
 
-            # For mseed2sac_metadata.csv/txt
+            # For mseed2sac_metadata*.csv:
             net = e.obspy_trace_stats["network"]
             sta = e.obspy_trace_stats["station"]
             loc = e.obspy_trace_stats["location"]
@@ -836,7 +866,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
             start = str(e.obspy_trace_stats["starttime"])[:19]
             end = str(e.obspy_trace_stats["endtime"])[:19]
 
-            # Fields unique to automaid_metadata that are not in mseed2sac_metadata
+            # Fields unique to automaid_metadata that are not in mseed2sac_metadata*.csv
             # (commented fields are defined in both files)
             filename = e.get_export_file_name()
             # KNETWK = net  (LHS are SAC names; RHS are their mseed2sac equivalents)
@@ -908,9 +938,17 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
                         start,
                         end]
 
-            ## Write to all files.
-            m2s_f_txt.write(m2s_fmt_txt.format(*m2s_meta))
-            m2s_f_csv.write(m2s_fmt_csv.format(*m2s_meta))
+            ## Write DET and REQ info to both
+            # m2s_f_txt.write(m2s_fmt_txt.format(*m2s_meta))
+            m2s_dr_csv.write(m2s_fmt_csv.format(*m2s_meta))
 
-            atm_f_txt.write(atm_fmt_txt.format(*atm_meta))
-            atm_f_csv.write(atm_fmt_csv.format(*atm_meta))
+            #atm_f_txt.write(atm_fmt_txt.format(*atm_meta))
+            atm_dr_csv.write(atm_fmt_csv.format(*atm_meta))
+
+            if not e.is_requested:
+                m2s_d_csv.write(m2s_fmt_csv.format(*m2s_meta))
+                atm_d_csv.write(atm_fmt_csv.format(*atm_meta))
+
+            else:
+                m2s_r_csv.write(m2s_fmt_csv.format(*m2s_meta))
+                atm_r_csv.write(atm_fmt_csv.format(*atm_meta))
