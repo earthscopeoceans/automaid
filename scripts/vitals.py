@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-May-2021
+# Last modified by JDS: 27-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -230,7 +230,7 @@ def plot_corrected_pressure_offset(vital_file_path, complete_dives, begin, end):
 def write_corrected_pressure_offset(dives_dict, processed_path):
     '''Writes:
 
-    [processed_path]/last_dive_pressure_offset.txt
+    [processed_path]/lastdive_pressure_offset.txt
 
     given a dict of whose keys are float serial numbers and whose values are
     lists of their associated Dive instances
@@ -238,7 +238,7 @@ def write_corrected_pressure_offset(dives_dict, processed_path):
     '''
 
     lastdive_fmt_spec = "{:>12s}    {:>19s}    {:>15s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
-    lastdive_f = os.path.join(processed_path, "last_dive_pressure_offset.txt")
+    lastdive_f = os.path.join(processed_path, "lastdive_pressure_offset.txt")
     with open(lastdive_f, "w+") as f:
         f.write("     MERMAID         LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
 

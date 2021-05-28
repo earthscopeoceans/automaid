@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-May-2021
+# Last modified by JDS: 28-May-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -253,3 +253,7 @@ def flattenList(toplist):
 
     '''
     return [item for sublist in toplist for item in sublist]
+
+def get_gps_instrument_name():
+    # Intake a float number and update this list as necessary
+    return 'ublox NEO-M8N'

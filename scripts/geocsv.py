@@ -21,6 +21,7 @@ import numpy as np
 
 import dives
 import setup
+import utils
 
 class GeoCSV:
     """Organize MERMAID metadata and write them to GeoCSV format
@@ -28,7 +29,7 @@ class GeoCSV:
     Args:
         complete_dives (list): List of dives.Complete_Dive instances
         creation_date (str): File-creation datestr
-                             (def: current UTC time ("Z" designation) in minutes precision)
+                             (def: current UTC time ("Z" designation) in seconds precision)
         version (str): GeoCSV version (def: '2.0')
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
@@ -118,6 +119,9 @@ class GeoCSV:
             'TimeCorrection'
         ]
 
+        self.MethodIdentifier_Measurement = 'Measurement:GPS:{:s}'.format(utils.get_gps_instrument_name().replace(' ', '_'))
+        self.MethodIdentifier_Algorithm = 'Algorithm:automaid:{:s}'.format(setup.get_version())
+
     def header_lines(self):
         return [self.dataset_header,
                 self.created_header,
@@ -184,7 +188,7 @@ class GeoCSV:
             # Loop over all GPS instances and write single line for each
             for gps in sorted(gps_list, key=lambda x: x.date):
                 measurement_row = [
-                    'Measurement:GPS:Trimble',
+                    self.MethodIdentifier_Measurement,
                     str(gps.date)[0:19]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
@@ -247,7 +251,7 @@ class GeoCSV:
                     continue
 
                 algorithm_row = [
-                    'Algorithm:automaid:{:s}'.format(setup.get_version()),
+                    self.MethodIdentifier_Algorithm,
                     str(event.obspy_trace_stats["starttime"])[:19]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
