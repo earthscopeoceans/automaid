@@ -1,5 +1,5 @@
 There is nothing new here that is not in annotated_mer_environment: the <FORMAT>
-block contains teh number of wavelet sacles and whether or not it's normalized,
+block contains the number of wavelet scales and whether or not it's normalized,
 but it does not say whether there is edge correction applied (needs to be
 applied?)
 

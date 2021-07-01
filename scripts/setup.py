@@ -3,18 +3,21 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-May-2021
+# Last modified by JDS: 01-Jul-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
     """Return automaid version number.
 
-    Versioning goes as vX.X.X-Y, where Y designates a pre-release,
-    and is one of [0-9], then [A-Z], and finally [a-z].
+    v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
+
+    Versioning goes as vX.X.X-Y, where Y designates a pre-release, and is one of
+    [0-9], then [A-Z], after which point a patch version (at the very least)
+    must be incremented because git tags are case insensitive.
 
     """
 
-    return 'v3.4.0-Z'
+    return 'v3.4.1'
 
 def get_url():
     return 'https://github.com/earthscopeoceans/automaid'

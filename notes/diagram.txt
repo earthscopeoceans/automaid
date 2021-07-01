@@ -1,3 +1,5 @@
+!! OUTDATED: Requires updated for v3.4+ !!
+
 Author: Joel D. Simon <jdsimon at alumni.princeton.edu>
 Last updated: 14-Dec-2020
 
