@@ -4,7 +4,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-May-2021
+# Last modified by JDS: 28-Jul-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -456,7 +456,7 @@ class Event:
         stats.sac["stel"] = 0
 
         # Add scaling factor to convert digital counts to Pa
-        stats.sac["scale"] = utils.sac_scale()
+        stats.sac["scale"] = utils.sacpz_const()
 
         # Add dip (CMPINC; "component incidence") in SAC dip convention, using as guide:
         # https://github.com/iris-edu/mseed2sac/blob/master/doc/mseed2sac.md

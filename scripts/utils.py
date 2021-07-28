@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Jul-2021
+# Last modified by JDS: 28-Jul-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -127,20 +127,22 @@ def get_time_array(length, period):
 # Other utilities (JDS added)
 #
 
-def sac_scale():
-    '''Returns the ROUNDED multiplicative factor to convert MERMAID digital counts to pascal
+def sacpz_const():
+    '''Returns the SAC pole-zero file constant as experimentally determined by
+    Nolet, Gerbaud & Rocca (2021) for the third-generation MERMAID and
+    documented in "Determination of poles and zeroes for the Mermaid response."
 
     '''
 
-    scale = round(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000)
-    return scale
+    sacpz_const = int(-0.14940E+06)
+    return sacpz_const
 
 
 def counts2pascal(data):
     '''Converts MERMAID digital counts to pascal via multiplication with scale factor: util.sac_scale
 
     '''
-    return data/sac_scale()
+    return data/sacpz_const()
 
 
 def band_code(sample_rate=None):
