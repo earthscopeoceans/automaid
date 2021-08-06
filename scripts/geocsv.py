@@ -343,7 +343,8 @@ class GeoCSV:
                 if dates == sorted(dates):
                     print("Verified: {} rows sorted".format(csvfile.name))
                 else:
-                    raise ValueError("Error: {} rows not sorted".format(csvfile.name))
+                    from pprint import pprint; import ipdb; ipdb.set_trace()
+                    raise ValueError("{} rows not sorted".format(csvfile.name))
 
                 # (2) Verify all rows unique (include header lines)
                 str_rows = [(',').join(row) for row in rows]
@@ -351,4 +352,4 @@ class GeoCSV:
                     print("Verified: {} rows unique\n".format(csvfile.name))
 
                 else:
-                    raise ValueError("Error: {} rows not unique\n".format(csvfile.name))
+                    raise ValueError("{} rows not unique\n".format(csvfile.name))

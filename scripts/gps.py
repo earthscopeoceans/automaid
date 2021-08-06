@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
+#
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-May-2021
+# Last modified by JDS: 05-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os

@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+#
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #

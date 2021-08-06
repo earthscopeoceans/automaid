@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
+#
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 27-May-2021
+# Last modified by JDS: 05-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -80,8 +82,16 @@ def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
         content = f.read()
 
     # Find battery values
+    date = []
     internal_pressure_catch = re.findall("(.+): Pint (-?\d+)Pa", content)
-    date = [UTCDateTime(0).strptime(i[0], "%Y%m%d-%Hh%Mmn%S") for i in internal_pressure_catch]
+    for i in internal_pressure_catch:
+        try:
+            date.append(UTCDateTime(0).strptime(i[0], "%Y%m%d-%Hh%Mmn%S"))
+        except ValueError:
+            # Skip improperly-formatted datestr
+            # (e.g., "ÿÿ20210703-02h11mn31: Pint 78856Pa" in 452.020-P-0041.vit)
+            continue
+
     internal_pressure = [float(i[1])/100. for i in internal_pressure_catch]
 
     if len(date) < 1:

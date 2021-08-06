@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
+#
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 28-Jul-2021
+# Last modified by JDS: 05-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -66,15 +68,12 @@ class Events:
                 mer_binary_header = event.split("<DATA>\x0A\x0D")[0]
 
                 # The actual binary data contained in this </EVENT> block (the seismogram)
-                mer_binary_binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
-
                 # N.B:
                 # "\x0A" is "\n": True
                 # "\x0D" is "\r": True
                 # "\x09" is "\t": True
                 # https://docs.python.org/2/reference/lexical_analysis.html#string-and-bytes-literals
-                # I don't know why Seb choose to represent the separators as
-                # hex, I believe a valid split would be "...split('\n\r\t</DATA>')..."
+                mer_binary_binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
 
                 # The double split above is not foolproof; if the final data
                 # block in the .MER file ends without </DATA> (i.e., the file
@@ -90,7 +89,12 @@ class Events:
                 expected_binary_length = bytes_per_sample * num_samples
 
                 if actual_binary_length == expected_binary_length:
-                    self.events.append(Event(mer_binary_name, mer_binary_header, mer_binary_binary))
+                    evt = Event(mer_binary_name, mer_binary_header, mer_binary_binary)
+
+                    # Use weak catchall for obj init issues (e.g., formatting
+                    # abnormalities in the .MER file)
+                    if evt._passed_init:
+                        self.events.append(Event(mer_binary_name, mer_binary_header, mer_binary_binary))
 
             # Sort by date the list of events contained in this .MER file
             self.events.sort(key=lambda x: x.date)
@@ -110,7 +114,7 @@ class Event:
     '''The Event (singular) class references TWO .MER files, which may be the same,
     through Event.mer_binary_name (.MER file containing the </EVENT> binary
     data), and Event.mer_environment_name (.MER file containing the
-    </ENVIRONMENT> metadata (e.g., GPS, clock drift, sampling freq. etc.)
+    </ENVIRONMENT> metadata [e.g., GPS, clock drift, sampling freq. etc.]
     associated with that event)
 
     Only a SINGLE event (event binary block) is referenced by
@@ -147,33 +151,40 @@ class Event:
         self.mseed_time_correction = None
         self.obspy_trace_stats = None
 
-        self.is_requested = False
+        self.is_requested = None
+
+        self._passed_init = None
+
+        print("{} (binary)".format(self.mer_binary_name))
 
         self.scales = re.findall(" STAGES=(-?\d+)", self.mer_binary_header)[0]
         catch_trig = re.findall(" TRIG=(\d+)", self.mer_binary_header)
         if len(catch_trig) > 0:
             # Event detected with STA/LTA algorithm
+            self.is_requested = False
             self.trig = int(catch_trig[0])
+
+            # Sometimes "INFO DATE" is transferred with the incorrect precision,
+            # e.g., in 0039_5E71459C.MER, which is missing fractional seconds
+            # ("INFO DATE=2020-03-16T01:06:42")
             date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
+            if not date:
+                self._passed_init = False
+                return
+
             self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
             self.depth = int(re.findall(" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
             self.temperature = int(re.findall(" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
             self.criterion = float(re.findall(" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
             self.snr = float(re.findall(" SNR=(\d+\.\d+)", self.mer_binary_header)[0])
+
         else:
             # Event requested by user
             self.is_requested = True
             date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
             self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
 
-    # def __repr__(self):
-    #     # Hacked repr dunder because I can't print binary...
-    #     if self.mer_binary_binary:
-    #         bin_str = '<int32 binary>'
-    #     else:
-    #         bin_str = self.mer_binary_binary
-
-    #     return "Event('{}', '{}', {})".format(self.mer_binary_name, self.mer_binary_header, bin_str)
+        self._passed_init = True
 
     def set_environment(self, mer_environment_name, mer_environment):
         self.mer_environment_name = mer_environment_name
@@ -183,7 +194,6 @@ class Event:
         # Get the frequency recorded in the .MER environment header
         fs_catch = re.findall("TRUE_SAMPLE_FREQ FS_Hz=(\d+\.\d+)", self.mer_environment)
         self.measured_fs = float(fs_catch[0])
-        #self.measured_fs = 40
 
         # Divide frequency by number of scales
         int_scl = int(self.scales)
@@ -580,6 +590,16 @@ class Event:
         stream = Stream(traces=[trace])
 
         return stream
+
+    # def __repr__(self):
+    #     # Hacked repr dunder because I can't print binary...
+    #     if self.mer_binary_binary:
+    #         bin_str = '<int32 binary>'
+    #     else:
+    #         bin_str = self.mer_binary_binary
+
+    #     return "Event('{}', '{}', {})".format(self.mer_binary_name, self.mer_binary_header, bin_str)
+
 
 def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc)

@@ -1,10 +1,12 @@
+# -*- coding: utf-8 -*-
+#
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-May-2021
+# Last modified by JDS: 04-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -55,11 +57,9 @@ class Dive:
         self.len_secs = None
         self.len_days = None
 
-        self.mer_environment_file_exists = False
         self.mer_environment_name = None
+        self.mer_environment_name_exists = False
         self.mer_environment = None
-        self.mer_bytes_received = None
-        self.mer_bytes_expected = None
 
         self.gps_from_log = None
         self.gps_from_mer_environment = None
@@ -80,7 +80,6 @@ class Dive:
         self.is_init = False
         self.is_dive = False
         self.is_complete_dive = False
-        self.is_complete_mer_file = False
         self.dive_id = None
 
         self.prev_dive_log_name = None
@@ -88,6 +87,8 @@ class Dive:
 
         self.next_dive_log_name = None
         self.next_dive_mer_environment_name = None
+
+        print("{}".format(self.log_name))
 
         # Get the date from the file name -- the hexadecimal component of the
         # .LOG file name is the same Unix Epoch time as the first line of the
@@ -153,52 +154,70 @@ class Dive:
             # Zero-pad the (unique part) of the station name so that it is five characters long
             self.attach_kstnm_kinst()
 
-        # Find the .MER file of the ascent
+        # Find the .MER file whose environment (and maybe binary, but not
+        # necessarily) is associated with this .LOG file
+        #
+        # To date I've seen these examples in .LOG files:
+        # "XXXXX bytes in YYYY/ZZZZZZZZ.MER"
+        # "<WRN>maybe YYYY/ZZZZZZZZ.MER is not complete"
+        # "<ERR>upload "YY","YY/ZZZZZZZZ.MER"
+        #
+        # NB, "\w" is this is equivalent to the set "[a-zA-Z0-9_]"
         catch = re.findall("bytes in (\w+/\w+\.MER)", self.log_content)
+
+        if not catch:
+            # Ideally the .LOG notes the bytes expected in the .MER, though it
+            # may instead say one of the three (or more?) possibilities
+            # enumerated above.  The "<WRN>..." message seems workable because
+            # (so far as I've seen) those data in the associated .MER file are
+            # not redundantly printed in another .MER file.  However, we
+            # definitely want to skip .MER files called out in the .LOG by
+            # "<ERR>..."  because those data may be redundantly repeated in
+            # another .MER file when the MERMAID attempts to re-transmit those
+            # data, e.g., in the case of:
+            #
+            # 2018-09-15T20:11:48Z: 25_5B9D6784.LOG -> "21712 bytes in 25/5BA88AE8.MER"
+            # 2018-09-24T06:58:50Z: 25_5BA88B2A.LOG -> "<ERR>upload "25","25/5BA88AE8.MER"
+            catch = re.findall("<WRN>maybe (\w+/\w+\.MER) is not complete", self.log_content)
+
         if len(catch) > 0:
             self.mer_environment_name = catch[-1].replace("/", "_")
+            print("{} (environment)".format(self.mer_environment_name))
+
+            # Sometimes the MER .file named in the .LOG does not exist on the
+            # server (e.g., '16_5F9C20FC.MER')
             mer_fullfile_name = self.base_path + self.mer_environment_name
-
             if os.path.exists(mer_fullfile_name):
-                self.mer_environment_file_exists = True
+                self.mer_environment_name_exists = True
 
-        # If the dive wrote a .MER file then retrieve its corresponding environment because those
-        # GPS fixes DO relate to start/end of the dive. HOWEVER, the events (data) actually
-        # contained in that .MER file may correspond to a different dive (GPS fixes from a DIFFERENT
-        # .LOG and .MER environment), thus we must "get_events_between" to correlate the actual
-        # binary data in .MER files with their proper GPS fixes (usually the dates of the binary
-        # events in the .MER file correspond to the .MER file itself, however if there are a lot of
-        # events to send back corresponding to a single dive, it may take multiple surfacings to
-        # finally transmit them all).
-        if self.mer_environment_file_exists:
-            # Verify that the number of bytes purported to be in the .MER file are actually in the
-            # .MER file (the .LOG prints the expectation)
-            bytes_expected = re.search("](\d+) bytes in " + self.mer_environment_name.replace("_", "/"), self.log_content)
-            self.mer_bytes_expected = int(bytes_expected.group(1))
+                # If the dive wrote a .MER file then retrieve its corresponding
+                # environment because those GPS fixes DO relate to start/end of the
+                # dive. HOWEVER, the events (data) actually contained in that .MER
+                # file may correspond to a different dive (GPS fixes from a
+                # DIFFERENT .LOG and .MER environment), thus we must
+                # "get_events_between" to correlate the actual binary data in .MER
+                # files with their proper GPS fixes (usually the dates of the binary
+                # events in the .MER file correspond to the .MER file itself,
+                # however if there are a lot of events to send back corresponding to
+                # a single dive, it may take multiple surfacings to finally transmit
+                # them all).
 
-            self.mer_bytes_received = os.path.getsize(mer_fullfile_name)
-            if self.mer_bytes_received == self.mer_bytes_expected:
-                self.is_complete_mer_file = True
+                # Read the Mermaid environment associated to the dive
+                with open(mer_fullfile_name, "r") as f:
+                    content = f.read()
+                    catch = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)
 
-            # Warning if .MER transmission is incomplete
-            # if not self.is_complete_mer_file:
-                # print("WARNING: {:s} file transmission is incomplete" \
-                #       .format(self.mer_environment_name))
-                # print("         Expected {:>6d} bytes (according to {:s})\n         Received {:>6d} bytes"\
-                #       .format(self.mer_bytes_expected, self.log_name, self.mer_bytes_received))
+                    # Sometimes the .MER file exists but it is empty (0037_605CB34D.MER)
+                    if catch:
+                        self.mer_environment = catch[0]
 
-            # Read the Mermaid environment associated to the dive
-            with open(mer_fullfile_name, "r") as f:
-                content = f.read()
-            self.mer_environment = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)[0]
-
-            # Get dive ID according to .MER (this iterator can be reset)
-            # NB, a dive ID does not necessarily mean MERMAID actually dove
-            # It just means the float transmitted a .MER file(?)
-            # See, e.g., dive #97 float 25 (25_5EFEC58E.LOG, 25_5EFF43E0.MER)
-            # That log shows a REBOOT, TESTMD, and an old .MER transmission
-            dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
-            self.dive_id = int(dive_id.group(1))
+                        # Get dive ID according to .MER (this iterator can be reset)
+                        # NB, a dive ID does not necessarily mean MERMAID actually dove
+                        # It just means the float transmitted a .MER file(?)
+                        # See, e.g., dive #97 float 25 (25_5EFEC58E.LOG, 25_5EFF43E0.MER)
+                        # That log shows a REBOOT, TESTMD, and an old .MER transmission
+                        dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
+                        self.dive_id = int(dive_id.group(1))
 
         # Get list of events associated with this .MER files environment
         # (the metadata header, which does not necessarily relate to the
@@ -206,11 +225,13 @@ class Dive:
         self.events = events.get_events_between(self.start_date, self.end_date)
 
         # Set and parse info from .MER file and invert wavelet transform any binary data
-        for event in self.events:
-            event.set_environment(self.mer_environment_name, self.mer_environment)
-            event.find_measured_sampling_frequency()
-            event.correct_date()
-            event.invert_transform()
+        # (cannot invert the data without vital information from the .MER environment)
+        if self.mer_environment:
+            for event in self.events:
+                event.set_environment(self.mer_environment_name, self.mer_environment)
+                event.find_measured_sampling_frequency()
+                event.correct_date()
+                event.invert_transform()
 
         # Re-sort events based on date after correction
         self.events.sort(key=lambda x: x.date)
@@ -241,9 +262,6 @@ class Dive:
     def __len__(self):
         return 1
 
-    # def __repr__(self):
-    #     return "Dive('{}', '{}', {})".format(self.base_path, self.log_name, self.events)
-
     def generate_datetime_log(self):
         # Check if file exist
         export_path = self.export_path + self.log_name + ".h"
@@ -256,18 +274,19 @@ class Dive:
             f.write(formatted_log)
 
     def generate_mermaid_environment_file(self):
-        # Check if there is a Mermaid file
-        if self.mer_environment_name is None or not self.mer_environment_file_exists:
+        # The .MER file can be listed in the .LOG but not actually exist on the server
+        if self.mer_environment_name is None or not self.mer_environment_name_exists:
             return
 
-        # Check if file exist
+        # Check if the output file already exists
         export_path = self.export_path + self.log_name + "." + self.mer_environment_name + ".env"
         if os.path.exists(export_path):
             return
 
         # Write file
         with open(export_path, "w") as f:
-            f.write(self.mer_environment)
+            if self.mer_environment:
+                f.write(self.mer_environment)
 
     def generate_dive_plotly(self):
         '''Generates a dive plot for a SINGLE .LOG file, which usually describes a
@@ -385,6 +404,8 @@ class Dive:
             self.next_dive_log_name = next_dive.log_name
             self.next_dive_mer_environment_name = next_dive.mer_environment_name
 
+    # def __repr__(self):
+    #     return "Dive('{}', '{}', {})".format(self.base_path, self.log_name, self.events)
 
     # def print_dive_gps(self):
     #     # Repeat printout for the previous dive, whose data affect the GPS interpolation of the
