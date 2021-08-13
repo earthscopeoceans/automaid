@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Aug-2021
+# Last modified by JDS: 13-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -340,7 +340,7 @@ def get_gps_lists(log_name, log_content, mer_environment_name, mer_environment, 
     '''Collect GPS fixes from .LOG and .MER environments within an inclusive
     datetime range.  Returns raw lists from the .LOG, and .MER, a combined
     nonunique zipped list from the .LOG and .MER, and a unique list of GPS fixes
-    using (ideally) timing from the .MER environmnets and positions from the
+    using (ideally) timing from the .MER environments and positions from the
     .LOG files when both are available and form a GPS pair (see
     `gps.merge_list.list`).
 
@@ -449,7 +449,7 @@ def merge_gps_list(gps_nonunique_list):
 
         gps_merged_list.append(gps_merged)
 
-    # Run recurively if we had to merge GPS to ensure that no GPS triplets,
+    # Run recursively if we had to merge GPS to ensure that no GPS triplets,
     # quartets etc. were missed (I don't think that every happens)?
     if pair_merged:
         return merge_gps_list(gps_merged_list)
@@ -952,7 +952,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                 #     continue
 
                 interp_drift_to_event_mixed_layer, interp_fmt_spec = parse_interp_params(event.station_loc.interp_dict)
-                interp_drift_to_event_mixed_layer.append(event.get_export_file_name())
+                interp_drift_to_event_mixed_layer.append(event.export_file_name)
 
                 interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>40s}\n"
                 f.write(interp_fmt_spec.format(*interp_drift_to_event_mixed_layer))

@@ -8,7 +8,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-May-2021
+# Last modified by JDS: 13-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -39,7 +39,7 @@ version = setup.get_version()
 # Set depth of mixed layer (in meters) for drift interpolation
 mixed_layer_depth_m = 50
 
-# Mininum number unique GPS fixes before/after each dive required for
+# Minimum number unique GPS fixes before/after each dive required for
 # interpolation
 min_gps_fix = 2
 
@@ -144,8 +144,7 @@ def main():
 
     # For each MERMAID float
     for mfloat in sorted(mfloats):
-        mfloat_serial = mfloat[-4:]
-        print("Processing {:s} .LOG & .MER files...".format(mfloat_serial))
+        print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
         # Set the path for the float
         mfloat_path = os.path.join(processed_path, mfloat, "")
@@ -181,7 +180,7 @@ def main():
 
         # Really: collect all the .MER files (next we correlate their environments to .LOG files)
         print(" ...compiling a list of events from {:s} .MER files (GPS & seismic data)..." \
-              .format(mfloat_serial))
+              .format(mfloat))
         mevents = events.Events(mfloat_path)
 
         # Determine the time range of analysis (generally; birth to death of a MERMAID)
@@ -201,7 +200,7 @@ def main():
         # (i.e., a multi-.LOG complete dive may not actually contain a dive at all)
         # Therefore, concatenate all fragmented .LOG in-between single-LOG complete dives
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
-              .format(mfloat_serial))
+              .format(mfloat))
         dive_logs = dives.get_dives(mfloat_path, mevents, begin, end)
 
         # Verify dive logs are sorted as expected
@@ -229,7 +228,7 @@ def main():
             # Reformat and write .LOG in individual dive directory
             dive_log.generate_datetime_log()
 
-            # Write .MER environement in individual directories
+            # Write .MER environment in individual directories
             dive_log.generate_mermaid_environment_file()
 
             # Generate dive plot
@@ -271,7 +270,8 @@ def main():
         if len(dive_logs) > 1:
             vitals.plot_corrected_pressure_offset(mfloat_path, complete_dives, begin, end)
 
-        # Use completed (stitched together) dives to generate event metadata
+        # Use completed (stitched together) dives to generate event metadata and
+        # output data files etc.
         for i, complete_dive in enumerate(complete_dives):
 
             # Extend dive's GPS list by searching previous/next dive's GPS list
@@ -283,8 +283,13 @@ def main():
             # timestamps, including diving/surfacing and event starttimes
             complete_dive.validate_gps(min_gps_fix, max_gps_time)
 
-            # Apply those clock corrections
+            # Apply clock corrections to to the events associated with this
+            # completed dive
             complete_dive.correct_clockdrift()
+
+            # Set output (.sac, .mseed) file names of the events associated with
+            # this complete dive using the adjusted and corrected event dates
+            complete_dive.set_export_file_names()
 
             # Interpolate station locations at various points in the dive
             complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
@@ -308,6 +313,15 @@ def main():
             if events_mseed:
                 complete_dive.generate_events_mseed()
 
+        # NB, at this point, the total event lists associated with `dive_logs`
+        # and `complete_dives` may differ because the former collects all events
+        # and the latter winnows that list to only include unique events (via
+        # `dives.set_export_files`, which removes redundant events from
+        # individual `complete_dives.events` lists); ergo, one may use the
+        # existence of e.g. `event.obspy_trace_stats` to determine what events
+        # in `dive_logs` were actually retained in `complete_dives` (see e.g.,
+        # `events.write_traces_txt`)
+
         # Write csv and txt files containing all GPS fixes from .LOG and .MER
         gps.write_gps(dive_logs, creation_datestr, processed_path, mfloat_path)
 
@@ -320,7 +334,7 @@ def main():
 
         # Write text file and printout detailing which (and potentially
         # MULTIPLE) .LOG and .MER files define complete dives
-        dives.write_complete_dives_txt(complete_dives, creation_datestr,  processed_path, mfloat_path, mfloat_serial)
+        dives.write_complete_dives_txt(complete_dives, creation_datestr, processed_path, mfloat_path, mfloat)
 
         # Write a text file relating all SAC and mSEED to their associated .LOG
         # and .MER files

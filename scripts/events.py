@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Aug-2021
+# Last modified by JDS: 13-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -96,11 +96,8 @@ class Events:
                     if evt._passed_init:
                         self.events.append(Event(mer_binary_name, mer_binary_header, mer_binary_binary))
 
-            # Sort by date the list of events contained in this .MER file
-            self.events.sort(key=lambda x: x.date)
-
-    # def __repr__(self):
-    #     return "Events('{}', '{}')".format(self.base_path, self.mer_name)
+        # Sort by events by date
+        self.events.sort(key=lambda x: x.date)
 
     def get_events_between(self, begin, end):
         catched_events = list()
@@ -108,6 +105,9 @@ class Events:
             if begin < event.date < end:
                 catched_events.append(event)
         return sorted(catched_events, key=lambda x: x.date)
+
+    # def __repr__(self):
+    #     return "Events('{}', '{}')".format(self.base_path, self.mer_name)
 
 
 class Event:
@@ -150,6 +150,7 @@ class Event:
         self.clockdrift_correction = None
         self.mseed_time_correction = None
         self.obspy_trace_stats = None
+        self.export_file_name = None
 
         self.is_requested = None
 
@@ -216,13 +217,20 @@ class Event:
 
             sample_offset = re.findall("SMP_OFFSET=(\d+)", self.mer_binary_header)
             sample_offset = float(sample_offset[0])
-            self.date = rec_file_date + sample_offset/self.measured_fs
+            self.date = rec_file_date + sample_offset / self.measured_fs
         else:
             # For a detected event the recorded date is the STA/LTA trigger
             # date, subtract the time before the trigger.
             self.date = self.date - float(self.trig) / self.decimated_fs
 
+
     def correct_clockdrift(self, gps_descent, gps_ascent):
+        '''Uses GPS before/after the dive to correct `self.date` attr for clockdrift,
+        AND sets `self.export_file_name` attr since this is the final `self.date`
+        adjustment
+
+        '''
+
         # Correct the clock drift of the Mermaid board with GPS measurement
         pct = (self.date - gps_descent.date) / (gps_ascent.date - gps_descent.date)
         self.clockdrift_correction = gps_ascent.clockdrift * pct
@@ -321,12 +329,27 @@ class Event:
         # Return to start directory.
         os.chdir(start_dir)
 
-    def get_export_file_name(self):
+    def set_export_file_name(self):
+        '''Note that setting of attr `export_file_name` does not imply that the event
+        may be written to output .sac and .mseed files; that is determined by
+        the setting of `station_loc`
+
+        Filename uses `self.date` attr, so be sure to apply all date adjustments
+        and corrections before setting the file name
+
+        '''
+
+        # We use the filename for too many things; potential issues upon reset
+        if self.export_file_name is not None:
+            raise ValueError('Cannot reset filename')
+
         export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
+
         if not self.trig:
             export_file_name += ".REQ"
         else:
             export_file_name += ".DET"
+
         if self.scales == "-1":
             export_file_name += ".RAW"
         else:
@@ -335,7 +358,7 @@ class Event:
         if self.station_loc_is_preliminary:
             export_file_name += '.prelim'
 
-        return export_file_name
+        self.export_file_name = export_file_name
 
     def __get_figure_title(self):
         title = "" + self.date.isoformat() \
@@ -348,7 +371,7 @@ class Event:
 
     def plotly(self, export_path, force_redo=False):
         # Check if file exist
-        export_path_html = export_path + self.get_export_file_name() + ".html"
+        export_path_html = export_path + self.export_file_name + ".html"
         if not force_redo and os.path.exists(export_path_html):
             return
 
@@ -374,7 +397,7 @@ class Event:
 
     def plot_png(self, export_path, force_redo=False):
         # Check if file exist
-        export_path_png = export_path + self.get_export_file_name() + ".png"
+        export_path_png = export_path + self.export_file_name + ".png"
         if not force_redo and os.path.exists(export_path_png):
             return
 
@@ -513,7 +536,7 @@ class Event:
 
         # String describing detection/request status, and number of wavelet scales transmitted
         # (e.g., 'DET.WLT5')
-        reqdet_scales = self.get_export_file_name().split('.')[-2:]
+        reqdet_scales = self.export_file_name.split('.')[-2:]
         stats.sac['kuser1'] = '.'.join(reqdet_scales)
 
         # String detailing the type of (i)CDF24 transform: edge correction and
@@ -531,7 +554,7 @@ class Event:
 
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
-            #print self.get_export_file_name() + ": Skip mseed generation, wait the next ascent to compute location"
+            #print self.export_file_name + ": Skip mseed generation, wait the next ascent to compute location"
             return
 
         # Format the metadata into miniSEED and SAC header formats
@@ -539,7 +562,7 @@ class Event:
             self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
 
         # Check if file exists
-        mseed_filename = export_path + self.get_export_file_name() + ".mseed"
+        mseed_filename = export_path + self.export_file_name + ".mseed"
         if not force_redo and os.path.exists(mseed_filename):
             return
 
@@ -557,9 +580,9 @@ class Event:
             utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
     def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
-        # Check if the station location has been calculated
+       # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
-            #print self.get_export_file_name() + ": Skip sac generation, wait the next ascent to compute location"
+            #print self.export_file_name + ": Skip sac generation, wait the next ascent to compute location"
             return
 
         # Format the metadata into miniSEED and SAC header formats
@@ -567,7 +590,7 @@ class Event:
             self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
 
         # Check if file exists
-        sac_filename = export_path + self.get_export_file_name() + ".sac"
+        sac_filename = export_path + self.export_file_name + ".sac"
         if not force_redo and os.path.exists(sac_filename):
             return
 
@@ -602,7 +625,7 @@ class Event:
 
 
 def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
-    event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc)
+    event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc and not event.station_loc_is_preliminary)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
@@ -617,7 +640,7 @@ def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
         f.write(header_line)
 
         for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
-            f.write(fmt_spec.format(e.get_export_file_name(),
+            f.write(fmt_spec.format(e.export_file_name,
                                     e.mer_binary_name,
                                     d.prev_dive_log_name,
                                     d.prev_dive_mer_environment_name,
@@ -626,13 +649,13 @@ def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
                                     d.next_dive_log_name,
                                     d.next_dive_mer_environment_name))
 
-def write_loc_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
+def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each
     individual float
 
     '''
 
-    event_list = [event for dive in dive_logs for event in dive.events if event.station_loc]
+    event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
     fmt_spec = "{:<47s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
@@ -647,7 +670,7 @@ def write_loc_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
         f.write(header_line)
 
         for e in sorted(event_list, key=lambda x: x.date):
-            f.write(fmt_spec.format(e.get_export_file_name(),
+            f.write(fmt_spec.format(e.export_file_name,
                                     np.float32(e.obspy_trace_stats.sac["stla"]),
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
                                     np.float32(e.obspy_trace_stats.sac["stdp"])))
@@ -860,11 +883,8 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
         # atm_f_txt.write(atm_header_line_txt)
 
         # Loop over all events for which a station location was computed
-        event_list = [event for dive in complete_dives for event in dive.events if event.station_loc]
+        event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
         for e in sorted(event_list, key=lambda x: x.date):
-            if e.station_loc_is_preliminary:
-                continue
-
             ## Collect metadata and convert to np.float32()
 
             # For mseed2sac_metadata*.csv:
@@ -888,7 +908,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
 
             # Fields unique to automaid_metadata that are not in mseed2sac_metadata*.csv
             # (commented fields are defined in both files)
-            filename = e.get_export_file_name()
+            filename = e.export_file_name
             # KNETWK = net  (LHS are SAC names; RHS are their mseed2sac equivalents)
             # KSTNM = sta
             # KHOLE = loc

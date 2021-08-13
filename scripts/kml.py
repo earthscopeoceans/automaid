@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-May-2021
+# Last modified by JDS: 13-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import setup
@@ -238,7 +238,7 @@ def events_marker(complete_dives):
                     <description><![CDATA[
     <div style="width:910x">
     <img src=\""""
-            string += os.path.join(dive.directory_name, event.get_export_file_name() + ".png")
+            string += os.path.join(dive.directory_name, event.export_file_name + ".png")
             string += """\" style="width:675px">
           ]]>
                     </description>

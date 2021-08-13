@@ -6,13 +6,14 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 04-Aug-2021
+# Last modified by JDS: 13-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import re
 import sys
 import glob
+import collections
 
 from obspy import UTCDateTime
 import plotly.offline as plotly
@@ -471,10 +472,6 @@ class Complete_Dive:
         self.base_path = complete_dive[-1].base_path
         self.directory_name = complete_dive[-1].directory_name
         self.export_path = complete_dive[-1].export_path
-        # ...like this perhaps?
-        self.base_path2 = complete_dive[-1].base_path
-        self.directory_name2 = '{:s}_{:s}'.format(str(self.start_date)[:19], str(self.end_date)[:19])
-        self.export_path2 = self.base_path2 + self.directory_name2 + "/"
 
         # The nonunique list may include redundant GPS fixes from fragmented .LOG
         # I.e., an error in the .LOG may result in the redundant printing of GPS
@@ -640,10 +637,94 @@ class Complete_Dive:
             event.correct_clockdrift(self.gps_before_dive_incl_prev_dive[-1],
                                      self.gps_after_dive_incl_next_dive[0])
 
+    def set_export_file_names(self):
+        '''Sets `export_file_name` attr for each event attached to this complete dive
+
+        Removes redundant events, e.g.,
+        20180728T225619.07_5B7739F0.MER.REQ.WLT5, whose data appears twice in
+        07_5B7739F0.MER.
+
+        Appends '1' to 'MER' in redundant file names whose data actually differ,
+        e.g., in the case of '20180728T225619.06_5B773AE6.MER.REQ.WLT5' and
+        '20180728T225619.06_5B773AE6.MER1.REQ.WLT5', whose data are both
+        contained in 06_5B773AE6.MER and do in fact differ, but whose export
+        filenames are identical because those only display seconds precision
+        (and the timing differences between the event dates are on the order of
+        fractional seconds).
+
+        This check for redundancy only considers a single redundant file name
+        appearing twice in any give complete dive; if multiple filenames appear
+        twice and/or any one appears three or more times this will error (the
+        fix complicates the code a lot and I've yet to see the need for it...).
+
+        Note that setting of attr `export_file_name` does not imply that valid
+        GPS fixes are associated with the events and they therefore may be
+        written to output .sac and .mseed files; that is determined by the
+        setting of attr `station_loc`.
+
+        '''
+
+        names = []
+        for event in self.events:
+            event.set_export_file_name()
+            names.append(event.export_file_name)
+
+        # It is acceptable to check for export filename redundancies on a
+        # per-dive basis, as opposed to considering the entire `event.Events`
+        # list, because the same data (meaning that `event.mer_binary_binary`
+        # and `event.mer_binary_header` are equal) requested at a later date
+        # will be transmitted in a different .MER file, e.g., the
+        # `event.mer_binary_name` will be different from the current dive and
+        # thus the `event.export_file_name` resulting in no name conflict
+
+        redundant_names = [name for name,count in collections.Counter(names).items() if count > 1]
+
+        if not redundant_names:
+            return
+
+        if len(redundant_names) > 1:
+            raise ValueError('Must edit def to handle multiple redundant file names')
+
+        redundant_index = []
+        for index,name in enumerate(names):
+            if name == redundant_names[0]:
+                redundant_index.append(index)
+
+        if len(redundant_index) > 2:
+            raise ValueError('Must edit def to handle 3+ occurrences of a single redundant file name')
+
+        # Same export file name  (.sac, .mseed), different data (do not remove from list!):
+        #     '20180728T225619.06_5B773AE6.MER.REQ.WLT5'
+        # Rename second occurrence of redundant EXPORT file name to:
+        #     '20180728T225619.06_5B773AE6.MER1.REQ.WLT5'
+        #
+        # Same file name, redundant data (remove second event from list):
+        #     '20180728T225619.07_5B7739F0.MER.REQ.WLT5'
+
+        if self.events[redundant_index[0]].mer_binary_header ==  \
+           self.events[redundant_index[1]].mer_binary_header and \
+           self.events[redundant_index[0]].mer_binary_binary ==  \
+           self.events[redundant_index[1]].mer_binary_binary:
+
+            # Remove the redundant event from the list of events associated with
+            # this complete dive.  This does not delete the events.Event object
+            # itself, which is still referenced elsewhere, including
+            # `dive_logs`, so be careful.
+            del self.events[redundant_index[1]]
+
+        else:
+            # Rename the event with DIFFERENT data but a redundant export file
+            # name (e.g., because the filename only has seconds precision, and
+            # the event date may be different by fractional seconds) from
+            # "...MER..." to "...MER1..."
+            self.events[redundant_index[1]].export_file_name = \
+                self.events[redundant_index[1]].export_file_name.replace('MER', 'MER1')
+
     def compute_station_locations(self, mixed_layer_depth_m, preliminary_location_ok=False):
         '''Fills attributes detailing interpolated locations of MERMAID at various
         points during a Dive (i.e., when it left the surface, reached the mixed
-        layer, etc.)
+        layer, etc.), including `self.events[*].station_loc`, which is required
+        to write the out .sac and .mseed files.
 
         '''
 
@@ -843,11 +924,12 @@ class Complete_Dive:
         else:
             for e in self.events:
                 if e.station_loc is None:
-                    tmp_str = " Event: ! NOT MADE ! (not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
-                              .format(e.get_export_file_name(), e.mer_binary_name)
+                    tmp_str = " Event: ! NOT MADE ! (invalid and/or not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
+                              .format(e.export_file_name, e.mer_binary_name)
+
                 else:
                     tmp_str = "  Event: {:s}.sac (</EVENT> binary in {:s})" \
-                              .format(e.get_export_file_name(), e.mer_binary_name)
+                              .format(e.export_file_name, e.mer_binary_name)
                 print(tmp_str)
                 evt_str += tmp_str + "\n"
 
@@ -896,7 +978,7 @@ def concatenate_log_files(path):
                 logstring = ""
 
 
-def write_complete_dives_txt(complete_dives, creation_datestr, processed_path, mfloat_path, mfloat_serial):
+def write_complete_dives_txt(complete_dives, creation_datestr, processed_path, mfloat_path, mfloat):
     '''Writes complete_dives.txt and prints the same info to stdout
 
     A complete dive is either: (1) wholly defined in a single .LOG file, or (2)
@@ -928,13 +1010,14 @@ def write_complete_dives_txt(complete_dives, creation_datestr, processed_path, m
             print ""
             f.write("\n")
 
-        sac_str = "    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n" \
-                  .format(mfloat_serial, \
-                          sum(bool(e.station_loc) for d in complete_dives for e in d.events if not e.station_loc_is_preliminary))
+        # Determine the total number of SAC and/or miniSEED files that COULD be
+        # written (but do not necessarily exists, e.g., if `events_sac=False` in
+        # main.py).
+        sac_str = "    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n".format(mfloat, \
+                  len([e for d in complete_dives for e in d.events if e.station_loc and not e.station_loc_is_preliminary]))
 
         print(sac_str)
         f.write(sac_str)
-
 
 def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     '''Writes dives.txt, which treats every .LOG as a single (possibly incomplete) dive

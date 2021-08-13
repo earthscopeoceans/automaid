@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-May-2021
+# Last modified by JDS: 13-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -242,9 +242,9 @@ class GeoCSV:
                 raise ValueError("flag must be one of: 'all', 'det', or 'req'")
 
             # Only keep events with an interpolated station location (STLA/STLO)
-            event_list = [event for event in event_list if event.station_loc is not None]
+            event_list = [event for event in event_list if event.obspy_trace_stats]
 
-            # Initialize an "previous" row to check for redundancies
+            # Initialize a "previous" row to check for redundancies
             prev_algorithm_row = list()
             for event in sorted(event_list, key=lambda x: x.date):
                 if event.station_loc_is_preliminary:
@@ -343,7 +343,6 @@ class GeoCSV:
                 if dates == sorted(dates):
                     print("Verified: {} rows sorted".format(csvfile.name))
                 else:
-                    from pprint import pprint; import ipdb; ipdb.set_trace()
                     raise ValueError("{} rows not sorted".format(csvfile.name))
 
                 # (2) Verify all rows unique (include header lines)
