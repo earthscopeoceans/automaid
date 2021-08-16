@@ -318,8 +318,8 @@ def main():
         # and the latter winnows that list to only include unique events (via
         # `dives.set_export_files`, which removes redundant events from
         # individual `complete_dives.events` lists); ergo, one may use the
-        # existence of e.g. `event.obspy_trace_stats` to determine what events
-        # in `dive_logs` were actually retained in `complete_dives` (see e.g.,
+        # existence of e.g. `event.station_loc` to determine what events in
+        # `dive_logs` were actually retained in `complete_dives` (see e.g.,
         # `events.write_traces_txt`)
 
         # Write csv and txt files containing all GPS fixes from .LOG and .MER

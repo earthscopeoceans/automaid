@@ -1,0 +1,7 @@
+* tool_invert_mer.py:
+  - Does not currently work
+  - Marked for removal
+
+* "incl_preliminary" in main,py
+  - Untested with newest versions; likely does not work
+  - Supersedes tool_invert_mer.py; delete that when this is fixed

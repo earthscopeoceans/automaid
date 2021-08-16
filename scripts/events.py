@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Aug-2021
+# Last modified by JDS: 16-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -375,6 +375,9 @@ class Event:
         if not force_redo and os.path.exists(export_path_html):
             return
 
+        if self.station_loc is None:
+            return
+
         # Add acoustic values to the graph
         data_line = graph.Scatter(x=utils.get_date_array(self.date, len(self.data), 1./self.decimated_fs),
                                   y=self.data,
@@ -399,6 +402,10 @@ class Event:
         # Check if file exist
         export_path_png = export_path + self.export_file_name + ".png"
         if not force_redo and os.path.exists(export_path_png):
+            return
+
+
+        if self.station_loc is None:
             return
 
         pascals = [utils.counts2pascal(d) for d in self.data]
