@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Aug-2021
+# Last modified by JDS: 18-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -77,6 +77,7 @@ class Dive:
 
         self.p2t_offset_param = None
         self.p2t_offset_measurement = None
+        self.p2t_offset_corrected = None
 
         self.is_init = False
         self.is_dive = False
