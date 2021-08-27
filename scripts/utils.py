@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Aug-2021
+# Last modified by JDS: 26-Aug-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -146,13 +146,19 @@ def counts2pascal(data):
 
 
 def band_code(sample_rate=None):
-    """ Return instrument band code given sampling frequency in Hz.
+    """Return instrument band code given sampling frequency in Hz.
 
     Args:
         sample_rate (float/int): Sample rate in Hz [def: None]
 
     Returns:
         str: Band code (e.g., "M" for mid period) [def: None]
+
+    NB, the band code not only depends on the sampling frequency but also on the
+    corner frequency of the instrument itself (10 s for third-generation
+    MERMAID).  Therefore, if future generations have a lower corner frequency
+    this def will need to be updated to check for both sampling rate and, e.g.,
+    MERMAID generation.
 
     """
 
