@@ -252,7 +252,7 @@ def write_corrected_pressure_offset(dives_dict, processed_path):
     with open(lastdive_f, "w+") as f:
         f.write("     MERMAID         LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
 
-        for mfloat in dives_dict.keys():
+        for mfloat in sorted(dives_dict.keys()):
             for d in reversed(dives_dict[mfloat]):
                 if d.is_complete_dive:
                     lastdive = d
