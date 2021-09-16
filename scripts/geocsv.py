@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Aug-2021
+# Last modified by JDS: 15-Sep-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -246,7 +246,7 @@ class GeoCSV:
 
             # Initialize a "previous" row to check for redundancies
             prev_algorithm_row = list()
-            for event in sorted(event_list, key=lambda x: x.date):
+            for event in sorted(event_list, key=lambda x: x.corrected_starttime):
                 if event.station_loc_is_preliminary:
                     continue
 

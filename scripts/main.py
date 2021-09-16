@@ -6,9 +6,9 @@
 # Usage: python main.py [-p processed] [-s server]
 #
 # Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux
+# Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Aug-2021
+# Last modified by JDS: 15-Sep-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -109,10 +109,11 @@ filterDate = {
     "452.020-P-0053": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
     "452.020-P-0054": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1))
 }
-# *I found dates in the same range (~minutes before) as misalo.txt and set these filterDates to the
-# actual corresponding date in the LOG (GPS time pairs are printed in .LOG then .MER, in that order,
-# so it is valid to use the .LOG time here) ; if the date did not match exactly I looked for the
-# first date where the clock drift reset and the associated LOG recorded an actual dive
+# *I found dates in the same range (~minutes before) as misalo.txt and set these
+# filterDates to the actual corresponding date in the LOG (GPS time pairs are
+# printed in .LOG then .MER, in that order, so it is valid to use the .LOG time
+# here) ; if the date did not match exactly I looked for the first date where
+# the clock drift reset and the associated LOG recorded an actual dive
 
 # Boolean set to true in order to delete every processed data and redo everything
 redo = False
@@ -209,7 +210,7 @@ def main():
 
         # Verify events sublists are sorted as expected
         events_list = [e for d in dive_logs for e in d.events]
-        if events_list != sorted(events_list, key=lambda x: x.date):
+        if events_list != sorted(events_list, key=lambda x: x.corrected_starttime):
             raise ValueError('`dive_logs[*].events` improperly sorted')
 
         fragmented_dive = list()
@@ -222,8 +223,8 @@ def main():
             dive_log.attach_prev_next_dive(prev_dive, next_dive)
 
             # Create the directory
-            if not os.path.exists(dive_log.export_path):
-                os.mkdir(dive_log.export_path)
+            if not os.path.exists(dive_log.processed_path):
+                os.mkdir(dive_log.processed_path)
 
             # Reformat and write .LOG in individual dive directory
             dive_log.generate_datetime_log()
@@ -259,7 +260,7 @@ def main():
 
         # Verify complete dives are sorted as expected
         if complete_dives != sorted(complete_dives, key=lambda x: x.start_date) \
-           or complete_dives !=  sorted(complete_dives, key=lambda x: x.end_date):
+           or complete_dives != sorted(complete_dives, key=lambda x: x.end_date):
             raise ValueError('`complete_dives` (potentially concatenated .LOG files) improperly sorted')
 
         # Plot vital data
@@ -283,13 +284,13 @@ def main():
             # timestamps, including diving/surfacing and event starttimes
             complete_dive.validate_gps(min_gps_fix, max_gps_time)
 
-            # Apply clock corrections to to the events associated with this
+            # Apply clock corrections to the events associated with this
             # completed dive
-            complete_dive.correct_clockdrift()
+            complete_dive.correct_clockdrifts()
 
             # Set output (.sac, .mseed) file names of the events associated with
             # this complete dive using the adjusted and corrected event dates
-            complete_dive.set_export_file_names()
+            complete_dive.set_processed_file_names()
 
             # Interpolate station locations at various points in the dive
             complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
@@ -298,8 +299,8 @@ def main():
             complete_dive.attach_events_metadata()
 
             # Write requested output files
-            if not os.path.exists(complete_dive.export_path):
-                os.mkdir(complete_dive.export_path)
+            if not os.path.exists(complete_dive.processed_path):
+                os.mkdir(complete_dive.processed_path)
 
             if events_png:
                 complete_dive.generate_events_png()
@@ -316,9 +317,9 @@ def main():
         # NB, at this point, the total event lists associated with `dive_logs`
         # and `complete_dives` may differ because the former collects all events
         # and the latter winnows that list to only include unique events (via
-        # `dives.set_export_files`, which removes redundant events from
+        # `dives.set_processed_file_names`, which removes redundant events from
         # individual `complete_dives.events` lists); ergo, one may use the
-        # existence of e.g. `event.station_loc` to determine what events in
+        # existence of `event.station_loc` to determine what events in
         # `dive_logs` were actually retained in `complete_dives` (see e.g.,
         # `events.write_traces_txt`)
 

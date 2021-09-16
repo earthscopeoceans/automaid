@@ -4,9 +4,9 @@
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux
+# Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Aug-2021
+# Last modified by JDS: 16-Sep-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -952,7 +952,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                 #     continue
 
                 interp_drift_to_event_mixed_layer, interp_fmt_spec = parse_interp_params(event.station_loc.interp_dict)
-                interp_drift_to_event_mixed_layer.append(event.export_file_name)
+                interp_drift_to_event_mixed_layer.append(event.processed_file_name)
 
                 interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>40s}\n"
                 f.write(interp_fmt_spec.format(*interp_drift_to_event_mixed_layer))

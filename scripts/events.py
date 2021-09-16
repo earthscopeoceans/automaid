@@ -4,9 +4,9 @@
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux
+# Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 17-Aug-2021
+# Last modified by JDS: 16-Sep-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -93,18 +93,35 @@ class Events:
 
                     # Use weak catchall for obj init issues (e.g., formatting
                     # abnormalities in the .MER file)
-                    if evt._passed_init:
-                        self.events.append(Event(mer_binary_name, mer_binary_header, mer_binary_binary))
+                    if evt.info_date:
+                        self.events.append(evt)
 
-        # Sort by events by date
-        self.events.sort(key=lambda x: x.date)
+        # Sort by events by reported "INFO DATE", which may be 1970 if the clock
+        # was reset (the info date has not been corrected for clockdrift)
+        self.events.sort(key=lambda x: x.info_date)
 
     def get_events_between(self, begin, end):
+        # The dates are not yet corrected for clockdrift, which can be years if
+        # the float reset to UNIX time 0 (01-Jan-1970).  So this def actually
+        # kicks out potential events, but that is okay with me because timing
+        # seems like it would be iffy at best for, e.g., the following event in
+        # 08_5EAD0DD4.MER --
+        #
+        # "
+        #   <ENVIRONMENT>
+        #   ...
+        #   <GPSINFO DATE=2020-05-02T06:05:46 LAT=-1332.5810 LON=-17857.8430 />
+        #   <DRIFT YEAR=50 MONTH=4 DAY=-1 HOUR=-9 MIN=-47 SEC=19 USEC=-578796 />
+        #   ...
+        #   </PARAMETERS><EVENT>
+        #   <INFO DATE=1970-01-03T10:18:13.513763 ... />
+        # "
+
         catched_events = list()
         for event in self.events:
-            if begin < event.date < end:
+            if begin < event.info_date < end:
                 catched_events.append(event)
-        return sorted(catched_events, key=lambda x: x.date)
+        return sorted(catched_events, key=lambda x: x.info_date)
 
     # def __repr__(self):
     #     return "Events('{}', '{}')".format(self.base_path, self.mer_name)
@@ -132,7 +149,7 @@ class Event:
         self.mer_environment_name = None
         self.mer_environment = None
 
-        self.data = None
+        self.processed_data = None
         self.measured_fs = None
         self.decimated_fs = None
         self.trig = None
@@ -144,17 +161,17 @@ class Event:
         self.normalized = None
         self.edges_correction = None
 
-        self.date = None
+        self.info_date = None
+        self.uncorrected_starttime = None
+        self.corrected_starttime = None
         self.station_loc = None
-        self.station_loc_is_preliminary=None
+        self.station_loc_is_preliminary = None
         self.clockdrift_correction = None
         self.mseed_time_correction = None
         self.obspy_trace_stats = None
-        self.export_file_name = None
+        self.processed_file_name = None
 
         self.is_requested = None
-
-        self._passed_init = None
 
         print("{} (binary)".format(self.mer_binary_name))
 
@@ -170,10 +187,9 @@ class Event:
             # ("INFO DATE=2020-03-16T01:06:42")
             date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
             if not date:
-                self._passed_init = False
                 return
 
-            self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
+            self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
             self.depth = int(re.findall(" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
             self.temperature = int(re.findall(" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
             self.criterion = float(re.findall(" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
@@ -183,9 +199,7 @@ class Event:
             # Event requested by user
             self.is_requested = True
             date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
-            self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
-
-        self._passed_init = True
+            self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
 
     def set_environment(self, mer_environment_name, mer_environment):
         self.mer_environment_name = mer_environment_name
@@ -194,7 +208,10 @@ class Event:
     def find_measured_sampling_frequency(self):
         # Get the frequency recorded in the .MER environment header
         fs_catch = re.findall("TRUE_SAMPLE_FREQ FS_Hz=(\d+\.\d+)", self.mer_environment)
-        self.measured_fs = float(fs_catch[0])
+        if fs_catch:
+            self.measured_fs = float(fs_catch[0])
+        else:
+            return
 
         # Divide frequency by number of scales
         int_scl = int(self.scales)
@@ -204,10 +221,36 @@ class Event:
             # This is raw data sampled at 40Hz
             self.decimated_fs = self.measured_fs
 
-    def correct_date(self):
-        # Calculate the date of the first sample
+    def set_uncorrected_starttime(self):
+        '''Compute the starttime of the event (uncorrected for GPS clockdrift) from the
+        event header preceding the .MER binary
+
+        '''
+
+        if not self.measured_fs:
+            return
+
         if self.is_requested:
-            # For a requested event
+            # Quoted verbatim from SB email, "Re: Future update for automated,"
+            # 23 January 2019 --
+            #
+            # "The data are recorded in the SD card. Each time an acquisition
+            # start a new file is created and the date of the first sample is
+            # recorded. When you request data, the acquisition board count the
+            # number of samples from the file beginning until to reach the
+            # requested date (the date of the beginning of the file, plus the
+            # number of samples dived by the sampling frequency of the
+            # hydrophone must be equal to the requested date). But this search
+            # doesn’t have access to the sampling frequency of the recorded file
+            # and use instead the measurement of the sampling frequency, since a
+            # long time can happen between the recording of a file and the
+            # request of a signal, the sampling frequency can change. It is then
+            # necessary to consider the sampling frequency during the recording
+            # of a signal to have an accurate estimation of the requested
+            # signal. Without this consideration an error of several hundred
+            # milliseconds could be introduced in the date of the requested
+            # signal (and the error would be of several tenths of seconds by
+            # considering the sampling frequency exactly equal to 40Hz)."
             rec_file_date = re.findall("FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2})", self.mer_binary_header)
             rec_file_date = UTCDateTime.strptime(rec_file_date[0], "%Y-%m-%dT%H_%M_%S")
 
@@ -217,43 +260,36 @@ class Event:
 
             sample_offset = re.findall("SMP_OFFSET=(\d+)", self.mer_binary_header)
             sample_offset = float(sample_offset[0])
-            self.date = rec_file_date + sample_offset / self.measured_fs
+            self.uncorrected_starttime = rec_file_date + sample_offset / self.measured_fs
         else:
-            # For a detected event the recorded date is the STA/LTA trigger
-            # date, subtract the time before the trigger.
-            self.date = self.date - float(self.trig) / self.decimated_fs
+            # For a detected event the INFO DATE is timestamp of the STA/LTA trigger
+            #
+            # NB, the manual (Réf : 452.000.852 Version 00) incorrectly states
+            # on pg. 33 --
+            #
+            # "The time given in the date is not the time of the first sample of
+            # the signal, but the time of the TRIG sample number. In the example
+            # above TRIG=250 so the date given corresponds to the timestamp of the
+            # 250th sample."
+            #
+            # It should say, "...timestamp of the 251th sample."  Indexing
+            # starts at 0 in this case, hence `float(self.trig)` and not
+            # `float(self.trig)-1` below.  JDS verified with SB in email "Re:
+            # Bumps and other matters," 28 Mar 2021.
+            self.uncorrected_starttime = self.info_date - float(self.trig) / self.decimated_fs
 
+    def process_binary_data(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
+        '''Convert raw .MER binary data to processed MERMAID traces, generally via
+        CDF(2,4) inversion for "WLT?" data, or simply though casting to int32 in
+        the case of "RAW" (STAGES=-1) data.
 
-    def correct_clockdrift(self, gps_descent, gps_ascent):
-        '''Uses GPS before/after the dive to correct `self.date` attr for clockdrift,
-        AND sets `self.export_file_name` attr since this is the final `self.date`
-        adjustment
-
-        '''
-
-        # Correct the clock drift of the Mermaid board with GPS measurement
-        pct = (self.date - gps_descent.date) / (gps_ascent.date - gps_descent.date)
-        self.clockdrift_correction = gps_ascent.clockdrift * pct
-
-        # The miniSEED convention of a time correction is of the same sign of
-        # the `clockdrift` (or the `clockdrift_correction') of this program
-        #
-        # positive clockdirft = negative time delay => MER time early w.r.t GPS
-        # negative clockdrift = positive time delay => MER time delayed w.r.t GPS
-        self.mseed_time_correction = self.clockdrift_correction
-
-        # Apply correction
-        self.date = self.date + self.clockdrift_correction
-
-    def compute_station_location(self, drift_begin_gps, drift_end_gps, station_loc_is_preliminary=False):
-        '''Fills attribute self.station_loc, the interpolated location of MERMAID when
-        it recorded an event
+        Sets attrs:
+        `normalized`
+        `edges_correction`
+        `processed_data`
 
         '''
-        self.station_loc = gps.linear_interpolation([drift_begin_gps, drift_end_gps], self.date)
-        self.station_loc_is_preliminary = station_loc_is_preliminary
 
-    def invert_transform(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
         # Get additional information on flavor of invert wavelet transform
         # Must do this before the `return` statement, in the case of RAW files
         self.normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
@@ -261,10 +297,11 @@ class Event:
 
         # If scales == -1 this is a raw signal, just convert binary data to np array of int32
         if self.scales == "-1":
-            self.data = np.frombuffer(self.mer_binary_binary, np.int32)
+            self.processed_data = np.frombuffer(self.mer_binary_binary, np.int32)
             return
 
-        # Change to binary directory because these scripts can fail with full paths
+        # Change to binary directory because the executable C inversion program
+        # called below can fail with full paths :(
         start_dir = os.getcwd();
         os.chdir(bin_path)
 
@@ -275,7 +312,7 @@ class Event:
         inverted_data_file_name = "wtcoeffs.icdf24_" + self.scales
 
         # Delete any previously-inverted data just to be absolutely sure we are
-        # working with this events' data only (an interruption before the second
+        # working with this event's data only (an interruption before the second
         # call to delete these files could result in their persistence)
         if os.path.exists(wtcoeffs_data_file_name):
             os.remove(wtcoeffs_data_file_name)
@@ -283,34 +320,38 @@ class Event:
         if os.path.exists(inverted_data_file_name):
             os.remove(inverted_data_file_name)
 
-        # Write cdf24 data
+        # Write cdf24 data to file named "wtcoeffs" in local directory
         with open(wtcoeffs_data_file_name, 'w') as f:
             f.write(self.mer_binary_binary)
 
-        # The inverse wavelet transform C code (icdf24_v103(ec)_test) is called
-        # below in a subprocess and its output is verified; determine if edge
-        # correction needs to be accounted for
-        icdf24_arg_list = list()
+        # The inverse wavelet transform C code (`icdf24_v103(ec)_test`) is
+        # called below in a shell subprocess and its output is verified;
+        # determine if edge correction needs to be accounted for and set the
+        # first argument (the executable) in the full command (note that "./" is
+        # required before script on JDS' Linux machine, but not JDS' Mac...)
+        icdf24_shell_command = list()
         if self.edges_correction == "1":
-            icdf24_arg_list.append("icdf24_v103ec_test")
+            icdf24_shell_command.append("./icdf24_v103ec_test")
 
         else:
-            icdf24_arg_list.append("icdf24_v103_test")
+            icdf24_shell_command.append("./icdf24_v103_test")
 
-        # Extend the icdf24_v103(ec)_test argument list with other data values
-        icdf24_arg_list.extend([self.scales, self.normalized, wtcoeffs_data_file_name])
+        # Append the argument list to feed inversion script, e.g., "5 1 wtcoeffs"
+        icdf24_shell_command.extend([self.scales, self.normalized, wtcoeffs_data_file_name])
 
-        # Perform inverse wavelet transform
-        stdout = subprocess.check_output(icdf24_arg_list)
+        # Perform inverse wavelet transform, e.g., running in background shell --
+        # $ ./icdf24_v103ec_test 5 1 wtcoeffs
+        # NB, `subprocess` is analogous to `system` in MATLAB
+        stdout = subprocess.check_output(icdf24_shell_command)
 
         # Ensure the inverse wavelet transform worked as expected, meaning that
         # it generated an output file of int32 data
         if not os.path.exists(inverted_data_file_name):
-            cmd  = ' '.join(map(str, icdf24_arg_list)) # prints python list as comma-separated string
+            cmd = ' '.join(map(str, icdf24_shell_command))
             err_mess = "\nFailed: inverse wavelet transformation\n"
             err_mess += "In directory: {:s}\n".format(bin_path)
             err_mess += "Attempted command: {:s}\n".format(cmd)
-            err_mess += "Using: event around {:s} in {:s}\n\n".format(self.date, self.mer_binary_name)
+            err_mess += "Using: event around {:s} in {:s}\n\n".format(self.info_date, self.mer_binary_name)
             err_mess += "Command printout:\n'{:s}'".format(stdout)
 
             # This output message is more helpful than the program crashing on
@@ -318,7 +359,7 @@ class Event:
             sys.exit(err_mess)
 
         # Read the inverted data
-        self.data = np.fromfile(inverted_data_file_name, np.int32)
+        self.processed_data = np.fromfile(inverted_data_file_name, np.int32)
 
         # Delete the files of coefficient and inverted data, otherwise a latter
         # .MER with an incomplete binary event block can come along and use the
@@ -329,39 +370,75 @@ class Event:
         # Return to start directory.
         os.chdir(start_dir)
 
-    def set_export_file_name(self):
-        '''Note that setting of attr `export_file_name` does not imply that the event
-        may be written to output .sac and .mseed files; that is determined by
-        the setting of `station_loc`
+    def correct_clockdrift(self, gps_descent, gps_ascent):
+        '''Estimate and correct GPS clockdrift for this event.
 
-        Filename uses `self.date` attr, so be sure to apply all date adjustments
-        and corrections before setting the file name
+        Sets attrs:
+
+        `clockdrift_correction`
+        `mseed_time_correction
+        `corrected_starttime`
 
         '''
 
-        # We use the filename for too many things; potential issues upon reset
-        if self.export_file_name is not None:
-            raise ValueError('Cannot reset filename')
+        # Correct the clock drift of the Mermaid board with GPS measurement
+        pct = (self.uncorrected_starttime - gps_descent.date) / (gps_ascent.date - gps_descent.date)
+        self.clockdrift_correction = gps_ascent.clockdrift * pct
 
-        export_file_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
+        # The miniSEED convention of a time correction is of the same sign of
+        # the `clockdrift` (or the `clockdrift_correction') of this program
+        #
+        # positive clockdrift = negative time delay => MER time early w.r.t GPS
+        # negative clockdrift = positive time delay => MER time delayed w.r.t GPS
+        self.mseed_time_correction = self.clockdrift_correction
+
+        # Apply correction
+        self.corrected_starttime = self.uncorrected_starttime + self.clockdrift_correction
+
+
+    def compute_station_location(self, drift_begin_gps, drift_end_gps, station_loc_is_preliminary=False):
+        '''Fills attr `station_loc`, the interpolated location of MERMAID when it
+        recorded an event
+
+        '''
+        self.station_loc = gps.linear_interpolation([drift_begin_gps,
+                                                     drift_end_gps],
+                                                    self.corrected_starttime)
+        self.station_loc_is_preliminary = station_loc_is_preliminary
+
+    def set_processed_file_name(self):
+        '''Note that setting of attr `processed_file_name` does not imply that the event
+        may be written to output .sac and .mseed files; that is determined by
+        the setting of `station_loc`
+
+        Filename uses attr `corrected_starttime`, so be sure to apply all date
+        adjustments and corrections before setting the file name
+
+        '''
+
+        if not self.corrected_starttime:
+            return
+
+        processed_file_name = UTCDateTime.strftime(UTCDateTime(self.corrected_starttime),\
+                                                "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
 
         if not self.trig:
-            export_file_name += ".REQ"
+            processed_file_name += ".REQ"
         else:
-            export_file_name += ".DET"
+            processed_file_name += ".DET"
 
         if self.scales == "-1":
-            export_file_name += ".RAW"
+            processed_file_name += ".RAW"
         else:
-            export_file_name += ".WLT" + self.scales
+            processed_file_name += ".WLT" + self.scales
 
         if self.station_loc_is_preliminary:
-            export_file_name += '.prelim'
+            processed_file_name += '.prelim'
 
-        self.export_file_name = export_file_name
+        self.processed_file_name = processed_file_name
 
     def __get_figure_title(self):
-        title = "" + self.date.isoformat() \
+        title = "" + self.corrected_starttime.isoformat() \
                 + "     Fs = " + str(self.decimated_fs) + "Hz\n" \
                 + "     Depth: " + str(self.depth) + " m" \
                 + "     Temperature: " + str(self.temperature) + " degC" \
@@ -369,18 +446,21 @@ class Event:
                 + "     SNR = " + str(self.snr)
         return title
 
-    def plotly(self, export_path, force_redo=False):
+    def plotly(self, processed_path, force_redo=False):
+        if self.processed_file_name is None:
+            return
+
         # Check if file exist
-        export_path_html = export_path + self.export_file_name + ".html"
-        if not force_redo and os.path.exists(export_path_html):
+        processed_path_html = processed_path + self.processed_file_name + ".html"
+        if not force_redo and os.path.exists(processed_path_html):
             return
 
         if self.station_loc is None:
             return
 
         # Add acoustic values to the graph
-        data_line = graph.Scatter(x=utils.get_date_array(self.date, len(self.data), 1./self.decimated_fs),
-                                  y=self.data,
+        data_line = graph.Scatter(x=utils.get_date_array(self.corrected_starttime, len(self.processed_data), 1./self.decimated_fs),
+                                  y=self.processed_data,
                                   name="counts",
                                   line=dict(color='blue',
                                             width=2),
@@ -395,19 +475,22 @@ class Event:
                               )
 
         plotly.plot({'data': data, 'layout': layout},
-                    filename=export_path_html,
+                    filename=processed_path_html,
                     auto_open=False)
 
-    def plot_png(self, export_path, force_redo=False):
+    def plot_png(self, processed_path, force_redo=False):
+        if self.processed_file_name is None:
+            return
+
         # Check if file exist
-        export_path_png = export_path + self.export_file_name + ".png"
-        if not force_redo and os.path.exists(export_path_png):
+        processed_path_png = processed_path + self.processed_file_name + ".png"
+        if not force_redo and os.path.exists(processed_path_png):
             return
 
         if self.station_loc is None:
             return
 
-        pascals = [utils.counts2pascal(d) for d in self.data]
+        pascals = [utils.counts2pascal(d) for d in self.processed_data]
 
         # Plot frequency image
         plt.figure(figsize=(9, 4))
@@ -419,7 +502,7 @@ class Event:
         plt.ylabel("Pascal", fontsize=12)
         plt.tight_layout()
         plt.grid()
-        plt.savefig(export_path_png)
+        plt.savefig(processed_path_png)
         plt.clf()
         plt.close()
 
@@ -461,9 +544,9 @@ class Event:
         stats.station = kstnm
         stats.location = "00"
         stats.channel = utils.band_code(self.decimated_fs) + "DH"  # SEED manual Appendix A
-        stats.starttime = self.date
+        stats.starttime = self.corrected_starttime
         stats.sampling_rate = self.decimated_fs
-        stats.npts = len(self.data)
+        stats.npts = len(self.processed_data)
 
         # Extra metadata, some of which is only written to SAC files
         keys = ['stla',
@@ -542,7 +625,7 @@ class Event:
 
         # String describing detection/request status, and number of wavelet scales transmitted
         # (e.g., 'DET.WLT5')
-        reqdet_scales = self.export_file_name.split('.')[-2:]
+        reqdet_scales = self.processed_file_name.split('.')[-2:]
         stats.sac['kuser1'] = '.'.join(reqdet_scales)
 
         # String detailing the type of (i)CDF24 transform: edge correction and
@@ -552,7 +635,7 @@ class Event:
         # Attach Stats to events object
         self.obspy_trace_stats = stats
 
-    def to_mseed(self, export_path, kstnm, kinst, force_without_loc=False,
+    def to_mseed(self, processed_path, kstnm, kinst, force_without_loc=False,
                  force_redo=False, force_without_time_correction=False):
         # NB, mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC",
         # where "D" is the quality indicator, "D -- The state of quality control
@@ -560,7 +643,7 @@ class Event:
 
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
-            #print self.export_file_name + ": Skip mseed generation, wait the next ascent to compute location"
+            #print self.processed_file_name + ": Skip mseed generation, wait the next ascent to compute location"
             return
 
         # Format the metadata into miniSEED and SAC header formats
@@ -568,12 +651,12 @@ class Event:
             self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
 
         # Check if file exists
-        mseed_filename = export_path + self.export_file_name + ".mseed"
+        mseed_filename = processed_path + self.processed_file_name + ".mseed"
         if not force_redo and os.path.exists(mseed_filename):
             return
 
         # Get stream object
-        stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
+        stream = self.get_stream(processed_path, kstnm, kinst, force_without_loc)
 
         # Save stream object with the time correction applied but without 'Time
         # correction applied' flag or 'Time correction' value being set in the
@@ -585,10 +668,10 @@ class Event:
         if not force_without_time_correction and not self.station_loc_is_preliminary:
             utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
-    def to_sac(self, export_path, kstnm, kinst, force_without_loc=False, force_redo=False):
+    def to_sac(self, processed_path, kstnm, kinst, force_without_loc=False, force_redo=False):
        # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
-            #print self.export_file_name + ": Skip sac generation, wait the next ascent to compute location"
+            #print self.processed_file_name + ": Skip sac generation, wait the next ascent to compute location"
             return
 
         # Format the metadata into miniSEED and SAC header formats
@@ -596,17 +679,17 @@ class Event:
             self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
 
         # Check if file exists
-        sac_filename = export_path + self.export_file_name + ".sac"
+        sac_filename = processed_path + self.processed_file_name + ".sac"
         if not force_redo and os.path.exists(sac_filename):
             return
 
         # Get stream object
-        stream = self.get_stream(export_path, kstnm, kinst, force_without_loc)
+        stream = self.get_stream(processed_path, kstnm, kinst, force_without_loc)
 
         # Save stream object
         stream.write(sac_filename, format='SAC')
 
-    def get_stream(self, export_path, kstnm, kinst, force_without_loc=False):
+    def get_stream(self, processed_path, kstnm, kinst, force_without_loc=False):
         # Check if an interpolated station location exists
         if self.station_loc is None and not force_without_loc:
             return
@@ -614,7 +697,7 @@ class Event:
         # Save data into a Stream object
         trace = Trace()
         trace.stats = self.obspy_trace_stats
-        trace.data = self.data
+        trace.data = self.processed_data
 
         stream = Stream(traces=[trace])
 
@@ -645,8 +728,8 @@ def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
         f.write(created_line)
         f.write(header_line)
 
-        for e, d in sorted(event_dive_tup, key=lambda x: x[0].date):
-            f.write(fmt_spec.format(e.export_file_name,
+        for e, d in sorted(event_dive_tup, key=lambda x: x[0].corrected_starttime):
+            f.write(fmt_spec.format(e.processed_file_name,
                                     e.mer_binary_name,
                                     d.prev_dive_log_name,
                                     d.prev_dive_mer_environment_name,
@@ -675,8 +758,8 @@ def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path)
         f.write(created_line)
         f.write(header_line)
 
-        for e in sorted(event_list, key=lambda x: x.date):
-            f.write(fmt_spec.format(e.export_file_name,
+        for e in sorted(event_list, key=lambda x: x.corrected_starttime):
+            f.write(fmt_spec.format(e.processed_file_name,
                                     np.float32(e.obspy_trace_stats.sac["stla"]),
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
                                     np.float32(e.obspy_trace_stats.sac["stdp"])))
@@ -890,7 +973,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
 
         # Loop over all events for which a station location was computed
         event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
-        for e in sorted(event_list, key=lambda x: x.date):
+        for e in sorted(event_list, key=lambda x: x.corrected_starttime):
             ## Collect metadata and convert to np.float32()
 
             # For mseed2sac_metadata*.csv:
@@ -914,7 +997,7 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
 
             # Fields unique to automaid_metadata that are not in mseed2sac_metadata*.csv
             # (commented fields are defined in both files)
-            filename = e.export_file_name
+            filename = e.processed_file_name
             # KNETWK = net  (LHS are SAC names; RHS are their mseed2sac equivalents)
             # KSTNM = sta
             # KHOLE = loc

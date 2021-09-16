@@ -4,9 +4,9 @@
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux
+# Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 18-Aug-2021
+# Last modified by JDS: 16-Sep-2021
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -46,7 +46,7 @@ class Dive:
         self.__version__ = version
 
         self.directory_name = None
-        self.export_path = None
+        self.processed_path = None
         self.station_name = None
         self.station_number = None
         self.kstnm = None
@@ -143,7 +143,7 @@ class Dive:
         elif not self.is_complete_dive:
             self.directory_name += "IcDive"
 
-        self.export_path = self.base_path + self.directory_name + "/"
+        self.processed_path = self.base_path + self.directory_name + "/"
 
         # Get the station name
         if self.is_dive or self.is_init:
@@ -232,11 +232,11 @@ class Dive:
             for event in self.events:
                 event.set_environment(self.mer_environment_name, self.mer_environment)
                 event.find_measured_sampling_frequency()
-                event.correct_date()
-                event.invert_transform()
+                event.set_uncorrected_starttime()
+                event.process_binary_data()
 
-        # Re-sort events based on date after correction
-        self.events.sort(key=lambda x: x.date)
+        # Re-sort events based on starttime (rather than INFO DATE)
+        self.events.sort(key=lambda x: x.uncorrected_starttime)
 
         # Collect all GPS fixes taken in both the .LOG  and .MER file
         self.gps_list, self.gps_nonunique_list, self.gps_from_log, self.gps_from_mer_environment \
@@ -266,13 +266,13 @@ class Dive:
 
     def generate_datetime_log(self):
         # Check if file exist
-        export_path = self.export_path + self.log_name + ".h"
-        if os.path.exists(export_path):
+        processed_path = self.processed_path + self.log_name + ".h"
+        if os.path.exists(processed_path):
             return
         # Generate log with formatted date
         formatted_log = utils.format_log(self.log_content)
         # Write file
-        with open(export_path, "w") as f:
+        with open(processed_path, "w") as f:
             f.write(formatted_log)
 
     def generate_mermaid_environment_file(self):
@@ -281,12 +281,12 @@ class Dive:
             return
 
         # Check if the output file already exists
-        export_path = self.export_path + self.log_name + "." + self.mer_environment_name + ".env"
-        if os.path.exists(export_path):
+        processed_path = self.processed_path + self.log_name + "." + self.mer_environment_name + ".env"
+        if os.path.exists(processed_path):
             return
 
         # Write file
-        with open(export_path, "w") as f:
+        with open(processed_path, "w") as f:
             if self.mer_environment:
                 f.write(self.mer_environment)
 
@@ -299,8 +299,8 @@ class Dive:
         '''
 
         # Check if file exist
-        export_path = self.export_path + self.log_name[:-4] + '.html'
-        if os.path.exists(export_path):
+        processed_path = self.processed_path + self.log_name[:-4] + '.html'
+        if os.path.exists(processed_path):
             return
 
         # If the float is not diving don't plot anything
@@ -372,7 +372,7 @@ class Dive:
                               )
 
         plotly.plot({'data': data, 'layout': layout},
-                    filename=export_path,
+                    filename=processed_path,
                     auto_open=False)
 
     def attach_kstnm_kinst(self):
@@ -472,7 +472,7 @@ class Complete_Dive:
         # Might want to rename the directories into something more useful...
         self.base_path = complete_dive[-1].base_path
         self.directory_name = complete_dive[-1].directory_name
-        self.export_path = complete_dive[-1].export_path
+        self.processed_path = complete_dive[-1].processed_path
 
         # The nonunique list may include redundant GPS fixes from fragmented .LOG
         # I.e., an error in the .LOG may result in the redundant printing of GPS
@@ -570,6 +570,12 @@ class Complete_Dive:
 
         If max_time is ignored if num_gps=1.
 
+        Allows at most 5 s of clockdrift (generally drifts are < 2 s) to skip
+        cases when clock resets occurred immediately before/after dive (MERMAID's
+        onboard clock resets to UNIX time 0 -- Thu Jan 1 00:00:00 UTC 1970 --
+        which results in a reported clockdrift of ~50 yr; these should already
+        be excluded by `get_events_between`, but you can never be too careful).
+
         """
 
         self.gps_valid4clockdrift_correction = False
@@ -585,11 +591,17 @@ class Complete_Dive:
         else:
             return
 
-        # Ensure MERMAID clock synchronized with first GPS after surfacing
+        # Ensure MERMAID clock synchronized with last(first) GPS before(after) diving(surfacing)
         # (this also handles the case of verifying `gps.mer_time_log_loc` if `num_gps=1`)
-        if gps.valid_clockfreq(gps_before[-1]) and gps_before[-1].mer_time_log_loc() \
-           and gps.valid_clockfreq(gps_after[0]) and gps_after[0].mer_time_log_loc():
+        if gps.valid_clockfreq(gps_before[-1]) \
+           and gps_before[-1].mer_time_log_loc() \
+           and gps_before[-1].clockdrift < 5 \
+           and gps.valid_clockfreq(gps_after[0]) \
+           and gps_after[0].mer_time_log_loc() \
+           and gps_after[0].clockdrift < 5:
+
            self.gps_valid4clockdrift_correction = True
+
         else:
             return
 
@@ -629,17 +641,23 @@ class Complete_Dive:
 
         return
 
-    def correct_clockdrift(self):
+    def correct_clockdrifts(self):
+        '''Estimate and correct GPS clockdrifts for each event associated with this
+        complete dive.
+
+        '''
         if not self.gps_valid4clockdrift_correction:
             return
+
 
         # Correct clock drift
         for event in self.events:
             event.correct_clockdrift(self.gps_before_dive_incl_prev_dive[-1],
                                      self.gps_after_dive_incl_next_dive[0])
 
-    def set_export_file_names(self):
-        '''Sets `export_file_name` attr for each event attached to this complete dive
+    def set_processed_file_names(self):
+        '''Sets `processed_file_name` attr for each event attached to this complete
+        dive.
 
         Removes redundant events, e.g.,
         20180728T225619.07_5B7739F0.MER.REQ.WLT5, whose data appears twice in
@@ -648,7 +666,7 @@ class Complete_Dive:
         Appends '1' to 'MER' in redundant file names whose data actually differ,
         e.g., in the case of '20180728T225619.06_5B773AE6.MER.REQ.WLT5' and
         '20180728T225619.06_5B773AE6.MER1.REQ.WLT5', whose data are both
-        contained in 06_5B773AE6.MER and do in fact differ, but whose export
+        contained in 06_5B773AE6.MER and do in fact differ, but whose processed
         filenames are identical because those only display seconds precision
         (and the timing differences between the event dates are on the order of
         fractional seconds).
@@ -658,7 +676,7 @@ class Complete_Dive:
         twice and/or any one appears three or more times this will error (the
         fix complicates the code a lot and I've yet to see the need for it...).
 
-        Note that setting of attr `export_file_name` does not imply that valid
+        Note that setting of attr `processed_file_name` does not imply that valid
         GPS fixes are associated with the events and they therefore may be
         written to output .sac and .mseed files; that is determined by the
         setting of attr `station_loc`.
@@ -667,18 +685,18 @@ class Complete_Dive:
 
         names = []
         for event in self.events:
-            event.set_export_file_name()
-            names.append(event.export_file_name)
+            event.set_processed_file_name()
+            names.append(event.processed_file_name)
 
-        # It is acceptable to check for export filename redundancies on a
+        # It is acceptable to check for processed filename redundancies on a
         # per-dive basis, as opposed to considering the entire `event.Events`
         # list, because the same data (meaning that `event.mer_binary_binary`
         # and `event.mer_binary_header` are equal) requested at a later date
         # will be transmitted in a different .MER file, e.g., the
         # `event.mer_binary_name` will be different from the current dive and
-        # thus the `event.export_file_name` resulting in no name conflict
+        # thus the `event.processed_file_name` resulting in no name conflict
 
-        redundant_names = [name for name,count in collections.Counter(names).items() if count > 1]
+        redundant_names = [name for name,count in collections.Counter(names).items() if count > 1 and name is not None]
 
         if not redundant_names:
             return
@@ -694,9 +712,9 @@ class Complete_Dive:
         if len(redundant_index) > 2:
             raise ValueError('Must edit def to handle 3+ occurrences of a single redundant file name')
 
-        # Same export file name  (.sac, .mseed), different data (do not remove from list!):
+        # Same processed file name  (.sac, .mseed), different data (do not remove from list!):
         #     '20180728T225619.06_5B773AE6.MER.REQ.WLT5'
-        # Rename second occurrence of redundant EXPORT file name to:
+        # Rename second occurrence of redundant PROCESSED file name to:
         #     '20180728T225619.06_5B773AE6.MER1.REQ.WLT5'
         #
         # Same file name, redundant data (remove second event from list):
@@ -710,16 +728,16 @@ class Complete_Dive:
             # Remove the redundant event from the list of events associated with
             # this complete dive.  This does not delete the events.Event object
             # itself, which is still referenced elsewhere, including
-            # `dive_logs`, so be careful.
+            # `dive_logs`, so be careful
             del self.events[redundant_index[1]]
 
         else:
-            # Rename the event with DIFFERENT data but a redundant export file
+            # Rename the event with DIFFERENT data but a redundant processed file
             # name (e.g., because the filename only has seconds precision, and
             # the event date may be different by fractional seconds) from
             # "...MER..." to "...MER1..."
-            self.events[redundant_index[1]].export_file_name = \
-                self.events[redundant_index[1]].export_file_name.replace('MER', 'MER1')
+            self.events[redundant_index[1]].processed_file_name = \
+            self.events[redundant_index[1]].processed_file_name.replace('MER', 'MER1')
 
     def compute_station_locations(self, mixed_layer_depth_m, preliminary_location_ok=False):
         '''Fills attributes detailing interpolated locations of MERMAID at various
@@ -864,19 +882,19 @@ class Complete_Dive:
 
     def generate_events_plotly(self):
         for event in self.events:
-            event.plotly(self.export_path)
+            event.plotly(self.processed_path)
 
     def generate_events_png(self):
         for event in self.events:
-            event.plot_png(self.export_path)
+            event.plot_png(self.processed_path)
 
     def generate_events_sac(self):
         for event in self.events:
-            event.to_sac(self.export_path, self.kstnm, self.kinst)
+            event.to_sac(self.processed_path, self.kstnm, self.kinst)
 
     def generate_events_mseed(self):
         for event in self.events:
-            event.to_mseed(self.export_path, self.kstnm, self.kinst)
+            event.to_mseed(self.processed_path, self.kstnm, self.kinst)
 
     def print_len(self):
         len_str  = "   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s}/{:s})" \
@@ -926,11 +944,11 @@ class Complete_Dive:
             for e in self.events:
                 if e.station_loc is None:
                     tmp_str = " Event: ! NOT MADE ! (invalid and/or not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
-                              .format(e.export_file_name, e.mer_binary_name)
+                              .format(e.processed_file_name, e.mer_binary_name)
 
                 else:
                     tmp_str = "  Event: {:s}.sac (</EVENT> binary in {:s})" \
-                              .format(e.export_file_name, e.mer_binary_name)
+                              .format(e.processed_file_name, e.mer_binary_name)
                 print(tmp_str)
                 evt_str += tmp_str + "\n"
 
