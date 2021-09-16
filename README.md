@@ -77,8 +77,3 @@ of the content of the content of the `processed` directory.
 * A `events_plotly` flag allow the user to plot interactive figures
 of events in a html page. This kind of plot can be disabled to save
 disk space.
-
-An additional tool is available to invert a single ".MER" files. For
-this, go in the `scripts` directory. Put a Mermaid file with the
-extension ".MER" in the `scripts/tool_invert_mer` directory. And
-finally run the script: `python tool_invert_mer.py`.
