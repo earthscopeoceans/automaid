@@ -1,840 +1,0 @@
-diff --git a/.gitignore b/.gitignore
-new file mode 100644
-index 0000000..4c7633d
---- /dev/null
-+++ b/.gitignore
-@@ -0,0 +1,4 @@
-+bin/
-+scripts/bin/icdf24_v103_test
-+scripts/bin/icdf24_v103ec_test
-+
-diff --git a/README.md b/README.md
-index f12358b..ec684ad 100644
---- a/README.md
-+++ b/README.md
-@@ -1,9 +1,9 @@
- # automaid
- 
--This program converts raw data transmitted by Mermaid instruments to
--classify data, correct clock drifts, interpolate float positions and
--then generates seismic SAC files, plots seismic events and dives and
--generates KML, HTML, and PNG files.
-+This version is no more maintained, updated version can be found on the earthscopeoceans github:
-+[https://github.com/earthscopeoceans/automaid](https://github.com/earthscopeoceans/automaid)
-+
-+This program convert raw data transmitted by Mermaid instruments to classify datas, correct clock drifts, interpolate float position and then generate seismic SAC files, plot seismic events and dives and generate KML files.
- 
- Written by Sebastien Bonnieux. Maintained by Frederik J. Simons and Joel D. Simon. 
- 
-@@ -73,3 +73,7 @@ of the content of the content of the `processed` directory.
- of events in a html page. This kind of plot can be disabled to save
- disk space.
- 
-+An additional tool is available to invert a single ".MER" files. For
-+this, go in the `scripts` directory. Put a Mermaid file with the
-+extension ".MER" in the `scripts/tool_invert_mer` directory. And
-+finally run the script: `python tool_invert_mer.py`.
-diff --git a/diff_scripts.txt b/diff_scripts.txt
-new file mode 100644
-index 0000000..e238ae5
---- /dev/null
-+++ b/diff_scripts.txt
-@@ -0,0 +1,18 @@
-+Only in /Users/joelsimon/mermaid/scripts: .git
-+Only in /Users/joelsimon/mermaid/scripts: .gitignore
-+Only in /Users/joelsimon/mermaid/automaid/scripts: README.md
-+Only in /Users/joelsimon/mermaid/automaid/scripts/bin: README.md
-+Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs
-+Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs.icdf24_3
-+Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs.icdf24_5
-+Only in /Users/joelsimon/mermaid/scripts: dives.pyc
-+Only in /Users/joelsimon/mermaid/scripts: events.pyc
-+Only in /Users/joelsimon/mermaid/scripts: gps.pyc
-+Only in /Users/joelsimon/mermaid/scripts: kml.pyc
-+diff -r /Users/joelsimon/mermaid/automaid/scripts/main.py /Users/joelsimon/mermaid/scripts/main.py
-+51c51
-+< events_mseed = False
-+---
-+> events_mseed = True
-+Only in /Users/joelsimon/mermaid/scripts: utils.pyc
-+Only in /Users/joelsimon/mermaid/scripts: vitals.pyc
-diff --git a/diff_seb_full.txt b/diff_seb_full.txt
-new file mode 100644
-index 0000000..397268f
---- /dev/null
-+++ b/diff_seb_full.txt
-@@ -0,0 +1,430 @@
-+diff --git a/.gitignore b/.gitignore
-+new file mode 100644
-+index 0000000..4c7633d
-+--- /dev/null
-++++ b/.gitignore
-+@@ -0,0 +1,4 @@
-++bin/
-++scripts/bin/icdf24_v103_test
-++scripts/bin/icdf24_v103ec_test
-++
-+diff --git a/README.md b/README.md
-+index 5c0eafb..ec684ad 100644
-+--- a/README.md
-++++ b/README.md
-+@@ -5,24 +5,30 @@ This version is no more maintained, updated version can be found on the earthsco
-+ 
-+ This program convert raw data transmitted by Mermaid instruments to classify datas, correct clock drifts, interpolate float position and then generate seismic SAC files, plot seismic events and dives and generate KML files.
-+ 
-+-### 1. INSTALLATION
-++Written by Sebastien Bonnieux. Maintained by Frederik J. Simons and Joel D. Simon. 
-+ 
-+-This installation procedure have been tested with macOS. For Linux the
-+-procedure is valid but one could prefer to use the package manager.
-+-For Windows the installation of python 2.7 is valid but the compilation
-+-of the wavelet inversion program with "make" could be problematic.
-++### 1. INSTALLATION
-+ 
-+-Any python 2.7 installation with obspy, matplotlib and plotly 2.7.0 can be
-+-used.
-++This installation procedure has been tested with macOS. For Linux the
-++procedure is valid but one could prefer to use a the package manager.
-++For Windows the installation of Python 2.7 is valid but the
-++compilation of the wavelet inversion program with "make" could be
-++problematic.
-+ 
-+ An easy installation procedure is described here:
-+ 
-+-* Install [Miniconda](https://conda.io/miniconda.html) or the complete [Anaconda](https://www.anaconda.com/download/) that require more disk space.
-++* Install [Miniconda](https://conda.io/miniconda.html) or
-++  [Anaconda](https://www.anaconda.com/download/) (which requires more
-++  disk space). (You may already have it, you might have to do `module
-++  load anaconda/5.2.0` to specify the precise version).
-+ * Restart your terminal to load the new PATH variables.
-+ * Add the conda-forge channel:  
-+ `conda config --add channels conda-forge`
-+ * Create a virtual environment called "pymaid":  
-+ `conda create -n pymaid python=2.7`
-++
-++* Make sure you are in the `bash` shell!
-++
-+ * Activate the environment:  
-+ `source activate pymaid`
-+ * Install obspy:  
-+@@ -32,17 +38,17 @@ An easy installation procedure is described here:
-+ * Quit the virtual environment:  
-+ `source deactivate`
-+ 
-+-In addition to the Python 2.7 installation it is necessary to compile
-+-the wavelet invention program located in `scripts/bin/V103_Sources/` and
-+-`scripts/bin/V103EC_Sources/`. The compiled binaries must be placed in
-+-the "bin" directory and must be named `icdf24_v103_test` and
-++In addition to the Python 2.7 installation it is necessary to compile,
-++using `make` the wavelet inversion programs located in
-++`scripts/src/V103/` and `scripts/src/V103EC/`. The compiled binaries
-++must be in the "bin" directory and must be named `icdf24_v103_test` and
-+ `icdf24_v103ec_test`.
-+ 
-+ ### 2. USAGE
-+ 
-+ To use the application: 
-+ 
-+-* Copy files from server to the "server" directory:  
-++* Copy files from your Mermaid server into the "server" directory:  
-+ `scp username@host:\{"*.LOG","*.MER","*.vit"\} server`
-+ * Activate the virtual environment:  
-+ `source activate pymaid`
-+@@ -51,6 +57,11 @@ To use the application:
-+ * Quit the virtual environment:  
-+ `source deactivate`
-+ 
-++You will be getting the processed files into the directory `processed`.
-++You may have to remove some error-prone log files and create some
-++directories - we will be editing the script for increased versatility
-++as we go along.
-++
-+ The "main.py" file can be edited to select some options:
-+ 
-+ * A date range between which to process the data can be chosen with
-+diff --git a/diff_scripts.txt b/diff_scripts.txt
-+new file mode 100644
-+index 0000000..e238ae5
-+--- /dev/null
-++++ b/diff_scripts.txt
-+@@ -0,0 +1,18 @@
-++Only in /Users/joelsimon/mermaid/scripts: .git
-++Only in /Users/joelsimon/mermaid/scripts: .gitignore
-++Only in /Users/joelsimon/mermaid/automaid/scripts: README.md
-++Only in /Users/joelsimon/mermaid/automaid/scripts/bin: README.md
-++Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs
-++Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs.icdf24_3
-++Only in /Users/joelsimon/mermaid/scripts/bin: wtcoeffs.icdf24_5
-++Only in /Users/joelsimon/mermaid/scripts: dives.pyc
-++Only in /Users/joelsimon/mermaid/scripts: events.pyc
-++Only in /Users/joelsimon/mermaid/scripts: gps.pyc
-++Only in /Users/joelsimon/mermaid/scripts: kml.pyc
-++diff -r /Users/joelsimon/mermaid/automaid/scripts/main.py /Users/joelsimon/mermaid/scripts/main.py
-++51c51
-++< events_mseed = False
-++---
-++> events_mseed = True
-++Only in /Users/joelsimon/mermaid/scripts: utils.pyc
-++Only in /Users/joelsimon/mermaid/scripts: vitals.pyc
-+diff --git a/processed/README.md b/processed/README.md
-+new file mode 100644
-+index 0000000..2b0b8ec
-+--- /dev/null
-++++ b/processed/README.md
-+@@ -0,0 +1,30 @@
-++The landing directory for all processed files, organized by instrument number. 
-++
-++In here, you'll find a directory structure identifying the floats by serial numbers
-++
-++`drwxrwxr-x. 42 fjsimons fjsimons  4096 Feb 12 11:30 452.020-P-12`\
-++`drwxrwxr-x. 38 fjsimons fjsimons  4096 Feb 12 11:30 452.020-P-13`\
-++`drwxrwxr-x. 29 fjsimons fjsimons  4096 Feb 12 11:30 452.020-P-16`
-++
-++etc, and inside of those, you will find directories with events:
-++
-++`drwxrwxr-x. 2 fjsimons fjsimons    4096 Aug 20 09:39 20180809-11h01m28s`\
-++`drwxrwxr-x. 2 fjsimons fjsimons    4096 Feb 12 11:02 20190201-20h59m02s`
-++
-++and directories with "non-events":
-++
-++`drwxrwxr-x. 2 fjsimons fjsimons    4096 Aug 20 09:39 20180615-06h24m47sNoDive`\
-++`drwxrwxr-x. 2 fjsimons fjsimons    4096 Aug 20 09:39 20180615-23h45m38sInit`
-++
-++and files with plots of histories:
-++
-++`-rw-rw-r--. 1 fjsimons fjsimons 2740746 Feb 12 11:30 external_pressure_offset.html`\
-++`-rw-rw-r--. 1 fjsimons fjsimons 2737544 Feb 12 11:30 internal_pressure.html`\
-++`-rw-rw-r--. 1 fjsimons fjsimons  109952 Feb 12 11:30 position.kml`\
-++`-rw-rw-r--. 1 fjsimons fjsimons 2739472 Feb 12 11:30 voltage.html`
-++
-++
-++
-++
-++
-++
-+diff --git a/scripts/README.md b/scripts/README.md
-+new file mode 100644
-+index 0000000..3d15bdb
-+--- /dev/null
-++++ b/scripts/README.md
-+@@ -0,0 +1,3 @@
-++Scripts, source codes, executables. 
-++
-++To compile the scripts, just run them.
-+diff --git a/scripts/bin/README.md b/scripts/bin/README.md
-+new file mode 100644
-+index 0000000..09c0b33
-+--- /dev/null
-++++ b/scripts/bin/README.md
-+@@ -0,0 +1,9 @@
-++This directory, when the source code has been compiled, will contain
-++
-++`icdf24_v103_test`
-++`icdf24_v103ec_test`
-++
-++And when the code has been run, will contain
-++
-++`wtcoeffs`
-++`wtcoeffs.icdf24_5`
-+diff --git a/scripts/bin/icdf24_v103_test b/scripts/bin/icdf24_v103_test
-+deleted file mode 100755
-+index 68a6715..0000000
-+Binary files a/scripts/bin/icdf24_v103_test and /dev/null differ
-+diff --git a/scripts/bin/icdf24_v103ec_test b/scripts/bin/icdf24_v103ec_test
-+deleted file mode 100755
-+index cfdc8d1..0000000
-+Binary files a/scripts/bin/icdf24_v103ec_test and /dev/null differ
-+diff --git a/scripts/events.py b/scripts/events.py
-+old mode 100755
-+new mode 100644
-+index 8a0e5a8..6bd5643
-+--- a/scripts/events.py
-++++ b/scripts/events.py
-+@@ -1,3 +1,10 @@
-++# Written by Sebastien Bonnieux.
-++# Last modified by jdsimon@princeton.edu,  20-Aug-2018.
-++
-++# Change log -
-++#
-++# 20-Aug-2018: Added stats.sac["user2"] = self.trig
-++
-+ import os
-+ import glob
-+ import re
-+@@ -280,6 +287,7 @@ class Event:
-+         stats.sac["stdp"] = self.depth
-+         stats.sac["user0"] = self.snr
-+         stats.sac["user1"] = self.criterion
-++        stats.sac["user2"] = self.trig
-+         stats.sac["iztype"] = 9  # 9 == IB in sac format
-+ 
-+         # Save data into a Stream object
-+diff --git a/scripts/gps.py b/scripts/gps.py
-+old mode 100755
-+new mode 100644
-+diff --git a/scripts/main.py b/scripts/main.py
-+old mode 100755
-+new mode 100644
-+index 305b627..67704f7
-+--- a/scripts/main.py
-++++ b/scripts/main.py
-+@@ -14,7 +14,7 @@ import pickle
-+ filterDate = {
-+     "452.112-N-01": (datetime.datetime(2018, 12, 27), datetime.datetime(2100, 1, 1)),
-+     "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
-+-    "452.112-N-03": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
-++    "452.112-N-03": (datetime.datetime(2018, 4, 9), datetime.datetime(2100, 1, 1)),
-+     "452.112-N-04": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-+     #"452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-+     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
-+diff --git a/scripts/bin/V103_Sources/Makefile b/scripts/src/V103/Makefile
-+similarity index 96%
-+rename from scripts/bin/V103_Sources/Makefile
-+rename to scripts/src/V103/Makefile
-+index c5d57fc..e4e015a 100644
-+--- a/scripts/bin/V103_Sources/Makefile
-++++ b/scripts/src/V103/Makefile
-+@@ -43,7 +43,7 @@ CFLAGS+= -g
-+ 
-+ EXEC=icdf24_v103_test
-+ 
-+-# two different configurations of the make file allow to compiile program cdf24_test
-++# two different configurations of the make file allow to compile program cdf24_test
-+ # one first, whose lines are indicated with #1 first creates object files and then 
-+ # compiles them with cdf24_test.c
-+ # the second version, #2, takes all c files at once and compiles them in one single
-+diff --git a/scripts/bin/V103_Sources/cdf24.c_orig b/scripts/src/V103/cdf24.c_orig
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/cdf24.c_orig
-+rename to scripts/src/V103/cdf24.c_orig
-+diff --git a/scripts/bin/V103_Sources/cdf24_1.c b/scripts/src/V103/cdf24_1.c
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/cdf24_1.c
-+rename to scripts/src/V103/cdf24_1.c
-+diff --git a/scripts/bin/V103_Sources/cdf24_test_1.c b/scripts/src/V103/cdf24_test_1.c
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/cdf24_test_1.c
-+rename to scripts/src/V103/cdf24_test_1.c
-+diff --git a/scripts/bin/V103_Sources/icdf24.c b/scripts/src/V103/icdf24.c
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/icdf24.c
-+rename to scripts/src/V103/icdf24.c
-+diff --git a/scripts/bin/V103EC_Sources/icdf24.h b/scripts/src/V103/icdf24.h
-+similarity index 100%
-+rename from scripts/bin/V103EC_Sources/icdf24.h
-+rename to scripts/src/V103/icdf24.h
-+diff --git a/scripts/bin/V103_Sources/icdf24_test.c b/scripts/src/V103/icdf24_test.c
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/icdf24_test.c
-+rename to scripts/src/V103/icdf24_test.c
-+diff --git a/scripts/bin/V103EC_Sources/long_ops.c b/scripts/src/V103/long_ops.c
-+similarity index 100%
-+rename from scripts/bin/V103EC_Sources/long_ops.c
-+rename to scripts/src/V103/long_ops.c
-+diff --git a/scripts/bin/V103EC_Sources/long_ops.h b/scripts/src/V103/long_ops.h
-+similarity index 100%
-+rename from scripts/bin/V103EC_Sources/long_ops.h
-+rename to scripts/src/V103/long_ops.h
-+diff --git a/scripts/bin/V103EC_Sources/Makefile b/scripts/src/V103EC/Makefile
-+similarity index 100%
-+rename from scripts/bin/V103EC_Sources/Makefile
-+rename to scripts/src/V103EC/Makefile
-+diff --git a/scripts/bin/V103EC_Sources/icdf24.c b/scripts/src/V103EC/icdf24.c
-+similarity index 100%
-+rename from scripts/bin/V103EC_Sources/icdf24.c
-+rename to scripts/src/V103EC/icdf24.c
-+diff --git a/scripts/bin/V103_Sources/icdf24.h b/scripts/src/V103EC/icdf24.h
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/icdf24.h
-+rename to scripts/src/V103EC/icdf24.h
-+diff --git a/scripts/bin/V103EC_Sources/icdf24_test.c b/scripts/src/V103EC/icdf24_test.c
-+similarity index 100%
-+rename from scripts/bin/V103EC_Sources/icdf24_test.c
-+rename to scripts/src/V103EC/icdf24_test.c
-+diff --git a/scripts/bin/V103_Sources/long_ops.c b/scripts/src/V103EC/long_ops.c
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/long_ops.c
-+rename to scripts/src/V103EC/long_ops.c
-+diff --git a/scripts/bin/V103_Sources/long_ops.h b/scripts/src/V103EC/long_ops.h
-+similarity index 100%
-+rename from scripts/bin/V103_Sources/long_ops.h
-+rename to scripts/src/V103EC/long_ops.h
-+diff --git a/scripts/tool_invert_mer.py b/scripts/tool_invert_mer.py
-+old mode 100755
-+new mode 100644
-+diff --git a/scripts/utils.py b/scripts/utils.py
-+old mode 100755
-+new mode 100644
-+diff --git a/scripts/vitals.py b/scripts/vitals.py
-+index 00e1ea9..37911e7 100644
-+--- a/scripts/vitals.py
-++++ b/scripts/vitals.py
-+@@ -23,6 +23,7 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
-+     while date[i] < begin and i < len(date)-1:
-+         i += 1
-+     j = 0
-++ 
-+     while date[j] < end and j < len(date)-1:
-+         j += 1
-+     date = date[i:j+1]
-+@@ -171,11 +172,16 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
-+     pressure_offset = [dive.p2t_offset_measurement - dive.p2t_offset_param for dive in mdives if dive.is_complete_dive]
-+     date = [dive.end_date for dive in mdives if dive.is_complete_dive]
-+ 
-++    # Dead-float adjustment
-++    if len(date) < 1:
-++        return
-++
-+     # Get values between the appropriate date
-+     i = 0
-+     while date[i] < begin and i < len(date)-1:
-+         i += 1
-+     j = 0
-++
-+     while date[j] < end and j < len(date)-1:
-+         j += 1
-+     date = date[i:j+1]
-+@@ -199,4 +205,4 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
-+ 
-+     plotly.plot({'data': data, 'layout': layout},
-+                 filename=vital_file_path + "corrected_pressure_offset.html",
-+-                auto_open=False)
-+\ No newline at end of file
-++                auto_open=False)
-+diff --git a/server/05_596C4233.LOG b/server/05_596C4233.LOG
-+deleted file mode 100644
-+index 895b328..0000000
-+--- a/server/05_596C4233.LOG
-++++ /dev/null
-+@@ -1 +0,0 @@
-+-1500267059:[MAIN  ,105]board 452.112-N-051500267059:[MAIN  ,106]soft 1.1646-201703091500267059:[MAIN  ,107]cycle 61500267059:[SURF  ,548]surface21500267059:[SURF  ,560]staying min:600 max:3600s1500267060:[MONITR,461]battery 14631mV,  117120uA1500267065:[SURF  ,420]GPS fix...1500267065:[GPSFIX,111]getting fix (GPRMC only)1500267066:[GPSFIX,210]<WRN>no fix #01500267066:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267068:[GPSFIX,222]<WRN>GPRMC ms=580 #11500267075:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267085:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267095:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,19,28,10,15,,,,,,,,,3.09,2.92,1.00*05"1500267105:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,19,28,10,15,,,,,,,,,3.08,2.92,1.00*04"1500267131:[GPSFIX,111]getting fix (GPRMC only)1500267133:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,3,19,28,20,10,12,15,,,,,,,2.07,1.09,1.76*09"1500267133:[MRMAID,645]$GPSACK:+0,+0,+0,+0,+0,+0,+0;1500267143:[MRMAID,650]$GPSOFF:3686334;1500267144:[GPSFIX,111]getting fix (GPRMC and GPGSA)1500267145:[GPSFIX,196]-1s diff1500267145:[SURF  ,390]2017-07-17T04:52:251500267145:[SURF  ,393]N43deg22.117mn, E007deg46.855mn1500267145:[SURF  ,398]fix 3D, 7 satellites1500267145:[SURF  ,400]hdop 1.060, vdop 1.7101500267155:[SURF  ,259]Iridium...1500267172:[MONITR,461]battery 14547mV,  229238uA1500267192:[SURF  ,310]connected in 37s, signal quality 51500267206:[MONITR,461]battery 14616mV,  128954uA1500267234:[PRESS , 46]pressure thresh from 500 to 500mbar1500267237:[MRMAID,664]$STALTAFLT:B0=24/1195,B1=77/1917,B2=24/1195,A0=1/1,A1=-1778/1139,A2=152/237;1500267239:[MRMAID,664]$WEIGHT:0.000000,0.932065,0.648478,0.000949,0.160485,0.271361;1500267242:[MRMAID,664]$TRIG:3,1;1500267244:[MRMAID,664]$SCALES:2;1500267246:[MRMAID,664]$KEEP_SIZE:0.001,0.001,4000;1500267249:[MRMAID,664]$KEEP_ALL:0.100,1.300;1500267252:[MRMAID,664]$ASCEND_THRESH:10.000,100.000,20,8192kB;1500267254:[MSSION,150]2 stage(s) deleted1500267256:[MSSION,116]stage[0] 50000mbar (+/-5000mbar) 33000s (<33000s)1500267258:[MSSION,116]stage[1] 50000mbar (+/-5000mbar) 38400s (<71400s)1500267272:[SURF  ,194]"kobeuni@mermaid:~>" received, remote cmd end1500267272:[SURF  ,327]16 cmd(s) received1500267302:[ZTX   ,263]file 05/596C4226.MER, 1369 byte(s)1500267307:[MONITR,461]battery 14521mV,  274134uA1500267317:[MONITR,461]battery 14621mV,  139446uA1500267317:[ZTX   ,635]1369 bytes of 05/596C4226.MER transferred in 11s, 124bytes/s1500267317:[UPLOAD, 86]"05/596C4226.MER" uploaded at 124bytes/s1500267317:[ZTX   ,263]file 05/596B05C2.LOG, 20536 byte(s)1500267321:[MONITR,461]battery 14516mV,  269742uA1500267362:[ZTX   ,340]ZRPOS(7424) received1500267362:[ZTX   ,551]rewinding 05/596B05C2.LOG from 9472 to 74241500267413:[ZTX   ,340]ZRPOS(14336) received1500267413:[ZTX   ,551]rewinding 05/596B05C2.LOG from 18688 to 143361500267451:[MONITR,461]battery 14548mV,  136518uA1500267452:[ZTX   ,635]20536 bytes of 05/596B05C2.LOG transferred in 133s, 154bytes/s1500267452:[UPLOAD, 86]"05/596B05C2.LOG" uploaded at 154bytes/s1500267471:[SURF  ,344]2 file(s) uploaded1500267503:[SURF  ,365]disconnected after 348s1500267504:[MONITR,461]battery 14753mV,   18056uA1500267508:[SURF  ,583]1st complete transfer1500267647:[MONITR,461]battery 15005mV,    1220uA1500267669:[SURF  ,560]staying min:0 max:3000s1500267670:[MONITR,461]battery 14852mV,  112484uA1500267676:[SURF  ,420]GPS fix...1500267676:[GPSFIX,111]getting fix (GPRMC only)1500267677:[GPSFIX,210]<WRN>no fix #01500267677:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267687:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267693:[GPSFIX,222]<WRN>GPRMC ms=20 #11500267696:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267706:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267717:[GPSFIX,222]<WRN>GPRMC ms=980 #11500267717:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267723:[GPSFIX,222]<WRN>GPRMC ms=10 #11500267743:[GPSFIX,111]getting fix (GPRMC only)1500267745:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,3,18,24,10,19,13,15,,,,,,,3.19,2.24,2.27*0A"1500267745:[MRMAID,645]$GPSACK:+0,+0,+0,+0,+0,+1,-999908;1500267755:[MRMAID,650]$GPSOFF:3686333;1500267756:[GPSFIX,111]getting fix (GPRMC and GPGSA)1500267757:[GPSFIX,196]+0s diff1500267757:[SURF  ,390]2017-07-17T05:02:371500267757:[SURF  ,393]N43deg22.174mn, E007deg46.873mn1500267757:[SURF  ,398]fix 3D, 6 satellites1500267757:[SURF  ,400]hdop 2.220, vdop 2.2701500267767:[SURF  ,259]Iridium...1500267777:[MONITR,461]battery 14677mV,  215330uA1500267800:[SURF  ,310]connected in 33s, signal quality 51500267836:[PRESS , 46]pressure thresh from 500 to 500mbar1500267839:[MRMAID,664]$STALTAFLT:B0=24/1195,B1=77/1917,B2=24/1195,A0=1/1,A1=-1778/1139,A2=152/237;1500267842:[MRMAID,664]$WEIGHT:0.000000,0.932065,0.648478,0.000949,0.160485,0.271361;1500267845:[MRMAID,664]$TRIG:3,1;1500267848:[MRMAID,664]$SCALES:2;1500267851:[MRMAID,664]$KEEP_SIZE:0.001,0.001,4000;1500267854:[MRMAID,664]$KEEP_ALL:0.100,1.300;1500267857:[MRMAID,664]$ASCEND_THRESH:10.000,100.000,20,8192kB;1500267860:[MSSION,150]2 stage(s) deleted1500267863:[MSSION,116]stage[0] 50000mbar (+/-5000mbar) 33000s (<33000s)1500267865:[MSSION,116]stage[1] 50000mbar (+/-5000mbar) 38400s (<71400s)1500267880:[SURF  ,194]"kobeuni@mermaid:~>" received, remote cmd end1500267880:[SURF  ,327]16 cmd(s) received1500267908:[MONITR,461]battery 14716mV,  109556uA1500267921:[SURF  ,365]disconnected after 154s1500267923:[MONITR,461]battery 14912mV,    1464uA1500267927:[MONITR,461]battery 14732mV,  102358uA1500267932:[SURF  ,420]GPS fix...1500267932:[GPSFIX,111]getting fix (GPRMC only)1500267933:[GPSFIX,210]<WRN>no fix #01500267933:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267937:[GPSFIX,222]<WRN>GPRMC ms=590 #11500267942:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267952:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500267963:[GPSFIX,222]<WRN>GPRMC ms=10 #11500267963:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,3,18,24,19,10,13,,,,,,,,3.34,2.17,2.54*05"1500267983:[GPSFIX,111]getting fix (GPRMC only)1500267984:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,3,18,24,19,10,13,,,,,,,,3.33,2.16,2.53*04"1500267985:[MRMAID,645]$GPSACK:+0,+0,+0,+0,+0,-3,+0;1500267995:[MRMAID,650]$GPSOFF:3686333;1500267996:[GPSFIX,111]getting fix (GPRMC and GPGSA)1500267994:[GPSFIX,196]+2s diff1500267994:[SURF  ,390]2017-07-17T05:06:341500267994:[SURF  ,393]N43deg22.199mn, E007deg46.881mn1500267994:[SURF  ,398]fix 3D, 8 satellites1500267994:[SURF  ,400]hdop 0.920, vdop 1.3201500268006:[MONITR,461]battery 14926mV,    1342uA1500268011:[MAIN  ,587]internal pressure 84033Pa1500268012:    bypass 10000ms 200000ms (10000ms 300000ms stored)1500268012:    valve 60000ms 12750 (60000ms 12750 stored)1500268012:    pump 60000ms 30% 10750 80% (60000ms 30% 10750 80% stored)1500268012:    rate 2mbar/s (2mbar/s stored)1500268012:    surface 500mbar (300mbar stored)1500268012:    near 15000mbar 3mbar/s (15000mbar 3mbar/s stored)1500268012:    far 25000mbar 4mbar/s (25000mbar 4mbar/s stored)1500268012:    ascent 8mbar/s (8mbar/s stored)1500268012:    dead 300s (300s stored)1500268012:    coeff 16/10 (16/10 stored)1500268012:    stab 10 (10 stored)1500268012:    delay 600s 3600s (1800s 3600s stored)1500268012:    mmtime 2880min (2880min stored)1500268012:    p2t37: 15x2000ms, offset 0mbar1500268012:    p2t37: dp 500mbar, dt 5000mdegC1500268012:    stage[0] 50000mbar (+/-5000mbar) 33000s (<33000s)1500268013:    stage[1] 50000mbar (+/-5000mbar) 38400s (<71400s)1500268013:[MAIN  ,615]turn off bluetooth1500268040:[BYPASS,147]opening 200000ms1500268042:[MONITR,461]battery 14605mV,  278892uA1500268046:[MONITR,461]battery 14750mV,  151768uA1500268047:[MONITR,461]battery 14951mV,    2196uA1500268246:[MONITR,461]battery 14823mV,  182878uA1500268250:[BYPASS,157]closed1500268276:[BYPASS,147]opening 10000ms1500268278:[MONITR,461]battery 14670mV,  343064uA1500268282:[MONITR,461]battery 14998mV,   58560uA1500268293:[MONITR,461]battery 14717mV,  278892uA1500268296:[BYPASS,157]closed1500268297:[MONITR,461]battery 14995mV,   59170uA1500268323:[BYPASS,147]opening 10000ms1500268325:[MONITR,461]battery 14718mV,  289384uA1500268328:[MONITR,461]battery 14835mV,  181536uA1500268329:[MONITR,461]battery 15078mV,    2318uA1500268339:[MONITR,461]battery 14795mV,  217038uA1500268343:[BYPASS,157]closed1500268369:[BYPASS,147]opening 10000ms1500268371:[MONITR,461]battery 14688mV,  331718uA1500268375:[MONITR,461]battery 15025mV,   30622uA1500268386:[MONITR,461]battery 14720mV,  277062uA1500268389:[BYPASS,157]closed1500268416:[BYPASS,147]opening 10000ms1500268422:[MONITR,461]battery 15070mV,    2074uA1500268432:[MONITR,461]battery 14810mV,  202886uA1500268436:[BYPASS,157]closed1500268462:[BYPASS,147]opening 10000ms1500268464:[MONITR,461]battery 14672mV,  325130uA1500268468:[MONITR,461]battery 15003mV,   44042uA1500268479:[MONITR,461]battery 14717mV,  275720uA1500268482:[BYPASS,157]closed1500268483:[MONITR,461]battery 15000mV,   40138uA1500268509:[BYPASS,147]opening 10000ms1500268511:[MONITR,461]battery 14715mV,  277916uA1500268514:[MONITR,461]battery 14846mV,  162748uA1500268516:[MONITR,461]battery 15062mV,    2196uA1500268525:[MONITR,461]battery 14765mV,  233264uA1500268529:[BYPASS,157]closed1500268580:[BYPASS,147]opening 10000ms1500268587:[MONITR,461]battery 15076mV,    2318uA1500268596:[MONITR,461]battery 14852mV,  175802uA1500268600:[BYPASS,157]closed1500268642:[DIVING,157]530mbar reached (+8mbar/s), 8 bypass done1500268642:[MSSION,222]started at 15002686421500268643:[MAIN  ,635]stage[0]1500268645:[MAIN  ,640]internal pressure 88146Pa1500268646:[PRESS , 81]P   +560mbar,T+24198mdegC1500268646:[BUOY  ,656]P   +560mbar1500268646:[BUOY  ,636]stage[0] 50000mbar (+/-5000mbar) 33000s (<1500301642s)1500268648:[BUOY  ,751]stage[0] UNKNOWN to DESCENT, 570mbar, +8mbar/s1500268948:[PRESS , 81]P  +2020mbar,T+18639mdegC1500269199:[MONITR,461]battery 15283mV,    1098uA1500269273:[PRESS , 81]P  +2810mbar,T+16039mdegC1500269298:[BUOY  ,751]stage[0] DESCENT to PARK, 2850mbar, +1mbar/s1500269298:[BUOY  ,917]stage[0] from +3mbar/s to +4mbar/s1500269298:[BUOY  ,527]from +1mbar/s to +4mbar/s, -24mL1500269298:[BUOY  ,617]valve 8995ms (-24mL)1500269298:[VALVE ,129]opening for 8995ms1500269300:[MONITR,461]battery 14728mV,  463722uA1500269307:[VALVE ,146]closed1500269598:[PRESS , 81]P  +4180mbar,T+14172mdegC1500269623:[BUOY  ,751]stage[0] PARK to DESCENT, 4300mbar, +5mbar/s1500269905:[MONITR,461]battery 15341mV,    1098uA1500269923:[PRESS , 81]P  +5770mbar,T+13678mdegC1500270248:[PRESS , 81]P  +7250mbar,T+13597mdegC1500270573:[PRESS , 81]P  +8730mbar,T+13662mdegC1500270898:[PRESS , 81]P +10120mbar,T+13664mdegC1500271223:[PRESS , 81]P +11510mbar,T+13692mdegC1500271548:[PRESS , 81]P +12910mbar,T+13711mdegC1500271873:[PRESS , 81]P +14320mbar,T+13730mdegC1500272197:[PRESS , 81]P +15780mbar,T+13759mdegC1500272522:[PRESS , 81]P +17250mbar,T+13729mdegC1500272847:[PRESS , 81]P +18720mbar,T+13743mdegC1500273172:[PRESS , 81]P +20190mbar,T+13749mdegC1500273497:[PRESS , 81]P +21590mbar,T+13754mdegC1500273822:[PRESS , 81]P +22860mbar,T+13753mdegC1500274147:[PRESS , 81]P +24040mbar,T+13726mdegC1500274472:[PRESS , 81]P +25180mbar,T+13716mdegC1500274797:[PRESS , 81]P +26320mbar,T+13703mdegC1500275122:[PRESS , 81]P +27450mbar,T+13708mdegC1500275447:[PRESS , 81]P +28490mbar,T+13695mdegC1500275772:[PRESS , 81]P +29490mbar,T+13687mdegC1500276096:[PRESS , 81]P +30470mbar,T+13685mdegC1500276421:[PRESS , 81]P +31430mbar,T+13664mdegC1500276746:[PRESS , 81]P +32400mbar,T+13654mdegC1500277071:[PRESS , 81]P +33380mbar,T+13646mdegC1500277396:[PRESS , 81]P +34260mbar,T+13640mdegC1500277721:[PRESS , 81]P +35140mbar,T+13637mdegC1500278046:[PRESS , 81]P +36010mbar,T+13632mdegC1500278371:[PRESS , 81]P +36920mbar,T+13626mdegC1500278696:[PRESS , 81]P +37830mbar,T+13622mdegC1500279021:[PRESS , 81]P +38700mbar,T+13613mdegC1500279346:[PRESS , 81]P +39550mbar,T+13609mdegC1500279671:[PRESS , 81]P +40390mbar,T+13597mdegC1500279995:[PRESS , 81]P +41190mbar,T+13590mdegC1500280320:[PRESS , 81]P +41980mbar,T+13582mdegC1500280645:[PRESS , 81]P +42800mbar,T+13573mdegC1500280970:[PRESS , 81]P +43590mbar,T+13566mdegC1500281295:[PRESS , 81]P +44410mbar,T+13555mdegC1500281620:[PRESS , 81]P +45230mbar,T+13550mdegC1500281645:[STAGE ,329]45290mbar reached at 1500281645s, ref 50000mbar +/-5000mbar1500281645:[BUOY  ,917]stage[0] from +3mbar/s to +0mbar/s1500281645:[BUOY  ,527]from +3mbar/s to +0mbar/s, +14mL1500281645:[BUOY  ,600]pump 21326ms (+14mL)1500281653:[PUMP  ,358]50Hz, 30%, 651500281653:[PUMP  ,360]clk 32768Hz, 43up, 612down1500281653:[PUMP  ,368]during 21326ms1500281654:[MONITR,461]battery 14471mV,  374418uA1500281660:[MONITR,461]battery 14728mV,  447618uA1500281675:[MONITR,461]battery 14973mV,  242170uA1500281676:[MONITR,461]battery 15188mV,   34038uA1500281973:[BUOY  ,751]stage[0] DESCENT to ASCENT, 45160mbar, -2mbar/s1500281973:[BUOY  ,527]from -2mbar/s to +0mbar/s, -6mL1500281973:[BUOY  ,617]valve 562ms (-6mL)1500281973:[VALVE ,129]opening for 562ms1500281974:[VALVE ,146]closed1500282298:[BUOY  ,751]stage[0] ASCENT to DESCENT, 45720mbar, +3mbar/s1500282298:[BUOY  ,527]from +3mbar/s to +0mbar/s, +14mL1500282298:[BUOY  ,600]pump 21437ms (+14mL)1500282306:[PUMP  ,368]during 21437ms1500282308:[MONITR,461]battery 14682mV,  439688uA1500282329:[MONITR,461]battery 15047mV,  127124uA1500282626:[BUOY  ,751]stage[0] DESCENT to ASCENT, 45440mbar, -2mbar/s1500282626:[BUOY  ,527]from -2mbar/s to +0mbar/s, -6mL1500282626:[BUOY  ,617]valve 560ms (-6mL)1500282626:[VALVE ,129]opening for 560ms1500282627:[VALVE ,146]closed1500282927:[PRESS , 81]P +45780mbar,T+13549mdegC1500282928:[MONITR,461]battery 15340mV,    2196uA1500282951:[BUOY  ,751]stage[0] ASCENT to DESCENT, 45830mbar, +2mbar/s1500283252:[PRESS , 81]P +46330mbar,T+13544mdegC1500283852:[PRESS , 81]P +47190mbar,T+13530mdegC1500284152:[BUOY  ,751]stage[0] DESCENT to PARK, 47550mbar, +1mbar/s1500284452:[PRESS , 81]P +47910mbar,T+13536mdegC1500285053:[PRESS , 81]P +48470mbar,T+13523mdegC1500286553:[PRESS , 81]P +49000mbar,T+13485mdegC1500287754:[PRESS , 81]P +49570mbar,T+13488mdegC1500292256:[PRESS , 81]P +50340mbar,T+13479mdegC1500292857:[PRESS , 81]P +50990mbar,T+13468mdegC1500293457:[PRESS , 81]P +51580mbar,T+13469mdegC1500293757:[BUOY  ,527]from +1mbar/s to +0mbar/s, +2mL1500293757:[BUOY  ,600]pump 3048ms (+2mL)1500293765:[PUMP  ,368]during 3048ms1500293766:[MONITR,461]battery 14720mV,  233996uA1500293767:[MONITR,461]battery 14568mV,  461282uA1500293770:[MONITR,461]battery 15266mV,   37454uA1500297687:[PRESS , 81]P +50980mbar,T+13485mdegC1500301889:[PRESS , 81]P +50470mbar,T+13480mdegC1500301889:[STAGE ,366]expiration date 1500301642s reached1500301889:[BUOY  ,636]stage[0] 50000mbar (+/-5000mbar) 33000s (<1500301642s) from 1500281645s to 1500301889s1500301889:[MSSION,254]2nd stage1500301889:[MAIN  ,635]stage[1]1500301891:[MAIN  ,640]internal pressure 86188Pa1500301892:[MRMAID,557]acq started1500301893:[BUOY  ,656]P +50470mbar1500301893:[BUOY  ,636]stage[1] 50000mbar (+/-5000mbar) 38400s (<1500340042s)1500301895:[BUOY  ,751]stage[1] UNKNOWN to PARK, 50470mbar, +0mbar/s1500301895:[STAGE ,329]50470mbar reached at 1500301895s, ref 50000mbar +/-5000mbar1500302780:[MRMAID,565]505dbar, 13degC1500303229:[MRMAID,565]505dbar, 13degC1500305230:[MRMAID,565]504dbar, 13degC1500305822:[MRMAID,565]504dbar, 13degC1500306175:[MRMAID,565]505dbar, 13degC1500306984:[MRMAID,565]506dbar, 13degC1500307898:[PRESS , 81]P +51010mbar,T+13460mdegC1500312458:[MRMAID,565]510dbar, 13degC1500335210:[MRMAID,565]513dbar, 13degC1500340313:[STAGE ,366]expiration date 1500340042s reached1500340313:[BUOY  ,636]stage[1] 50000mbar (+/-5000mbar) 38400s (<1500340042s) from 1500301895s to 1500340313s1500340313:[MSSION,254]3rd stage1500340314:[MRMAID,594]acq stopped1500340374:[MSSION,241]mission stopped, 2 stage(s) done1500340374:[MAIN  ,471]surfacing1500340376:[SURFIN,145]P +51440mbar1500340384:[PUMP  ,368]during 60000ms1500340385:[MONITR,461]battery 14025mV,  423584uA1500340387:[MONITR,461]battery 14340mV,  456158uA1500340394:[MONITR,461]battery 14592mV,  464576uA1500340445:[MONITR,461]battery 14945mV,   39528uA1500340533:[PUMP  ,368]during 60000ms1500340535:[MONITR,461]battery 14511mV,  424926uA1500340594:[MONITR,461]battery 14662mV,  103334uA1500340650:[PRESS , 81]P +50320mbar,T+13486mdegC1500340677:[MONITR,461]battery 14956mV,    3904uA1500340683:[PUMP  ,368]during 60000ms1500340684:[MONITR,461]battery 14555mV,  289384uA1500340685:[MONITR,461]battery 14432mV,  462990uA1500340743:[MONITR,461]battery 14461mV,  239852uA1500340745:[MONITR,461]battery 14632mV,   35136uA1500340799:[PRESS , 81]P +49210mbar,T+13505mdegC1500340946:[PRESS , 81]P +48040mbar,T+13508mdegC1500341067:[PRESS , 81]P +47070mbar,T+13519mdegC1500341189:[PRESS , 81]P +46130mbar,T+13523mdegC1500341310:[PRESS , 81]P +45190mbar,T+13545mdegC1500341343:[MONITR,461]battery 15206mV,    1220uA1500341432:[PRESS , 81]P +44260mbar,T+13560mdegC1500341553:[PRESS , 81]P +43360mbar,T+13566mdegC1500341675:[PRESS , 81]P +42440mbar,T+13572mdegC1500341796:[PRESS , 81]P +41540mbar,T+13586mdegC1500341918:[PRESS , 81]P +40640mbar,T+13591mdegC1500342040:[PRESS , 81]P +39770mbar,T+13600mdegC1500342161:[PRESS , 81]P +38900mbar,T+13609mdegC1500342283:[PRESS , 81]P +38060mbar,T+13620mdegC1500342404:[PRESS , 81]P +37240mbar,T+13628mdegC1500342412:[PUMP  ,368]during 60000ms1500342414:[MONITR,461]battery 14598mV,  375028uA1500342473:[MONITR,461]battery 14863mV,   87840uA1500342529:[PRESS , 81]P +36280mbar,T+13640mdegC1500342675:[PRESS , 81]P +35070mbar,T+13645mdegC1500342797:[PRESS , 81]P +34040mbar,T+13652mdegC1500342918:[PRESS , 81]P +33010mbar,T+13664mdegC1500343040:[PRESS , 81]P +31990mbar,T+13667mdegC1500343073:[MONITR,461]battery 15258mV,    1220uA1500343161:[PRESS , 81]P +30960mbar,T+13676mdegC1500343283:[PRESS , 81]P +29930mbar,T+13690mdegC1500343405:[PRESS , 81]P +28900mbar,T+13698mdegC1500343526:[PRESS , 81]P +27890mbar,T+13714mdegC1500343648:[PRESS , 81]P +26880mbar,T+13720mdegC1500343769:[PRESS , 81]P +25930mbar,T+13723mdegC1500343891:[PRESS , 81]P +24970mbar,T+13713mdegC1500344012:[PRESS , 81]P +24000mbar,T+13713mdegC1500344134:[PRESS , 81]P +23020mbar,T+13718mdegC1500344255:[PRESS , 81]P +22020mbar,T+13720mdegC1500344377:[PRESS , 81]P +21010mbar,T+13730mdegC1500344499:[PRESS , 81]P +20010mbar,T+13756mdegC1500344620:[PRESS , 81]P +19020mbar,T+13749mdegC1500344742:[PRESS , 81]P +18040mbar,T+13751mdegC1500344863:[PRESS , 81]P +17080mbar,T+13696mdegC1500344985:[PRESS , 81]P +16070mbar,T+13701mdegC1500345106:[PRESS , 81]P +15060mbar,T+13739mdegC1500345228:[PRESS , 81]P +14070mbar,T+13685mdegC1500345350:[PRESS , 81]P +13080mbar,T+13690mdegC1500345471:[PRESS , 81]P +12060mbar,T+13609mdegC1500345593:[PRESS , 81]P +11050mbar,T+13562mdegC1500345714:[PRESS , 81]P +10030mbar,T+13556mdegC1500345836:[PRESS , 81]P  +9060mbar,T+13584mdegC1500345957:[PRESS , 81]P  +8100mbar,T+13553mdegC1500346079:[PRESS , 81]P  +7150mbar,T+13612mdegC1500346200:[PRESS , 81]P  +6290mbar,T+13654mdegC1500346322:[PRESS , 81]P  +5410mbar,T+13802mdegC1500346444:[PRESS , 81]P  +4530mbar,T+14090mdegC1500346565:[PRESS , 81]P  +3770mbar,T+14643mdegC1500346687:[PRESS , 81]P  +3100mbar,T+15767mdegC1500346808:[PRESS , 81]P  +2500mbar,T+17039mdegC1500346938:[PUMP  ,368]during 60000ms1500346939:[MONITR,461]battery 14897mV,  170312uA1500346940:[MONITR,461]battery 14776mV,  312686uA1500346998:[MONITR,461]battery 14882mV,  206180uA1500347000:[MONITR,461]battery 15058mV,   34404uA1500347054:[PRESS , 81]P  +1650mbar,T+20390mdegC1500347087:[PUMP  ,368]during 60000ms1500347089:[MONITR,461]battery 14731mV,  318054uA1500347149:[MONITR,461]battery 14878mV,   34160uA1500347204:[PRESS , 81]P  +1000mbar,T+24293mdegC1500347237:[PUMP  ,368]during 60000ms1500347238:[MONITR,461]battery 14610mV,  323910uA1500347298:[MONITR,461]battery 14757mV,   47824uA1500347353:[PRESS , 81]P    +80mbar,T+24455mdegC1500347382:[SURFIN, 82]filling external bladder1500347382:[PUMP  , 78]setting to 80%1500347390:[PUMP  ,358]50Hz, 80%, 901500347390:[PUMP  ,360]clk 32768Hz, 59up, 596down1500347390:[PUMP  ,368]during 300000ms1500347391:[MONITR,461]battery 14697mV,  203008uA1500347392:[MONITR,461]battery 14160mV, 1097512uA1500347437:[MONITR,461]battery 13903mV, 1026996uA1500347690:[MONITR,461]battery 13923mV,  541558uA1500347691:[MONITR,461]battery 14210mV,   37454uA1500347699:[PUMP  ,368]during 300000ms1500347701:[MONITR,461]battery 13967mV,  660508uA1500347702:[MONITR,461]battery 13841mV,  950014uA1500347799:[MONITR,461]battery 13706mV, 1055910uA1500347802:[MONITR,461]battery 13745mV,  947574uA1500347828:[MONITR,461]battery 13701mV, 1057374uA1500347830:[MONITR,461]battery 13741mV,  943304uA1500347926:[PUMP  ,397]aborted, bladder full, 7300ticks remain1500347927:[MONITR,461]battery 13898mV,  527040uA1500347928:[PUMP  , 78]setting to 30%1500347928:[SURFIN,117]external bladder full1500347928:[MONITR,461]battery 14163mV,   38186uA1500347957:[MONITR,461]battery 14485mV,    1464uA1500347990:[MAIN  ,487]Vbat 14557mV (min 13692mV)1500347993:[MAIN  ,492]Pint 83449Pa1500347993:[MAIN  ,496]Pext 123mbar (rng 20mbar)1500347993:[MAIN  ,503]surface1500347993:[SURF  ,509]surface11500347995:[MONITR,461]battery 14460mV,  117486uA1500347999:[SURF  ,420]GPS fix...1500347999:[GPSFIX,111]getting fix (GPRMC only)1500348000:[GPSFIX,210]<WRN>no fix #01500348000:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500348002:[GPSFIX,222]<WRN>GPRMC ms=800 #11500348009:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500348019:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,1,,,,,,,,,,,,,99.99,99.99,99.99*30"1500348028:[GPSFIX,222]<WRN>GPRMC ms=10 #11500348029:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,3,17,30,28,19,24,18,,,,,,,2.50,1.18,2.21*04"1500348049:[GPSFIX,111]getting fix (GPRMC only)1500348050:[GPSFIX,275]<WRN>unwanted "$GPGSA,A,3,17,30,28,19,24,18,,,,,,,2.51,1.18,2.22*06"1500348051:[MRMAID,645]$GPSACK:+0,+0,+0,+0,+0,+3,-37994;1500348061:[MRMAID,650]$GPSOFF:3686334;1500348061:[GPSFIX,111]getting fix (GPRMC and GPGSA)1500348067:[GPSFIX,196]-5s diff1500348067:[SURF  ,390]2017-07-18T03:21:071500348067:[SURF  ,393]N43deg21.830mn, E007deg48.954mn1500348067:[SURF  ,398]fix 3D, 9 satellites1500348067:[SURF  ,400]hdop 0.870, vdop 1.2201500348078:[MONITR,461]battery 14718mV,    2318uA1500348082:[MRMAID,207]05/596D7EB2.MER1500348129:[MRMAID,604]16307 bytes in 05/596D7EB2.MER1500348135:*** switching to 05/596D7EE7 ***
-+\ No newline at end of file
-+diff --git a/server/05_596D7EB2.MER b/server/05_596D7EB2.MER
-+deleted file mode 100644
-+index c7e2911..0000000
-+Binary files a/server/05_596D7EB2.MER and /dev/null differ
-+diff --git a/server/452.112-N-05.vit b/server/452.112-N-05.vit
-+deleted file mode 100644
-+index b64da4e..0000000
-+--- a/server/452.112-N-05.vit
-++++ /dev/null
-+@@ -1,29 +0,0 @@
-+-20170717-04h53mn21: >>> BUOY 05 2017-07-17T04:53:22 <<<
-+-20170717-04h53mn22: N43deg22.117mn, E007deg46.855mn
-+-20170717-04h53mn25: hdop 1.060, vdop 1.710
-+-20170717-04h53mn26: Vbat 14558mV (min 13692mV)
-+-20170717-04h53mn33: Pint 83575Pa
-+-20170717-04h53mn33: Pext 122mbar (range 20mbar)
-+-20170717-04h54mn30: 16 cmd(s) received
-+-20170717-04h54mn37: 2 file(s) to upload
-+-20170717-04h57mn54: 2 file(s) uploaded
-+-20170717-04h57mn55: <<<<<<<<<<<<<<< Bye >>>>>>>>>>>>>>>
-+-
-+-
-+-20170717-05h03mn26: >>> BUOY 05 2017-07-17T05:03:27 <<<
-+-20170717-05h03mn27: N43deg22.174mn, E007deg46.873mn
-+-20170717-05h03mn32: hdop 2.220, vdop 2.270
-+-20170717-05h03mn32: Vbat 14558mV (min 13692mV)
-+-20170717-05h03mn33: Pint 83575Pa
-+-20170717-05h03mn33: Pext 122mbar (range 20mbar)
-+-20170717-05h04mn38: 16 cmd(s) received
-+-20170717-05h04mn46: no file to upload
-+-20170717-05h04mn54: <<<<<<<<<<<<<<< Bye >>>>>>>>>>>>>>>
-+-
-+-
-+-20170718-03h24mn27: >>> BUOY 05 2017-07-18T03:24:29 <<<
-+-20170718-03h24mn29: N43deg21.831mn, E007deg48.985mn
-+-20170718-03h24mn30: hdop 0.830, vdop 1.220
-+-20170718-03h24mn34: Vbat 14557mV (min 13692mV)
-+-20170718-03h24mn34: Pint 83449Pa
-+-20170718-03h24mn35: Pext 123mbar (range 20mbar)
-+diff --git a/server/README.md b/server/README.md
-+new file mode 100644
-+index 0000000..64650ce
-+--- /dev/null
-++++ b/server/README.md
-+@@ -0,0 +1,40 @@
-++This directory needs to contain ALL the incoming server files, *LOG,
-++*MER, *vit, *cmd files and the whole lot, and the `main.py` script will
-++process it all and distribute it over the `processed` directory
-++incrementally.
-++
-++Not useful to give one or two examples of these files, you have to
-++have the whole thing running to get this to work as advertised.
-++
-++In my own work I keep my (copy) of the server somewhere, 
-++
-++`$somewhere/server`
-++
-++and then, in there, I make
-++
-++`$somewhere/processed`
-++
-++and then, since `main.py` is a bit explicit, I PHYSICALLY NEED TO COPY
-++the scripts directory from where I usually keep my other python
-++scripts, as by the environmental variable $YFILES,
-++
-++`cp -r $YFILES/automaid/scripts $somewhere`
-++
-++I then have a script `$UFILES/servercopy` which syncs the data from the
-++server and maintains a git repo of those files.
-++
-++And then for processing, I change INTO the directory $somewhere,
-++where, since I usually am not in bash, I execute the sequence:
-++
-++`module load anaconda/5.2.0`\
-++`bash`\
-++`source activate pymaid`\
-++`python scripts/main.py`\
-++`source deactivate`
-++
-++after which I should find the processed files inside
-++`$somewhere/processed`. Note that I reference a very particular
-++anaconda module to make this work. 
-++
-++If for some reason you should have the `LD_LIBRARY_PATH` environmental
-++variable set, unset it. In `bash` that would be using `unset LD_LIBRARY_PATH`. 
-diff --git a/diff_seb_name-only.txt b/diff_seb_name-only.txt
-new file mode 100644
-index 0000000..6d5a803
---- /dev/null
-+++ b/diff_seb_name-only.txt
-@@ -0,0 +1,33 @@
-+.gitignore
-+README.md
-+diff_scripts.txt
-+processed/README.md
-+scripts/README.md
-+scripts/bin/README.md
-+scripts/bin/icdf24_v103_test
-+scripts/bin/icdf24_v103ec_test
-+scripts/events.py
-+scripts/gps.py
-+scripts/main.py
-+scripts/src/V103/Makefile
-+scripts/src/V103/cdf24.c_orig
-+scripts/src/V103/cdf24_1.c
-+scripts/src/V103/cdf24_test_1.c
-+scripts/src/V103/icdf24.c
-+scripts/src/V103/icdf24.h
-+scripts/src/V103/icdf24_test.c
-+scripts/src/V103/long_ops.c
-+scripts/src/V103/long_ops.h
-+scripts/src/V103EC/Makefile
-+scripts/src/V103EC/icdf24.c
-+scripts/src/V103EC/icdf24.h
-+scripts/src/V103EC/icdf24_test.c
-+scripts/src/V103EC/long_ops.c
-+scripts/src/V103EC/long_ops.h
-+scripts/tool_invert_mer.py
-+scripts/utils.py
-+scripts/vitals.py
-+server/05_596C4233.LOG
-+server/05_596D7EB2.MER
-+server/452.112-N-05.vit
-+server/README.md
-diff --git a/diff_seb_pyfiles.txt b/diff_seb_pyfiles.txt
-new file mode 100644
-index 0000000..7fa3cd0
---- /dev/null
-+++ b/diff_seb_pyfiles.txt
-@@ -0,0 +1,85 @@
-+diff --git a/scripts/events.py b/scripts/events.py
-+old mode 100755
-+new mode 100644
-+index 8a0e5a8..6bd5643
-+--- a/scripts/events.py
-++++ b/scripts/events.py
-+@@ -1,3 +1,10 @@
-++# Written by Sebastien Bonnieux.
-++# Last modified by jdsimon@princeton.edu,  20-Aug-2018.
-++
-++# Change log -
-++#
-++# 20-Aug-2018: Added stats.sac["user2"] = self.trig
-++
-+ import os
-+ import glob
-+ import re
-+@@ -280,6 +287,7 @@ class Event:
-+         stats.sac["stdp"] = self.depth
-+         stats.sac["user0"] = self.snr
-+         stats.sac["user1"] = self.criterion
-++        stats.sac["user2"] = self.trig
-+         stats.sac["iztype"] = 9  # 9 == IB in sac format
-+ 
-+         # Save data into a Stream object
-+diff --git a/scripts/gps.py b/scripts/gps.py
-+old mode 100755
-+new mode 100644
-+diff --git a/scripts/main.py b/scripts/main.py
-+old mode 100755
-+new mode 100644
-+index 305b627..67704f7
-+--- a/scripts/main.py
-++++ b/scripts/main.py
-+@@ -14,7 +14,7 @@ import pickle
-+ filterDate = {
-+     "452.112-N-01": (datetime.datetime(2018, 12, 27), datetime.datetime(2100, 1, 1)),
-+     "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
-+-    "452.112-N-03": (datetime.datetime(2018, 1, 1), datetime.datetime(2100, 1, 1)),
-++    "452.112-N-03": (datetime.datetime(2018, 4, 9), datetime.datetime(2100, 1, 1)),
-+     "452.112-N-04": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-+     #"452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-+     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
-+diff --git a/scripts/tool_invert_mer.py b/scripts/tool_invert_mer.py
-+old mode 100755
-+new mode 100644
-+diff --git a/scripts/utils.py b/scripts/utils.py
-+old mode 100755
-+new mode 100644
-+diff --git a/scripts/vitals.py b/scripts/vitals.py
-+index 00e1ea9..37911e7 100644
-+--- a/scripts/vitals.py
-++++ b/scripts/vitals.py
-+@@ -23,6 +23,7 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
-+     while date[i] < begin and i < len(date)-1:
-+         i += 1
-+     j = 0
-++ 
-+     while date[j] < end and j < len(date)-1:
-+         j += 1
-+     date = date[i:j+1]
-+@@ -171,11 +172,16 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
-+     pressure_offset = [dive.p2t_offset_measurement - dive.p2t_offset_param for dive in mdives if dive.is_complete_dive]
-+     date = [dive.end_date for dive in mdives if dive.is_complete_dive]
-+ 
-++    # Dead-float adjustment
-++    if len(date) < 1:
-++        return
-++
-+     # Get values between the appropriate date
-+     i = 0
-+     while date[i] < begin and i < len(date)-1:
-+         i += 1
-+     j = 0
-++
-+     while date[j] < end and j < len(date)-1:
-+         j += 1
-+     date = date[i:j+1]
-+@@ -199,4 +205,4 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
-+ 
-+     plotly.plot({'data': data, 'layout': layout},
-+                 filename=vital_file_path + "corrected_pressure_offset.html",
-+-                auto_open=False)
-+\ No newline at end of file
-++                auto_open=False)
-diff --git a/scripts/dives.py b/scripts/dives.py
-index b9d44a6..cdc05eb 100644
---- a/scripts/dives.py
-+++ b/scripts/dives.py
-@@ -47,6 +47,7 @@ class Dive:
-             self.log_content = f.read()
- 
-         # Get the last date
-+        print self.log_name
-         ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
-         self.end_date = UTCDateTime(int(ed))
- 
-diff --git a/scripts/events.py b/scripts/events.py
-index f2658ee..6bd5643 100644
---- a/scripts/events.py
-+++ b/scripts/events.py
-@@ -1,3 +1,10 @@
-+# Written by Sebastien Bonnieux.
-+# Last modified by jdsimon@princeton.edu,  20-Aug-2018.
-+
-+# Change log -
-+#
-+# 20-Aug-2018: Added stats.sac["user2"] = self.trig
-+
- import os
- import glob
- import re
-@@ -88,6 +95,7 @@ class Event:
-         # Get the frequency recorded in the .MER environment header
-         fs_catch = re.findall("TRUE_SAMPLE_FREQ FS_Hz=(\d+\.\d+)", self.environment)
-         self.measured_fs = float(fs_catch[0])
-+        #self.measured_fs = 40
- 
-         # Divide frequency by number of scales
-         int_scl = int(self.scales)
-@@ -204,14 +212,15 @@ class Event:
-         export_path = export_path + self.get_export_file_name() + ".png"
-         if os.path.exists(export_path):
-             return
-+        data = [d/(10**((-201.+25.)/20.) * 2 * 2**28/5. * 1000000) for d in self.data]
-         # Plot frequency image
-         plt.figure(figsize=(9, 4))
-         plt.title(self.__get_figure_title(), fontsize=12)
-         plt.plot(utils.get_time_array(len(self.data), 1./self.decimated_fs),
--                 self.data,
-+                 data,
-                  color='b')
-         plt.xlabel("Time (s)", fontsize=12)
--        plt.ylabel("Counts", fontsize=12)
-+        plt.ylabel("Pascal", fontsize=12)
-         plt.tight_layout()
-         plt.grid()
-         plt.savefig(export_path)
-@@ -278,6 +287,7 @@ class Event:
-         stats.sac["stdp"] = self.depth
-         stats.sac["user0"] = self.snr
-         stats.sac["user1"] = self.criterion
-+        stats.sac["user2"] = self.trig
-         stats.sac["iztype"] = 9  # 9 == IB in sac format
- 
-         # Save data into a Stream object
-diff --git a/scripts/main.py b/scripts/main.py
-index 6e84527..67704f7 100644
---- a/scripts/main.py
-+++ b/scripts/main.py
-@@ -8,6 +8,7 @@ import vitals
- import kml
- import re
- import utils
-+import pickle
- 
- # Set a time range of analysis for a specific float
- filterDate = {
-@@ -15,7 +16,7 @@ filterDate = {
-     "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
-     "452.112-N-03": (datetime.datetime(2018, 4, 9), datetime.datetime(2100, 1, 1)),
-     "452.112-N-04": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
--    "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-+    #"452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-     "452.020-P-06": (datetime.datetime(2018, 6, 26), datetime.datetime(2100, 1, 1)),
-     "452.020-P-07": (datetime.datetime(2018, 6, 27), datetime.datetime(2100, 1, 1)),
-     "452.020-P-08": (datetime.datetime(2018, 8, 5), datetime.datetime(2100, 1, 1)),
-@@ -34,10 +35,11 @@ filterDate = {
-     "452.020-P-23": (datetime.datetime(2018, 9, 12), datetime.datetime(2100, 1, 1)),
-     "452.020-P-24": (datetime.datetime(2018, 9, 13), datetime.datetime(2100, 1, 1)),
-     "452.020-P-25": (datetime.datetime(2018, 9, 14), datetime.datetime(2100, 1, 1)),
--    "452.020-P-0050": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
--    "452.020-P-0052": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
--    "452.020-P-0053": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1)),
--    "452.020-P-0054": (datetime.datetime(2019, 8, 1), datetime.datetime(2100, 1, 1))
-+    "452.020-P-0050": (datetime.datetime(2019, 8, 11), datetime.datetime(2100, 1, 1)),
-+    #"452.020-P-0051": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
-+    "452.020-P-0052": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
-+    "452.020-P-0053": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
-+    "452.020-P-0054": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1))
- }
- 
- # Boolean set to true in order to delete every processed data and redo everything
-@@ -46,13 +48,15 @@ redo = False
- # Plot interactive figures in HTML format for acoustic events
- # WARNING: Plotly files takes a lot of memory so commented by default
- events_plotly = False
--events_mseed = True
-+events_mseed = False
- events_sac = True
- events_png = True
- 
- # Path for input datas
- dataPath = "server"
- 
-+# Dictionary to save data in a file
-+datasave = dict()
- 
- def main():
-     # Set working directory in "scripts"
-@@ -91,8 +95,9 @@ def main():
- 
-         # Copy appropriate files in the directory and remove files outside of the time range
-         files_to_copy = list()
--        files_to_copy += glob.glob("../" + dataPath + "/" + mfloat_nb + "*.LOG")
--        files_to_copy += glob.glob("../" + dataPath + "/" + mfloat_nb + "*.MER")
-+        extensions = ["000", "001", "002", "003", "004", "005", "LOG", "MER"]
-+        for extension in extensions:
-+            files_to_copy += glob.glob("../" + dataPath + "/" + mfloat_nb + "*." + extension)
-         if mfloat in filterDate.keys():
-             begin = filterDate[mfloat][0]
-             end = filterDate[mfloat][1]
-@@ -163,6 +168,21 @@ def main():
-         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER"):
-             os.remove(f)
- 
-+        # Put dive in a variable that will be saved in a file
-+        datasave[mfloat] = mdives
-+
-+    with open("../processed/MerDives.pydata", 'wb') as f:
-+        pickle.dump(datasave, f)
-+
-+        # for dive in mdives[:-1]: # on ne regarde pas la derniere plongee qui n'a pas ete interpolee
-+        #    if dive.is_complete_dive: # on ne regarde que les vraies plongees (pas les tests faits a terre)
-+        #        print dive.log_name
-+        #        for gps in dive.gps_list[0:-1]: # point GPS avant de descendre
-+        #            print gps.date
-+        #        print dive.surface_leave_loc.date
-+        #        print dive.great_depth_reach_loc.date
-+        #        print dive.great_depth_leave_loc.date
-+        #        print dive.gps_list[-1].date # point GPS en arrivant en surface
- 
- if __name__ == "__main__":
-     main()
-diff --git a/scripts/utils.py b/scripts/utils.py
-index 57a9a98..c7d4cbf 100644
---- a/scripts/utils.py
-+++ b/scripts/utils.py
-@@ -52,7 +52,7 @@ def format_log(log):
- 
- # Get date from a .LOG or a .MER file name
- def get_date_from_file_name(filename):
--    hexdate = re.findall("(.+\d+_)?([A-Z0-9]+)\.(LOG|MER)", filename)[0][1]
-+    hexdate = re.findall("(.+\d+_)?([A-Z0-9]+)\.(LOG|MER|\d{3})", filename)[0][1]
-     timestamp = int(hexdate, 16)
-     return UTCDateTime(timestamp)
- 
-diff --git a/scripts/vitals.py b/scripts/vitals.py
-index 036e6e0..37911e7 100644
---- a/scripts/vitals.py
-+++ b/scripts/vitals.py
-@@ -26,9 +26,9 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
-  
-     while date[j] < end and j < len(date)-1:
-         j += 1
--    date = date[i:j]
--    voltage = voltage[i:j]
--    minimum_voltage = minimum_voltage[i:j]
-+    date = date[i:j+1]
-+    voltage = voltage[i:j+1]
-+    minimum_voltage = minimum_voltage[i:j+1]
- 
-     # Add battery values to the graph
-     voltage_line = graph.Scatter(x=date,
-@@ -78,8 +78,8 @@ def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
-     j = 0
-     while date[j] < end and j < len(date)-1:
-         j += 1
--    date = date[i:j]
--    internal_pressure = internal_pressure[i:j]
-+    date = date[i:j+1]
-+    internal_pressure = internal_pressure[i:j+1]
- 
-     # Add battery values to the graph
-     internal_pressure_line = graph.Scatter(x=date,
-@@ -130,10 +130,10 @@ def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
-     j = 0
-     while date[j] < end and j < len(date)-1:
-         j += 1
--    date = date[i:j]
-+    date = date[i:j+1]
-     date_rev = date[::-1]
-     pressure_offset = pressure_offset[i:j]
--    pressure_offset_range = pressure_offset_range[i:j]
-+    pressure_offset_range = pressure_offset_range[i:j+1]
-     pressure_offset_max = [x + y for x, y in zip(pressure_offset, pressure_offset_range)]
-     pressure_offset_min = [x - y for x, y in zip(pressure_offset, pressure_offset_range)]
-     pressure_offset_min_rev = pressure_offset_min[::-1]
-@@ -184,8 +184,8 @@ def plot_corrected_pressure_offset(vital_file_path, mdives, begin, end):
- 
-     while date[j] < end and j < len(date)-1:
-         j += 1
--    date = date[i:j]
--    pressure_offset = pressure_offset[i:j]
-+    date = date[i:j+1]
-+    pressure_offset = pressure_offset[i:j+1]
- 
-     # Add battery values to the graph
-     pressure_offset_line = graph.Scatter(x=date,
