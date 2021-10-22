@@ -145,6 +145,9 @@ def main():
 
     # For each MERMAID float
     for mfloat in sorted(mfloats):
+        if mfloat in {'452.020-P-06', '452.020-P-07'}:
+            continue
+
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
         # Set the path for the float
