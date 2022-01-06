@@ -4,9 +4,9 @@
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux
+# Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Aug-2021
+# Last modified by JDS: 06-Jan-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -237,13 +237,13 @@ def plot_corrected_pressure_offset(vital_file_path, complete_dives, begin, end):
 
     return
 
-def write_corrected_pressure_offset(dives_dict, processed_path):
+def write_corrected_pressure_offset(lastdive, processed_path):
     '''Writes:
 
     [processed_path]/lastdive_pressure_offset.txt
 
-    given a dict of whose keys are float serial numbers and whose values are
-    lists of their associated Dive instances
+    given a dict of whose keys are float serial numbers whose single values are
+    the last assocaited Complete_Dive instance
 
     '''
 
@@ -252,25 +252,22 @@ def write_corrected_pressure_offset(dives_dict, processed_path):
     with open(lastdive_f, "w+") as f:
         f.write("     MERMAID         LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
 
-        for mfloat in sorted(dives_dict.keys()):
-            for d in reversed(dives_dict[mfloat]):
-                if d.is_complete_dive:
-                    lastdive = d
-                    break
+        for mfloat in sorted(lastdive.keys()):
+            ld = lastdive[mfloat]
 
             warn_str = ''
-            if lastdive.p2t_offset_corrected > 200:
+            if ld.p2t_offset_corrected > 200:
                 warn_str = '!!!'
                 print("\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing"
-                      .format(mfloat, lastdive.p2t_offset_corrected))
+                      .format(mfloat, ld.p2t_offset_corrected))
                 print("!!! The corrected external pressure must stay below 300 mbar")
                 print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...'\n"
                       .format(mfloat))
 
             f.write(lastdive_fmt_spec.format(mfloat,
-                                             str(lastdive.ascent_reach_surface_date)[0:19],
-                                             lastdive.log_name,
-                                             lastdive.p2t_offset_measurement,
-                                             lastdive.p2t_offset_param,
-                                             lastdive.p2t_offset_corrected,
+                                             str(ld.ascent_reach_surface_date)[0:19],
+                                             ld.log_name[-1],
+                                             ld.p2t_offset_measurement,
+                                             ld.p2t_offset_param,
+                                             ld.p2t_offset_corrected,
                                              warn_str))

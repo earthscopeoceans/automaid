@@ -8,7 +8,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 15-Sep-2021
+# Last modified by JDS: 06-Jan-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -124,8 +124,8 @@ events_plotly = False
 events_sac = True
 events_mseed = True
 
-# Dictionary  save data in a file
-dives_dict = dict()
+# Dictionary to write last-dive vital data to output files
+lastdive = dict()
 
 def main():
     # Set working directory in "scripts"
@@ -139,14 +139,10 @@ def main():
     vitfile_path = os.path.join(server_path, "*.vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
-    # Initialize empty dict to hold the instance of every last complete dive for
-    # every MERMAID
-    lastdive = dict()
-
     # For each MERMAID float
     for mfloat in sorted(mfloats):
-        if mfloat in {'452.020-P-06', '452.020-P-07'}:
-            continue
+        # if mfloat in {'452.020-P-06', '452.020-P-07'}:
+        #     continue
 
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
@@ -361,8 +357,9 @@ def main():
         for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER"):
             os.remove(f)
 
-        # Add dives to growing dict
-        dives_dict[mfloat] = dive_logs
+        # Save the last complete dive of this float to later write output list
+        # of external pressure measurements for the entire array
+        lastdive[mfloat] = complete_dives[-1]
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
@@ -370,7 +367,7 @@ def main():
     # Print a text file of corrected external pressures measured on the final
     # dive, and warn if any are approaching the limit of 300 mbar (at which
     # point adjustment is required)
-    vitals.write_corrected_pressure_offset(dives_dict, processed_path)
+    vitals.write_corrected_pressure_offset(lastdive, processed_path)
 
 if __name__ == "__main__":
     main()
