@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 15-Sep-2021
+# Last modified by JDS: 06-Jan-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -39,7 +39,7 @@ class GeoCSV:
     def __init__(self,
                  complete_dives,
                  creation_datestr=datetime.datetime.now(pytz.UTC).isoformat().split(".")[0]+"Z",
-                 version='2.0',
+                 version='v2.1'
                  delimiter=',',
                  lineterminator='\n'):
 
@@ -111,9 +111,6 @@ class GeoCSV:
             'Elevation',
             'Depth',
             'SensorDescription',
-            'Scale',
-            'ScaleFrequency',
-            'ScaleUnits',
             'SampleRate',
             'TimeDelay',
             'TimeCorrection'
@@ -192,7 +189,7 @@ class GeoCSV:
                     str(gps.date)[0:19]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
-                    '',
+                    nan,
                     nan,
                     d6(gps.latitude),
                     d6(gps.longitude),
@@ -201,7 +198,7 @@ class GeoCSV:
                     'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
                     nan,
                     nan,
-                    '',
+                    nan,
                     nan,
                     d6(gps.mseed_time_delay),
                     nan
@@ -255,16 +252,13 @@ class GeoCSV:
                     str(event.obspy_trace_stats["starttime"])[:19]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
-                    '00',
+                    event.obspy_trace_stats["location"],
                     event.obspy_trace_stats["channel"],
                     d6(event.obspy_trace_stats.sac["stla"]),
                     d6(event.obspy_trace_stats.sac["stlo"]),
                     d0(0),
                     d0(event.obspy_trace_stats.sac["stdp"]),
                     'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
-                    d0(event.obspy_trace_stats.sac["scale"]),
-                    d1(np.float32(1.)),
-                    'Pa',
                     d1(event.obspy_trace_stats["sampling_rate"]),
                     nan,
                     d6(event.mseed_time_correction)
