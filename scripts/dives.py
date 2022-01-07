@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Sep-2021
+# Last modified by JDS: 06-Jan-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -449,6 +449,24 @@ class Complete_Dive:
     network = utils.network()
 
     def __init__(self, complete_dive=None):
+
+        self.pressure_mbar = None
+
+        self.gps_valid4clockdrift_correction = None
+        self.gps_valid4location_interp = None
+
+        self.gps_before_dive_incl_prev_dive = None
+        self.descent_leave_surface_loc = None
+        self.descent_leave_surface_layer_date = None
+        self.descent_leave_surface_layer_loc = None
+        self.descent_last_loc_before_event = None
+
+        self.gps_after_dive_incl_next_dive = None
+        self.ascent_reach_surface_loc = None
+        self.ascent_reach_surface_layer_date = None
+        self.ascent_reach_surface_layer_loc = None
+        self.ascent_first_loc_after_event = None
+
         self.log_name = [d.log_name for d in complete_dive]
         self.log_content = ''.join(d.log_content for d in complete_dive)
         self.mer_environment_name = [d.mer_environment_name for d in complete_dive]
@@ -488,6 +506,8 @@ class Complete_Dive:
         self.gps_list = utils.flattenList([d.gps_list for d in complete_dive])
         self.gps_list = gps.merge_gps_list(self.gps_list)
 
+        self.pressure_mbar = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
+
         # Retain date of (first if multiple(?)) "DIVING" (else set to None)
         for d in complete_dive:
             self.descent_leave_surface_date = d.descent_leave_surface_date
@@ -513,21 +533,6 @@ class Complete_Dive:
             self.p2t_offset_corrected = d.p2t_offset_corrected
             if d.p2t_offset_corrected is not None:
                 break
-
-        self.gps_valid4clockdrift_correction = None
-        self.gps_valid4location_interp = None
-
-        self.gps_before_dive_incl_prev_dive = None
-        self.descent_leave_surface_loc = None
-        self.descent_leave_surface_layer_date = None
-        self.descent_leave_surface_layer_loc = None
-        self.descent_last_loc_before_event = None
-
-        self.gps_after_dive_incl_next_dive = None
-        self.ascent_reach_surface_loc = None
-        self.ascent_reach_surface_layer_date = None
-        self.ascent_reach_surface_layer_loc = None
-        self.ascent_first_loc_after_event = None
 
     def set_incl_prev_next_dive_gps(self, prev_dive=None, next_dive=None):
         '''Expands a dive's GPS list to include GPS fixes before/after it by inspecting
@@ -780,15 +785,15 @@ class Complete_Dive:
         self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
                                                                   self.ascent_reach_surface_date)
         # Find pressure values
-        pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
-        pressure_date = [p[1] for p in pressure]
+        pressure_date = [p[1] for p in self.pressure_mbar]
 
-        # Convert pressure values from mbar to m (really, this converts to dbar,
-        # but 1 bar ~= 1 m)
-        pressure_val = [int(p[0])/100. for p in pressure]
+        # Convert pressure values from mbar to dbar
+        # For our purposes it it fine to assume that 1 dbar == 1 m
+        pressure_dbar = [int(p[0])/100. for p in self.pressure_mbar]
 
         # Compute location of events from surface position if MERMAID does not reach mixed layer
-        if max(pressure_val) > mixed_layer_depth_m:
+        # Recall that we assume 1 m of water = 1 dbar of pressure
+        if max(pressure_dbar) > mixed_layer_depth_m:
 
             # Interpolate for location that MERMAID passed from the surface layer to the mixed layer
             # on the descent
@@ -797,15 +802,15 @@ class Complete_Dive:
             # mixed layer -- this assumes we don't bob in and out of the mixed layer, and it only
             # retains the date of the first crossing
             i = 0
-            while pressure_val[i] < mixed_layer_depth_m and i < len(pressure_val):
+            while pressure_dbar[i] < mixed_layer_depth_m and i < len(pressure_dbar):
                 i += 1
 
             descent_date_in_mixed_layer = pressure_date[i]
-            descent_depth_in_mixed_layer = pressure_val[i]
+            descent_depth_in_mixed_layer = pressure_dbar[i]
 
             if i > 0:
                 descent_date_in_surface_layer = pressure_date[i-1]
-                descent_depth_in_surface_layer = pressure_val[i-1]
+                descent_depth_in_surface_layer = pressure_dbar[i-1]
             else:
                 # On the descent: we have pressure readings in the mixed layer but not in the
                 # surface layer -- just interpolate using the last-known (diving) location
@@ -830,16 +835,16 @@ class Complete_Dive:
             # Loop through pressure readings until we've exited mixed layer and passed into the
             # surface layer -- this assumes we don't bob in and out of the mixed layer, and it only
             # retains the date of the final crossing
-            i = len(pressure_val)-1
-            while pressure_val[i] < mixed_layer_depth_m and i > 0:
+            i = len(pressure_dbar)-1
+            while pressure_dbar[i] < mixed_layer_depth_m and i > 0:
                 i -= 1
 
             ascent_date_in_mixed_layer = pressure_date[i]
-            ascent_depth_in_mixed_layer = pressure_val[i]
+            ascent_depth_in_mixed_layer = pressure_dbar[i]
 
-            if i < len(pressure_val)-1:
+            if i < len(pressure_dbar)-1:
                 ascent_date_in_surface_layer = pressure_date[i+1]
-                ascent_depth_in_surface_layer = pressure_val[i+1]
+                ascent_depth_in_surface_layer = pressure_dbar[i+1]
             else:
                 # On the ascent: we have pressure readings in the mixed layer but not the surface
                 # layer -- just interpolate using next-know (surfacing) location
