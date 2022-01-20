@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Jan-2022
+# Last modified by JDS: 18-Jan-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -308,6 +308,8 @@ class Dive:
             return
 
         # Search pressure values
+        # DO NOT DO: `('\[PRESS ,\s*\d+\]P\s*(\+?\-?\d+)mbar', self.log_content)`
+        # because "P.*mbar" is a valid pressure, even if prefixed with "[SURFIN, ..."
         pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
         bypass = utils.find_timestamped_values(":\[BYPASS", self.log_content)
         valve = utils.find_timestamped_values(":\[VALVE", self.log_content)
@@ -506,6 +508,11 @@ class Complete_Dive:
         self.gps_list = utils.flattenList([d.gps_list for d in complete_dive])
         self.gps_list = gps.merge_gps_list(self.gps_list)
 
+        # Compile all water presure (100 mbar = 1 dbar = 1 m)
+        # Run some verifications like we do for GPS to check for redudancies?
+        # I do not know if pressure values are repeated over fragmented LOGs...
+        # DO NOT DO: `('\[PRESS ,\s*\d+\]P\s*(\+?\-?\d+)mbar', self.log_content)`
+        # because "P.*mbar" is a valid pressure, even if prefixed with "[SURFIN, ..."
         self.pressure_mbar = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.log_content)
 
         # Retain date of (first if multiple(?)) "DIVING" (else set to None)
@@ -788,7 +795,8 @@ class Complete_Dive:
         pressure_date = [p[1] for p in self.pressure_mbar]
 
         # Convert pressure values from mbar to dbar
-        # For our purposes it it fine to assume that 1 dbar == 1 m
+        # For our purposes it it fine to assume that 1 dbar = 1 m = 100 mbar
+        # (NOT 1 m = 101 mbar as stated in MERMAID manual Réf : 452.000.852 Version 00)
         pressure_dbar = [int(p[0])/100. for p in self.pressure_mbar]
 
         # Compute location of events from surface position if MERMAID does not reach mixed layer

@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Sep-2021
+# Last modified by JDS: 19-Jan-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -153,6 +153,8 @@ class Event:
         self.measured_fs = None
         self.decimated_fs = None
         self.trig = None
+        self.pressure_mbar = None
+        self.pressure_dbar = None
         self.depth = None
         self.temperature = None
         self.criterion = None
@@ -189,8 +191,14 @@ class Event:
             if not date:
                 return
 
+            # The "depth" of an event is actually units of dbar in both .LOG and .MER
+            # (not mbar, like other pressures in the .LOG)
+            # We assume 1 dbar = 1 m = 100 mbar
+            # (NOT 1 m = 101 mbar as stated in MERMAID manual Réf : 452.000.852 Version 00)
+            self.pressure_dbar = int(re.findall(" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
+            self.pressure_mbar = self.pressure_dbar * 100
             self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
-            self.depth = int(re.findall(" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
+            self.depth = self.pressure_dbar # ~= meters
             self.temperature = int(re.findall(" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
             self.criterion = float(re.findall(" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
             self.snr = float(re.findall(" SNR=(\d+\.\d+)", self.mer_binary_header)[0])
@@ -608,7 +616,7 @@ class Event:
         # REQ events do not record their depth at the time of acquisition, and because the onboard
         # detection algorithm was not triggered there are no trigger parameters to report
         if not self.is_requested:
-            stats.sac["stdp"] = self.depth # meters (from external pressure sensor; down is positive)
+            stats.sac["stdp"] = self.depth # dbar ~= meters (from external pressure sensor; down is positive)
             stats.sac["user0"] = self.snr
             stats.sac["user1"] = self.criterion
             stats.sac["user2"] = self.trig # sample index
