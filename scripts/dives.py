@@ -150,6 +150,10 @@ class Dive:
             self.station_name = re.findall("board (.+)", utils.split_log_lines(self.log_content)[0])
             if len(self.station_name) == 0:
                 self.station_name = re.findall("board (.+)", utils.split_log_lines(self.log_content)[1])
+            if len(self.station_name) == 0:
+                self.station_name = re.findall("buoy (.+)", utils.split_log_lines(self.log_content)[0])
+            if len(self.station_name) == 0:
+                self.station_name = re.findall("buoy (.+)", utils.split_log_lines(self.log_content)[1])
             self.station_name = self.station_name[0]
             self.station_number = self.station_name.split("-")[-1]
 

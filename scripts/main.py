@@ -143,6 +143,8 @@ def main():
     for mfloat in sorted(mfloats):
         # if mfloat in {'452.020-P-06', '452.020-P-07'}:
         #     continue
+        if "465.152-R" in mfloat:
+            continue
 
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
@@ -359,7 +361,8 @@ def main():
 
         # Save the last complete dive of this float to later write output list
         # of external pressure measurements for the entire array
-        lastdive[mfloat] = complete_dives[-1]
+        if complete_dives:
+            lastdive[mfloat] = complete_dives[-1]
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#

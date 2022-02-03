@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Sep-2021
+# Last modified by JDS: 27-Jan-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -85,26 +85,9 @@ class GPS_unique(GPS):
         '''Returns True if timing info is sourced from a .MER file and location info is
         sourced from a .LOG file in a GPS_unique object.
 
-        It is my understanding that:
-        *time in the .MER file is BEFORE the onboard clock has been synced with GPS time
-        *time in the .LOG file is AFTER the onboard clock has been synced with GPS time
-
-        but both the .LOG and .MER within a "GPS pair" will record the same
-        clockdrift, even though strictly speaking that clockdrift has actually
-        been removed from the .LOG time but not the .MER time?
-
-        Therefore, Seb suggests, "I think that for the clock information, such
-        as GPSACK, you should use only the .MER file. Use the LOG file only for
-        GPS position and hvdop," because, as I reason it, we want to use the
-        uncorrected (.MER time) and the measured correction to compute
-        proportionally how much of that time delay was acquired at the time of
-        recording events.
-
-        This explains why .MER times are always after .LOG times: for the same
-        GPS session, the time written to .MER is the uncorrected, time-delayed
-        time on of the MERMAID clock, while the .LOG time is the time after
-        correction (gps_time-mer_time is almost always negative, meaning that
-        MERMAID time is late compared to GPS time).
+        Seb suggests, "I think that for the clock information, such as GPSACK,
+        you should use only the .MER file. Use the LOG file only for GPS
+        position and hvdop..."
 
         '''
 
@@ -527,7 +510,6 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
         # .MER times are given simply as, e.g., "2020-10-20T02:36:55"
         fixdate = re.findall(" DATE=(\d+-\d+-\d+T\d+:\d+:\d+)", gps_mer)
         if len(fixdate) > 0:
-            rawstr_dict['fixdate'] = re.search("DATE=(.*) LAT", gps_mer).group(1)
             fixdate = fixdate[0]
             rawstr_dict['fixdate'] = fixdate
             fixdate = UTCDateTime(fixdate)
@@ -648,7 +630,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
 
         # .LOG GPS times are given as integer UNIX Epoch times prepending the "GPSACK" line
-        fixdate = re.findall("(\d+):\[MRMAID *, *\d+\]\$GPSACK", gps_log)
+        fixdate = re.findall("(\d+):\[MRMAID *, *\d+\]M?e?r?m?a?i?d? ?\$GPSACK", gps_log)
         if len(fixdate) > 0:
             fixdate = fixdate[0]
             rawstr_dict['fixdate'] = fixdate
