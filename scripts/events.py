@@ -43,7 +43,7 @@ class Events:
     def __init__(self, base_path=None, mer_name=None):
         self.mer_name = mer_name
         self.base_path = base_path
-        self.events = list()
+        self.events = []
         self.__version__ = version
 
         # If just a base path to (e.g., a server directory) is passed, load all
@@ -117,7 +117,7 @@ class Events:
         #   <INFO DATE=1970-01-03T10:18:13.513763 ... />
         # "
 
-        catched_events = list()
+        catched_events = []
         for event in self.events:
             if begin < event.info_date < end:
                 catched_events.append(event)
@@ -337,7 +337,7 @@ class Event:
         # determine if edge correction needs to be accounted for and set the
         # first argument (the executable) in the full command (note that "./" is
         # required before script on JDS' Linux machine, but not JDS' Mac...)
-        icdf24_shell_command = list()
+        icdf24_shell_command = []
         if self.edges_correction == "1":
             icdf24_shell_command.append("./icdf24_v103ec_test")
 

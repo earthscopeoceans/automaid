@@ -980,7 +980,7 @@ def get_dives(path, events, begin, end):
     log_names = [x.split("/")[-1] for x in log_names]
     log_names.sort()
     # Create Dive objects
-    dives = list()
+    dives = []
     for log_name in log_names:
         dives.append(Dive(path, log_name, events, begin, end))
     return dives
@@ -988,7 +988,7 @@ def get_dives(path, events, begin, end):
 
 # Concatenate .000 files .LOG files in the path
 def concatenate_log_files(path):
-    log_files = list()
+    log_files = []
     extensions = ["000", "001", "002", "003", "004", "005", "LOG"]
     for extension in extensions:
         log_files += glob.glob(path + "*." + extension)

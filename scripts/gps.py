@@ -362,7 +362,7 @@ def merge_gps_list(gps_nonunique_list):
 
     i = 0
     pair_merged = False
-    gps_merged_list = list()
+    gps_merged_list = []
     while i < len(gps_nonunique_list):
         # Compare adjacent GPS fixes to see if they are nonunique pairs
         # (set last GPS fix equal to itself to handle case of unpaired final GPS)*
@@ -496,7 +496,7 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
     '''Collect GPS fixes from MER environments within an inclusive datetime range
 
     '''
-    gps_out = list()
+    gps_out = []
 
     # Mermaid environment can be empty
     if mer_environment is None:
@@ -623,7 +623,7 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
 
     '''
 
-    gps_out = list()
+    gps_out = []
 
     gps_log_list = log_content.split("GPS fix...")[1:]
     for gps_log in gps_log_list:

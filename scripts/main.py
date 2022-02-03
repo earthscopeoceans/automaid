@@ -168,7 +168,7 @@ def main():
             os.remove(f)
 
         # Copy appropriate files in the directory and remove files outside of the time range
-        files_to_copy = list()
+        files_to_copy = []
         extensions = ["000", "001", "002", "003", "004", "005", "LOG", "MER"]
         for extension in extensions:
             files_to_copy += glob.glob(os.path.join(server_path, mfloat_nb +  "*." + extension))
@@ -214,8 +214,8 @@ def main():
         if events_list != sorted(events_list, key=lambda x: x.corrected_starttime):
             raise ValueError('`dive_logs[*].events` improperly sorted')
 
-        fragmented_dive = list()
-        complete_dives = list()
+        fragmented_dive = []
+        complete_dives = []
         for i, dive_log in enumerate(dive_logs):
 
             # Attach reference to previous / next .LOG and .MER files
@@ -257,7 +257,7 @@ def main():
                 # GPS may be used to interpolate previous/succeeding dives
                 if i < len(dive_logs)-1 and dive_logs[i+1].is_complete_dive:
                     complete_dives.append(dives.Complete_Dive(fragmented_dive))
-                    fragmented_dive = list()
+                    fragmented_dive = []
 
         # Verify complete dives are sorted as expected
         if complete_dives != sorted(complete_dives, key=lambda x: x.start_date) \

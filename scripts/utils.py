@@ -43,7 +43,7 @@ def split_log_lines(content):
 
 # Search timestamps for a specific keyword
 def find_timestamped_values(regexp, content):
-    timestamped_values = list()
+    timestamped_values = []
     lines = split_log_lines(content)
     for line in lines:
         value_catch = re.findall(regexp, line)
@@ -82,8 +82,8 @@ def get_date_from_file_name(filename):
 
 # Plot vertical lines with plotly
 def plotly_vertical_shape(position, ymin=0, ymax=1, name='name', color='blue'):
-    xval = list()
-    yval = list()
+    xval = []
+    yval = []
     for ps in position:
         xval.append(ps)
         xval.append(ps)
@@ -105,7 +105,7 @@ def plotly_vertical_shape(position, ymin=0, ymax=1, name='name', color='blue'):
 
 # Get an array of date objects
 def get_date_array(date, length, period):
-    date_list = list()
+    date_list = []
     i = 0
     while i < length:
         date_list.append(date + i * period)
@@ -116,7 +116,7 @@ def get_date_array(date, length, period):
 # Get an array of time values
 def get_time_array(length, period):
     # Compute time
-    time_list = list()
+    time_list = []
     i = 0.0
     while i < length:
         time_list.append(i * period)
