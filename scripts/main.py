@@ -27,8 +27,13 @@ import utils
 import events
 import vitals
 import geocsv
+import profile
+#import databases
 
-from pprint import pprint
+## !!! TEMP VARS !! ##
+profiles  = None
+csv_file = True
+## !!! TEMP VARS !! ##
 
 # Log a creation date for metadata files
 creation_datestr = datetime.datetime.now(pytz.UTC).isoformat().split(".")[0] + "Z"
@@ -119,13 +124,13 @@ filterDate = {
 redo = False
 
 # Figures commented by default (take heaps of memory)
-events_png = False
-events_plotly = False
+events_png = True
+events_html = True
 events_sac = True
 events_mseed = True
 
 # Dictionary to write last-dive vital data to output files
-lastdive = dict()
+lastdive = {}
 
 def main():
     # Set working directory in "scripts"
@@ -141,11 +146,6 @@ def main():
 
     # For each MERMAID float
     for mfloat in sorted(mfloats):
-        # if mfloat in {'452.020-P-06', '452.020-P-07'}:
-        #     continue
-        if "465.152-R" in mfloat:
-            continue
-
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
         # Set the path for the float
@@ -203,7 +203,7 @@ def main():
         # Therefore, concatenate all fragmented .LOG in-between single-LOG complete dives
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat))
-        dive_logs = dives.get_dives(mfloat_path, mevents, begin, end)
+        dive_logs = dives.get_dives(mfloat_path, mevents, profiles, begin, end)
 
         # Verify dive logs are sorted as expected
         if dive_logs!= sorted(dive_logs, key=lambda x: x.start_date):
@@ -234,7 +234,7 @@ def main():
             dive_log.generate_mermaid_environment_file()
 
             # Generate dive plot
-            dive_log.generate_dive_plotly() # <-- timestamps not corrected for clockdrift
+            dive_log.generate_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
 
             # The GPS list is None outside of requested begin/end dates, within
             # which it defaults to an empty list if it is truly empty
@@ -306,8 +306,8 @@ def main():
             if events_png:
                 complete_dive.generate_events_png()
 
-            if events_plotly:
-                complete_dive.generate_events_plotly()
+            if events_html:
+                complete_dive.generate_events_html()
 
             if events_sac:
                 complete_dive.generate_events_sac()

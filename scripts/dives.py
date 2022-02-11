@@ -6,11 +6,12 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 18-Jan-2022
+# Last modified by JDS: 08-Feb-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
 import re
+import csv
 import sys
 import glob
 import collections
@@ -40,7 +41,7 @@ class Dive:
 
     '''
 
-    def __init__(self, base_path=None, log_name=None, events=None, begin=None, end=None):
+    def __init__(self, base_path=None, log_name=None, events=None, profiles=None, begin=None, end=None):
         self.base_path = base_path
         self.log_name = log_name
         self.__version__ = version
@@ -90,6 +91,10 @@ class Dive:
         self.next_dive_log_name = None
         self.next_dive_mer_environment_name = None
 
+        self.profiles = None
+        self.s41_name = None
+        self.s41_environment = None
+
         print("{}".format(self.log_name))
 
         # Get the date from the file name -- the hexadecimal component of the
@@ -112,12 +117,12 @@ class Dive:
         self.len_secs = int(self.end_date - self.start_date)
         self.len_days = self.len_secs / (60*60*24.)
 
-        # Check if the log correspond to the float initialization
+        # Check if the .LOG corresponds to float initialization
         match = re.search("\[TESTMD,\d{3}\]\"yes\"", self.log_content)
         if "Enter in test mode?" in self.log_content and not match:
             self.is_init = True
 
-        # Check if the .LOGS corresponds to a dive
+        # Check if the .LOG corresponds to a dive
         diving = utils.find_timestamped_values("\[DIVING, *\d+\] *(\d+)mbar reached", self.log_content)
         if diving:
             self.descent_leave_surface_date = diving[0][1]
@@ -265,8 +270,48 @@ class Dive:
         if offset_param and offset_measurement:
             self.p2t_offset_corrected =  self.p2t_offset_measurement - self.p2t_offset_param
 
+        # Find the .S41 file of the ascent
+        catch = re.findall("bytes in (\w+/\w+\.S41)", self.log_content)
+        if len(catch) > 0:
+            self.s41_name = catch[-1].replace("/", "_")
+        self.profiles = []
+        if self.s41_name:
+            try:
+                # Read the Mermaid environment associated to the dive
+                with open(self.base_path + self.s41_name, "r") as f:
+                    content = f.read()
+            except IOError:
+                print "manque le fichier " + self.s41_name
+            else:
+                self.s41_environment = re.findall(
+                    "<PARAMETERS>.+</PILOTS>", content, re.DOTALL)[0]
+                self.profiles = profiles.get_profiles_between(
+                    self.start_date, self.end_date)
+
     def __len__(self):
         return 1
+
+    def generateJSON(self):
+        # It appears this just dumps all attrs into a JSON object?
+        # JDS attr names and list differs from Rocca...
+        json_object = {}
+        json_object["log_name"] = self.log_name
+        json_object["base_path"] = self.base_path
+        json_object["export_path"] = self.export_path
+        json_object["date"] = str(self.date)
+        json_object["end_date"] = str(self.end_date)
+        json_object["is_init"] = self.is_init
+        json_object["is_dive"] = self.is_dive
+        json_object["is_complete_dive"] = self.is_complete_dive
+        json_object["mmd_name"] = self.mmd_name
+        json_object["station_name"] = self.station_name
+        json_object["station_number"] = self.station_number
+        json_object["gps_list_is_complete"] = self.gps_list_is_complete
+        json_object["surface_leave_loc"] = self.surface_leave_loc
+        json_object["surface_reach_loc"] = self.surface_reach_loc
+        json_object["great_depth_reach_loc"] = self.great_depth_reach_loc
+        json_object["great_depth_leave_loc"] = self.great_depth_leave_loc
+        return json_object
 
     def generate_datetime_log(self):
         # Check if file exist
@@ -294,7 +339,21 @@ class Dive:
             if self.mer_environment:
                 f.write(self.mer_environment)
 
-    def generate_dive_plotly(self):
+    def generate_s41_environment_file(self):
+        # Check if there is a Mermaid file
+        if self.s41_name is None:
+            return
+
+        # Check if file exist
+        processed_path = self.processed_path + self.log_name + "." + self.s41_name + ".params"
+        if os.path.exists(processed_path):
+            return
+
+        # Write file
+        with open(processed_path, "w") as f:
+            f.write(self.s41_environment)
+
+    def generate_dive_html(self, csv_file):
         '''Generates a dive plot for a SINGLE .LOG file, which usually describes a
         complete dive, but not always. I.e., this does not plot a
         `Complete_Dive` instance, but rather generates a single plot for
@@ -333,6 +392,15 @@ class Dive:
                                    line=dict(color='#474747',
                                              width=2),
                                    mode='lines+markers')
+
+        if csv_file:
+            p_date_format = [UTCDateTime.strftime(UTCDateTime(date), "%Y%m%dT%H%M%S") for date in p_date]
+            csv_path = processed_path.replace(".html",".csv")
+            rows = zip(p_date_format,p_val)
+            with open(csv_path, mode='w') as csv_file:
+                csv_file = csv.writer(csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                for row in rows:
+                    csv_file.writerow(row)
 
         # Add vertical lines
         # Find minimum and maximum for Y axis of vertical lines
@@ -897,13 +965,24 @@ class Complete_Dive:
             if event.station_loc is not None:
                 event.attach_obspy_trace_stats(self.kstnm, self.kinst)
 
-    def generate_events_plotly(self):
+    def generate_events_html(self):
         for event in self.events:
-            event.plotly(self.processed_path)
+            if not event.is_stanford_event:
+                event.plot_html(self.processed_path)
+            else:
+                event.plot_html_stanford(self.processed_path)
 
     def generate_events_png(self):
         for event in self.events:
-            event.plot_png(self.processed_path)
+            if not event.is_stanford_event:
+                event.plot_png(self.processed_path)
+            else:
+                event.plot_png_stanford(self.processed_path)
+
+    def generate_profile_html(self, csv_file):
+        for profile in self.profiles:
+            profile.plot_temperature_html(self.processed_path,csv_file)
+            profile.plot_salinity_html(self.processed_path)
 
     def generate_events_sac(self):
         for event in self.events:
@@ -912,6 +991,18 @@ class Complete_Dive:
     def generate_events_mseed(self):
         for event in self.events:
             event.to_mseed(self.processed_path, self.kstnm, self.kinst)
+
+    def generate_statistics(self, csv_path):
+        csv_filename = os.path.join(csv_path,"stats.csv")
+        for event in self.events:
+            row = [self.station_name] + event.statistics()
+            with open(csv_filename, mode='ab') as csv_file:
+                csv_file = csv.writer(csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                csv_file.writerow(row)
+
+    def get_buoy(self):
+        list = self.base_path.split("/")
+        return (list[len(list) - 3])
 
     def print_len(self):
         len_str  = "   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s}/{:s})" \
@@ -960,29 +1051,30 @@ class Complete_Dive:
         else:
             for e in self.events:
                 if e.station_loc is None:
-                    tmp_str = " Event: ! NOT MADE ! (invalid and/or not enough GPS fixes) {:s}.sac (</EVENT> binary in {:s})" \
+                    tmp_str = " Event: ! NOT MADE ! (invalid and/or not enough GPS fixes) {:s} (</EVENT> binary in {:s})" \
                               .format(e.processed_file_name, e.mer_binary_name)
 
                 else:
-                    tmp_str = "  Event: {:s}.sac (</EVENT> binary in {:s})" \
+                    tmp_str = "  Event: {:s} (</EVENT> binary in {:s})" \
                               .format(e.processed_file_name, e.mer_binary_name)
                 print(tmp_str)
                 evt_str += tmp_str + "\n"
 
         return evt_str
 
+
 # Create dives object
-def get_dives(path, events, begin, end):
+def get_dives(path, events, profiles, begin, end):
     # Concatenate log files that need it
     concatenate_log_files(path)
     # Get the list of log files
-    log_names = glob.glob(path + "*.LOG")
+    log_names = glob.glob(path + "*.LOG*")
     log_names = [x.split("/")[-1] for x in log_names]
     log_names.sort()
     # Create Dive objects
     dives = []
     for log_name in log_names:
-        dives.append(Dive(path, log_name, events, begin, end))
+        dives.append(Dive(path, log_name, events, profiles, begin, end))
     return dives
 
 
