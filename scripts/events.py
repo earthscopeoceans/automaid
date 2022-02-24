@@ -6,8 +6,10 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Feb-2022
+# Last modified by JDS: 14-Feb-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+
+import sys
 
 import os
 import re
@@ -30,8 +32,9 @@ from obspy.core.stream import Stream
 
 import gps
 import sys
-import utils
 import setup
+import utils
+import mermaidpsd
 
 # Get current version number.
 version = setup.get_version()
@@ -152,6 +155,9 @@ class Event:
         self.mer_binary_binary = mer_binary_binary
         self.__version__ = version
 
+        self.kstnm = None
+        self.kinst = None
+        self.kcmpnm = None
         self.mer_environment_name = None
         self.mer_environment = None
 
@@ -182,13 +188,16 @@ class Event:
         self.is_requested = None
 
         self.is_stanford_event = None
+        self.stanford_rounds = None
         self.stanford_duration = None
         self.stanford_period = None
         self.stanford_win_len = None
         self.stanford_win_type = None
         self.stanford_overlap = None
         self.stanford_db_offset = None
-        self.stanford_rounds = None
+        self.stanford_psd_freqs = None
+        self.stanford_psd_perc50 = None
+        self.stanford_psd_perc95 = None
 
         print("{} (binary)".format(self.mer_binary_name))
 
@@ -243,6 +252,15 @@ class Event:
                 self.is_requested = True
                 date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
                 self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
+
+    def set_kstnm_kinst(self, kstnm=None, kinst=None):
+        '''Sets `kstnm` and `kinst` attrs using those station and instrument names
+        previously derived with `dives.Dive.set_kstnm_kinst()`; see there for details
+
+        '''
+
+        self.kstnm = kstnm
+        self.kinst = kinst
 
     def set_environment(self, mer_environment_name, mer_environment):
         self.mer_environment_name = mer_environment_name
@@ -301,6 +319,8 @@ class Event:
             # Sampled at ~40Hz
             # Either: Stanford PSD float or seismic float with `scales = -1` (raw data)
             self.decimated_fs = self.measured_fs
+
+        self.kcmpnm = utils.channel(self.decimated_fs)
 
     def set_uncorrected_starttime(self):
         '''Compute the starttime of the event (uncorrected for GPS clockdrift) from the
@@ -363,7 +383,7 @@ class Event:
             # Bumps and other matters," 28 Mar 2021.
             self.uncorrected_starttime = self.info_date - float(self.trig) / self.decimated_fs
 
-    def process_binary_data(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
+    def set_processed_data(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
         '''Convert raw .MER binary data to processed MERMAID traces or Stanford PSD
         50-95% arrays.  The former's binary are generally inverted via a
         CDF(2,4) wavelet transform for "WLT?" data (or simply though casting to
@@ -381,6 +401,32 @@ class Event:
 
         if self.is_stanford_event:
             self.processed_data = np.frombuffer(self.mer_binary_binary, np.int8)
+            x_split = np.array_split(self.processed_data, 2)
+            self.stanford_psd_perc50 = x_split[0]
+            self.stanford_psd_perc95 = x_split[1]
+            freq_max = float(self.stanford_psd_perc50.size * 40 / int(self.stanford_win_len))
+
+            dt = '<f8'  # little-endian float64 (native Python "float" on my Mac)
+            #dt = '>f4' # big-endian float32
+            self.stanford_psd_freqs = np.arange(0., freq_max, freq_max/self.stanford_psd_perc50.size,
+                                                dtype=dt)
+
+            # Endianness notes to be moved out of here...
+            # l = np.float64(90.7)
+            # b = l.byteswap()
+            # WRONG: b.dtype.byteorder still says "=" for native little!
+            # WRONG: still wrong, even after call to  b.dtype.newbyteorder('>')
+            # I don't get it...see
+            # "byteswap() doesn't change byteorder attribute #10372"
+            # https://github.com/numpy/numpy/issues/10372
+            # ...perhaps addressed in newer Python.  I think this is an issue
+            # with the "view" of the array vs. the array representation in
+            # memory. The only way I could reliably get b.dtype.byteorder to be
+            # ">" was to initialize it as such; doesn't seem I can alter later
+            #
+            # DOES NOT WORK: b = np.float64(90.7, dtype='>f8') (endianness ignored)
+            # DOES WORK: b = np.arange(90.7, dtype='>f8')
+
 
         else:
             # Get additional information on flavor of invert wavelet transform
@@ -511,13 +557,16 @@ class Event:
 
         '''
 
-        if not self.is_stanford_event:
-            if not self.corrected_starttime:
-                return
+        if not self.corrected_starttime:
+            return
 
-            processed_file_name = UTCDateTime.strftime(UTCDateTime(self.corrected_starttime),\
-                                                       "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
+        processed_file_name = UTCDateTime.strftime(UTCDateTime(self.corrected_starttime),\
+                                                   "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
 
+        if self.is_stanford_event:
+            processed_file_name += ".STD"
+
+        else:
             if not self.trig:
                 processed_file_name += ".REQ"
             else:
@@ -528,14 +577,8 @@ class Event:
             else:
                 processed_file_name += ".WLT" + self.scales
 
-            if self.station_loc_is_preliminary:
-                processed_file_name += '.prelim'
-        else:
-            # Assuming it's sufficient to use "INFO DATE" time (uncorrected for
-            # clockdrift) for Stanford multi-hour PSD filenames...
-            processed_file_name = UTCDateTime.strftime(UTCDateTime(self.info_date),\
-                                                       "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
-            processed_file_name += ".STD"
+        if self.station_loc_is_preliminary:
+            processed_file_name += '.prelim'
 
         self.processed_file_name = processed_file_name
 
@@ -678,6 +721,7 @@ class Event:
         plt.close()
 
     def plot_png_stanford(self, processed_path):
+
         # Check if file exist
         processed_path_png = processed_path + self.processed_file_name + ".png"
         print processed_path_png
@@ -690,6 +734,7 @@ class Event:
         x1=x_split[1]
         freq_max=(float)((x0.size*40)/int(win_sz[0]))
         freq = np.arange(0.,freq_max,(freq_max/x0.size))
+
         # Plot frequency image
         plt.figure(figsize=(9, 4))
         plt.title(self.__get_figure_title_stanford(), fontsize=12)
@@ -704,8 +749,23 @@ class Event:
         plt.clf()
         plt.close()
 
-    def attach_obspy_trace_stats(self, kstnm, kinst, force_without_loc=False):
-        '''Attaches attribute: obspy_trace_stats, an obspy.core.trace.Stats instance.
+        processed_path_png2 = processed_path + self.processed_file_name + "_2.png"
+        print processed_path_png2
+        plt.figure(figsize=(9, 4))
+        plt.title(self.__get_figure_title_stanford(), fontsize=12)
+        plt.plot(self.stanford_psd_freqs, self.stanford_psd_perc50, color='b')
+        plt.plot(self.stanford_psd_freqs, self.stanford_psd_perc95, color='r')
+        plt.xlabel("Freq (Hz)", fontsize=12)
+        plt.ylabel("dBfs^2/Hz", fontsize=12)
+        plt.xscale("log")
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(processed_path_png2)
+        plt.clf()
+        plt.close()
+
+    def set_obspy_trace_stats(self, force_without_loc=False):
+        '''Sets attr `obspy_trace_stats`, an obspy.core.trace.Stats instance
 
         obspy_trace_stats holds metadata common to both miniSEED and SAC formats.
         obspy_trace_stats.sac holds extra metadata only found in the SAC format.
@@ -732,19 +792,22 @@ class Event:
 
         For more detail see: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
 
-        Update function `events.write_metadata` if the fields in this method are changed.
+        Update function `events.write_obspy_trace_stats` if the fields in this method are changed.
 
         '''
 
+        # Do not try to hack SAC header vars to fit Stanford data...
+        # Trust me (JDS), it's not worth it
+        # (e.g., how to handle `npts`, 'delta`, and their effect on `start\endtime`?)
         if self.is_stanford_event:
             return
 
         # Fill metadata common to SAC and miniSEED formats
         stats = Stats()
         stats.network = utils.network()
-        stats.station = kstnm
+        stats.station = self.kstnm
         stats.location = "00"
-        stats.channel = utils.band_code(self.decimated_fs) + "DH"  # SEED manual Appendix A
+        stats.channel = self.kcmpnm
         stats.starttime = self.corrected_starttime
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.processed_data)
@@ -819,7 +882,7 @@ class Event:
         stats.sac["user3"] = self.clockdrift_correction # = self.mseed_time_correction
 
         # Generic instrument (e.g., '452.020')
-        stats.sac['kinst'] = kinst
+        stats.sac['kinst'] = self.kinst
 
         # automaid version number
         stats.sac["kuser0"] = self.__version__
@@ -836,7 +899,7 @@ class Event:
         # Attach Stats to events object
         self.obspy_trace_stats = stats
 
-    def to_mseed(self, processed_path, kstnm, kinst, force_without_loc=False,
+    def write_mseed(self, processed_path, force_without_loc=False,
                  force_redo=False, force_without_time_correction=False):
         # NB, mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC",
         # where "D" is the quality indicator, "D -- The state of quality control
@@ -852,7 +915,7 @@ class Event:
 
         # Format the metadata into miniSEED and SAC header formats
         if not self.obspy_trace_stats:
-            self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
+            self.set_obspy_trace_stats(force_without_loc)
 
         # Check if file exists
         mseed_filename = processed_path + self.processed_file_name + ".mseed"
@@ -860,7 +923,7 @@ class Event:
             return
 
         # Get stream object
-        stream = self.get_stream(processed_path, kstnm, kinst, force_without_loc)
+        stream = self.get_stream(processed_path, force_without_loc)
 
         # Save stream object with the time correction applied but without 'Time
         # correction applied' flag or 'Time correction' value being set in the
@@ -872,8 +935,7 @@ class Event:
         if not force_without_time_correction and not self.station_loc_is_preliminary:
             utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
-    def to_sac(self, processed_path, kstnm, kinst, force_without_loc=False, force_redo=False):
-
+    def write_sac(self, processed_path, force_without_loc=False, force_redo=False):
         if self.is_stanford_event:
             return
 
@@ -884,7 +946,7 @@ class Event:
 
         # Format the metadata into miniSEED and SAC header formats
         if not self.obspy_trace_stats:
-            self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
+            self.set_obspy_trace_stats(force_without_loc)
 
         # Check if file exists
         sac_filename = processed_path + self.processed_file_name + ".sac"
@@ -892,12 +954,27 @@ class Event:
             return
 
         # Get stream object
-        stream = self.get_stream(processed_path, kstnm, kinst, force_without_loc)
+        stream = self.get_stream(processed_path, force_without_loc)
 
         # Save stream object
         stream.write(sac_filename, format='SAC')
 
-    def get_stream(self, processed_path, kstnm, kinst, force_without_loc=False):
+    def write_mhpsd(self, processed_path, creation_datestr):
+        if not self.is_stanford_event or self.station_loc is None:
+            return
+
+        mhpsd_filename = processed_path + self.processed_file_name + ".mhpsd"
+
+        # Stanford PSD percentiles, hardcoded for now (forever?)
+        mhpsd_desc = ["freq", "50", "95"]
+        mhpsd_data = [self.stanford_psd_freqs, self.stanford_psd_perc50, self.stanford_psd_perc95]
+
+        mhpsd = mermaidpsd.write(mhpsd_filename, self, mhpsd_data, mhpsd_desc, creation_datestr)
+
+        print(mhpsd.hdr)
+        print(mhpsd.psd)
+
+    def get_stream(self, processed_path, force_without_loc=False):
         # Check if an interpolated station location exists
         if self.station_loc is None and not force_without_loc:
             return
@@ -977,11 +1054,11 @@ def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path)
                                     np.float32(e.obspy_trace_stats.sac["stdp"])))
 
 
-def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path):
+def write_obspy_trace_stats(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Write mseed2sac metadata and automaid metadata files.
 
     Update this function if the fields in method
-    `events.attach_obspy_trace_stats` are changed.
+    `events.set_obspy_trace_stats` are changed.
 
     In total six files are written:
 

@@ -8,7 +8,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Jan-2022
+# Last modified by JDS: 23-Feb-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -121,13 +121,14 @@ filterDate = {
 # the clock drift reset and the associated LOG recorded an actual dive
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = False
+redo = True
 
 # Figures commented by default (take heaps of memory)
-events_png = True
-events_html = True
-events_sac = True
-events_mseed = True
+write_png = False
+write_html = False
+write_sac = True
+write_mseed = True
+write_mhpsd = True
 
 # Dictionary to write last-dive vital data to output files
 lastdive = {}
@@ -221,20 +222,20 @@ def main():
             # Attach reference to previous / next .LOG and .MER files
             prev_dive = dive_logs[i-1] if i > 0 else None
             next_dive = dive_logs[i+1] if i < len(dive_logs)-1 else None
-            dive_log.attach_prev_next_dive(prev_dive, next_dive)
+            dive_log.set_prev_next_dive(prev_dive, next_dive)
 
             # Create the directory
             if not os.path.exists(dive_log.processed_path):
                 os.mkdir(dive_log.processed_path)
 
             # Reformat and write .LOG in individual dive directory
-            dive_log.generate_datetime_log()
+            dive_log.write_datetime_log()
 
             # Write .MER environment in individual directories
-            dive_log.generate_mermaid_environment_file()
+            dive_log.write_mermaid_environment_file()
 
             # Generate dive plot
-            dive_log.generate_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
+            dive_log.write_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
 
             # The GPS list is None outside of requested begin/end dates, within
             # which it defaults to an empty list if it is truly empty
@@ -297,23 +298,26 @@ def main():
             complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
             # Format station-location metadata for ObsPy and attach to complete dive object
-            complete_dive.attach_events_metadata()
+            complete_dive.set_events_obspy_trace_stats()
 
             # Write requested output files
             if not os.path.exists(complete_dive.processed_path):
                 os.mkdir(complete_dive.processed_path)
 
-            if events_png:
-                complete_dive.generate_events_png()
+            if write_png:
+                complete_dive.write_events_png()
 
-            if events_html:
-                complete_dive.generate_events_html()
+            if write_html:
+                complete_dive.write_events_html()
 
-            if events_sac:
-                complete_dive.generate_events_sac()
+            if write_sac:
+                complete_dive.write_events_sac()
 
-            if events_mseed:
-                complete_dive.generate_events_mseed()
+            if write_mseed:
+                complete_dive.write_events_mseed()
+
+            if write_mhpsd:
+                complete_dive.write_events_mhpsd(creation_datestr)
 
         # NB, at this point, the total event lists associated with `dive_logs`
         # and `complete_dives` may differ because the former collects all events
@@ -347,7 +351,7 @@ def main():
         events.write_loc_txt(dive_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write mseed2sac and automaid metadata csv and text files
-        events.write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path)
+        events.write_obspy_trace_stats(complete_dives, creation_datestr, processed_path, mfloat_path)
 
         # Write GeoCSV files
         geocsv_meta = geocsv.GeoCSV(complete_dives, creation_datestr)

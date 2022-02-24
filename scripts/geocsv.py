@@ -5,17 +5,19 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 19-Jan-2022
+# Last modified by JDS: 23-Feb-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
 #
+# *Add `read` method at module level
+# *Convert most of current GeoCSV guts to `write` method at module level
+# *Main GeoCSV object should organize (dict?) file columns (w/o class-level read/write methods)
 # *Write (nested) function docstrings
 # *Verify types and signs, e.g. for 'time correction/delay' ([+/-]np.int32)
 
 import csv
 import pytz
-import warnings
 import datetime
 import numpy as np
 

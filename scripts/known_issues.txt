@@ -1,3 +1,6 @@
+* IcDive folders are not cleaned up in cases when .LOG/.MER incomplete
+  transmission later completed (e.g., '452.020-P-23/20211205-05h35m54sIcDive')
+
 * "incl_preliminary" in main,py
   - Untested with newest versions; likely does not work
   - Supersedes tool_invert_mer.py; delete that when this is fixed

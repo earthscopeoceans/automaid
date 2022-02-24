@@ -10,6 +10,7 @@
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
+import sys
 import struct
 import warnings
 import numpy as np
@@ -175,6 +176,17 @@ def band_code(sample_rate=None):
 
     return band_code
 
+def channel(sample_rate=None):
+    """Return instrument channel (KCMPNM in SAC parlance), e.g., 'BDH' given
+    sampling frequency in Hz
+
+    See also: `band_code()` and SEED manual Appendix A
+
+    """
+
+    channel = band_code(sample_rate) + "DH"
+
+    return channel
 
 def network():
     """Returns 'MH', MERMAID FDSN network name:
@@ -269,3 +281,41 @@ def get_gps_sensor_name():
 def get_absolute_pressure_sensor_name():
     # Intake a float number and update this list as necessary
     return 'need2ask_Rocca'
+
+def ndarray_byteorder(ndarray):
+    '''Return str 'little', 'big', or 'n/a' (endianess irrelevant for
+    int8/ascii) indicating endianness of data within numpy array
+
+    This def required because usually `ndarray.dtype.byteorder` returns "=", or
+    native system ordering, which is not very useful
+
+    '''
+    # https://numpy.org/doc/stable/reference/generated/numpy.dtype.byteorder.html#numpy.dtype.byteorder
+    byteorder = ndarray.dtype.byteorder
+    if byteorder == '=':
+        byteorder = sys.byteorder
+    elif byteorder == '<':
+        byteorder = 'little'
+    elif byteorder == '>':
+        byteorder = 'big'
+    elif byteorder == '|':
+        byteorder = 'n/a'
+    else:
+        # Protection for future with different(?) return values
+        raise ValueError("Unknown byte order: %s'", byteorder)
+
+    return byteorder
+
+def ndarray_stat(ndarray):
+    '''Return dict with items 'size', 'precision', and 'byteorder' (endianness;
+    string either 'little or big') given an ndarray
+
+    '''
+
+    stat = {
+        'size': ndarray.size,
+        'precision': str(ndarray.dtype),
+        'byteorder': ndarray_byteorder(ndarray)
+    }
+
+    return stat

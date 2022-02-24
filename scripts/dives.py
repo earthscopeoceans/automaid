@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 08-Feb-2022
+# Last modified by JDS: 23-Feb-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -163,7 +163,7 @@ class Dive:
             self.station_number = self.station_name.split("-")[-1]
 
             # Zero-pad the (unique part) of the station name so that it is five characters long
-            self.attach_kstnm_kinst()
+            self.set_kstnm_kinst()
 
         # Find the .MER file whose environment (and maybe binary, but not
         # necessarily) is associated with this .LOG file
@@ -230,19 +230,20 @@ class Dive:
                         dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
                         self.dive_id = int(dive_id.group(1))
 
-        # Get list of events associated with this .MER files environment
+        # Get list of events associated with this .MER file's environment
         # (the metadata header, which does not necessarily relate to the
-        # attached events and their binary data).
+        # events and their binary data below that header in the same .MER)
         self.events = events.get_events_between(self.start_date, self.end_date)
 
         # Set and parse info from .MER file and invert wavelet transform any binary data
         # (cannot invert the data without vital information from the .MER environment)
         if self.mer_environment:
             for event in self.events:
+                event.set_kstnm_kinst(self.kstnm, self.kinst)
                 event.set_environment(self.mer_environment_name, self.mer_environment)
                 event.find_measured_sampling_frequency()
                 event.set_uncorrected_starttime()
-                event.process_binary_data()
+                event.set_processed_data()
 
         # Re-sort events based on starttime (rather than INFO DATE)
         self.events.sort(key=lambda x: x.uncorrected_starttime)
@@ -313,7 +314,7 @@ class Dive:
         json_object["great_depth_leave_loc"] = self.great_depth_leave_loc
         return json_object
 
-    def generate_datetime_log(self):
+    def write_datetime_log(self):
         # Check if file exist
         processed_path = self.processed_path + self.log_name + ".h"
         if os.path.exists(processed_path):
@@ -324,7 +325,7 @@ class Dive:
         with open(processed_path, "w") as f:
             f.write(formatted_log)
 
-    def generate_mermaid_environment_file(self):
+    def write_mermaid_environment_file(self):
         # The .MER file can be listed in the .LOG but not actually exist on the server
         if self.mer_environment_name is None or not self.mer_environment_name_exists:
             return
@@ -339,7 +340,7 @@ class Dive:
             if self.mer_environment:
                 f.write(self.mer_environment)
 
-    def generate_s41_environment_file(self):
+    def write_s41_environment_file(self):
         # Check if there is a Mermaid file
         if self.s41_name is None:
             return
@@ -353,7 +354,7 @@ class Dive:
         with open(processed_path, "w") as f:
             f.write(self.s41_environment)
 
-    def generate_dive_html(self, csv_file):
+    def write_dive_html(self, csv_file):
         '''Generates a dive plot for a SINGLE .LOG file, which usually describes a
         complete dive, but not always. I.e., this does not plot a
         `Complete_Dive` instance, but rather generates a single plot for
@@ -449,10 +450,11 @@ class Dive:
                     filename=processed_path,
                     auto_open=False)
 
-    def attach_kstnm_kinst(self):
-        '''Attaches a five-character station name (KSTNM), zero-padded between the letter and number
-        defining the unique MERMAID (if required), and the "generic name of recording instrument"
-        (KINST), defined as the string which precedes the first hyphen in the Osean-defined names
+    def set_kstnm_kinst(self):
+        '''Sets attrs for five-character station name (KSTNM), zero-padded between the
+        letter and number defining the unique MERMAID (if required), and the
+        "generic name of recording instrument" (KINST), defined as the string
+        which precedes the first hyphen in the Osean-defined names
 
 
         452.112-N-01:   kinst, kstnm = '452.112', 'N0001'
@@ -470,8 +472,7 @@ class Dive:
         num_zeros = 5 - len(kstnm_char + kstnm_num)
         self.kstnm = kstnm_char + '0'*num_zeros + kstnm_num
 
-
-    def attach_prev_next_dive(self, prev_dive, next_dive):
+    def set_prev_next_dive(self, prev_dive, next_dive):
         if prev_dive:
             self.prev_dive_log_name = prev_dive.log_name
             self.prev_dive_mer_environment_name = prev_dive.mer_environment_name
@@ -960,39 +961,43 @@ class Complete_Dive:
             event.compute_station_location(self.descent_last_loc_before_event,
                                            self.ascent_first_loc_after_event)
 
-    def attach_events_metadata(self):
+    def set_events_obspy_trace_stats(self):
         for event in self.events:
             if event.station_loc is not None:
-                event.attach_obspy_trace_stats(self.kstnm, self.kinst)
+                event.set_obspy_trace_stats()
 
-    def generate_events_html(self):
+    def write_events_html(self):
         for event in self.events:
             if not event.is_stanford_event:
                 event.plot_html(self.processed_path)
             else:
                 event.plot_html_stanford(self.processed_path)
 
-    def generate_events_png(self):
+    def write_events_png(self):
         for event in self.events:
             if not event.is_stanford_event:
                 event.plot_png(self.processed_path)
             else:
                 event.plot_png_stanford(self.processed_path)
 
-    def generate_profile_html(self, csv_file):
+    def write_profile_html(self, csv_file):
         for profile in self.profiles:
             profile.plot_temperature_html(self.processed_path,csv_file)
             profile.plot_salinity_html(self.processed_path)
 
-    def generate_events_sac(self):
+    def write_events_sac(self):
         for event in self.events:
-            event.to_sac(self.processed_path, self.kstnm, self.kinst)
+            event.write_sac(self.processed_path)
 
-    def generate_events_mseed(self):
+    def write_events_mseed(self):
         for event in self.events:
-            event.to_mseed(self.processed_path, self.kstnm, self.kinst)
+            event.write_mseed(self.processed_path)
 
-    def generate_statistics(self, csv_path):
+    def write_events_mhpsd(self, creation_datestr=None):
+        for event in self.events:
+            event.write_mhpsd(self.processed_path, creation_datestr)
+
+    def write_statistics(self, csv_path):
         csv_filename = os.path.join(csv_path,"stats.csv")
         for event in self.events:
             row = [self.station_name] + event.statistics()
