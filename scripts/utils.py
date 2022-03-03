@@ -314,7 +314,7 @@ def ndarray_stat(ndarray):
 
     stat = {
         'size': ndarray.size,
-        'precision': str(ndarray.dtype),
+        'precision': ndarray.dtype.name,
         'byteorder': ndarray_byteorder(ndarray)
     }
 

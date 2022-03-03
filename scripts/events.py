@@ -966,7 +966,7 @@ class Event:
         mhpsd_filename = processed_path + self.processed_file_name + ".mhpsd"
 
         # Stanford PSD percentiles, hardcoded for now (forever?)
-        mhpsd_desc = ["freq", "50", "95"]
+        mhpsd_desc = ["freq", "perc50", "perc95"]
         mhpsd_data = [self.stanford_psd_freqs, self.stanford_psd_perc50, self.stanford_psd_perc95]
 
         mhpsd = mermaidpsd.write(mhpsd_filename, self, mhpsd_data, mhpsd_desc, creation_datestr)

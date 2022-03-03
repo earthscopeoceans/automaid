@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 24-Feb-2022
+# Last modified by JDS: 03-Mar-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -26,7 +26,7 @@ import utils
 import setup
 
 # !! Version really should be cross-referenced with version in file... !!
-version = "v0.1.0"
+version = "v0.1.1"
 
 class MermaidPSD:
     def __init__(self, filename, hdr, psd):
@@ -97,6 +97,10 @@ def read(filename):
     return mhpsd
 
 def write(filename, event, psd_data, psd_desc, hdr_date=None):
+    """`psd_desc`: ['freq', 'perc?0', 'perc?1', ..., 'perc?N']
+
+    """
+
     def _format_datablock_line(psd_desc, psd_data):
         """Format data description line preceding data block with size, precision, and
         endianness, e.g.
@@ -116,15 +120,14 @@ def write(filename, event, psd_data, psd_desc, hdr_date=None):
     if len(psd_data) != len(psd_desc):
         raise ValueError("unmatched data and descriptor lists")
 
-    psd_val = list(sorted(psd_desc)) # careful:`list()` copy is required here
-    psd_val.remove('freq')
-    dataset = ",".join(psd_val)
+    percentiles = [desc.strip('perc') for desc in psd_desc if 'perc' in desc]
+    percentiles = ",".join(percentiles)
 
     if hdr_date is None:
         hdr_date = datetime.datetime.now(pytz.UTC).isoformat().split(".")[0] + "Z"
 
     hdr = OrderedDict([
-        ("Dataset", "MERMAID Hydrophone {}% PSD (.mhpsd) {}".format(dataset, version)),
+        ("Dataset", "MERMAID Hydrophone {} percentile PSD (.mhpsd) {}".format(percentiles, version)),
         ("Created", hdr_date),
         ("Automaid",  "{} ({})".format(setup.get_version(), setup.get_url())),
         ("Network", utils.network()),
