@@ -6,11 +6,10 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 14-Feb-2022
+# Last modified by JDS: 07-Mar-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import sys
-
 import os
 import re
 import glob
@@ -400,7 +399,7 @@ class Event:
         '''
 
         if self.is_stanford_event:
-            self.processed_data = np.frombuffer(self.mer_binary_binary, np.int8)
+            self.processed_data = np.frombuffer(self.mer_binary_binary, np.int8) - np.int8(self.stanford_db_offset)
             x_split = np.array_split(self.processed_data, 2)
             self.stanford_psd_perc50 = x_split[0]
             self.stanford_psd_perc95 = x_split[1]
