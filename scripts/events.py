@@ -958,20 +958,21 @@ class Event:
         # Save stream object
         stream.write(sac_filename, format='SAC')
 
-    def write_mhpsd(self, processed_path, creation_datestr):
+    def write_mhpsd(self, processed_path, creation_datestr, force_redo=False):
         if not self.is_stanford_event or self.station_loc is None:
             return
 
+        # Check if the file exists
         mhpsd_filename = processed_path + self.processed_file_name + ".mhpsd"
+        if not force_redo and os.path.exists(mhpsd_filename):
+            return
 
         # Stanford PSD percentiles, hardcoded for now (forever?)
         mhpsd_desc = ["freq", "perc50", "perc95"]
         mhpsd_data = [self.stanford_psd_freqs, self.stanford_psd_perc50, self.stanford_psd_perc95]
 
+        # Write .mhpsd file
         mhpsd = mermaidpsd.write(mhpsd_filename, self, mhpsd_data, mhpsd_desc, creation_datestr)
-
-        print(mhpsd.hdr)
-        print(mhpsd.psd)
 
     def get_stream(self, processed_path, force_without_loc=False):
         # Check if an interpolated station location exists

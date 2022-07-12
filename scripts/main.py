@@ -121,7 +121,7 @@ filterDate = {
 # the clock drift reset and the associated LOG recorded an actual dive
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = True
+redo = False
 
 # Figures commented by default (take heaps of memory)
 write_png = False
