@@ -55,7 +55,7 @@ are defined in your system.
 
 To use the application:
 
-* Copy files from your Mermaid server into the "$MERMAID/server" directory:
+* Copy files from your MERMAID server into the "$MERMAID/server" directory:
   `scp username@host:\{"*.LOG","*.MER","*.vit"\} server`
 * Activate the virtual environment:
   `source activate pymaid` or `conda activate pymaid` or (if "conda" not found)
