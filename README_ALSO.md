@@ -6,7 +6,7 @@ Will soon be embedded into ESO's automaid version.
 Until that time you must manually decrypt using these instructions
 (before running the main `automaid` routine).
 
-[0] Activate pymaid Uncomment --
+[0] Activate pymaid --
 
 ```
     $ conda activate pymaid
