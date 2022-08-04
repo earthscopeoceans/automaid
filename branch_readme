@@ -1,6 +1,0 @@
-Branch: fix_gps
-
-Fixing: scripts/dives.py incorrectly subtracts longitudes to compute distances and does
-not account for sign differences occurring across antimeridian.
-
-Example: 178 - -178 = 356, when it should be 4 degrees.
