@@ -2,7 +2,7 @@ __automaid__, a Python package to process MERMAID files.
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5057096.svg)](https://doi.org/10.5281/zenodo.5057096)
 
-This program converts raw data transmitted by Mermaid instruments to classify
+This program converts raw data transmitted by MERMAID instruments to classify
 their data, correct clock drifts, interpolate float positions, generate seismic
 SAC and miniSEED files, plot seismic events and dives, and generate KML files.
 
