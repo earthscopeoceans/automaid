@@ -1,4 +1,6 @@
-automaid -- a Python package to process MERMAID files
+__automaid__, a Python package to process MERMAID files.
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5057096.svg)](https://doi.org/10.5281/zenodo.5057096)
 
 This program converts raw data transmitted by Mermaid instruments to classify
 their data, correct clock drifts, interpolate float positions, generate seismic
@@ -77,3 +79,9 @@ of the content of the content of the `processed` directory.
 * A `events_plotly` flag allow the user to plot interactive figures
 of events in a html page. This kind of plot can be disabled to save
 disk space.
+
+### 3. CITATION
+
+Joel D. Simon, Sébastien Bonnieux, Frederik J. Simons & The EarthScope-Oceans
+Consortium. (2021). earthscopeoceans/automaid: v3.5.0
+(v3.5.0). Zenodo. https://doi.org/10.5281/zenodo.5514229
