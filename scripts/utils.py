@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 14-Jan-2022
+# Last modified by JDS: 23-Aug-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -275,12 +275,12 @@ def flattenList(toplist):
     return [item for sublist in toplist for item in sublist]
 
 def get_gps_sensor_name():
-    # Intake a float number and update this list as necessary
+    # Intake a float number and update this list as necessary?
     return 'u-blox NEO-M8N'
 
 def get_absolute_pressure_sensor_name():
-    # Intake a float number and update this list as necessary
-    return 'need2ask_Rocca'
+    # Intake a float number and update this list as necessary?
+    return 'KELLER Series 6'
 
 def ndarray_byteorder(ndarray):
     '''Return str 'little', 'big', or 'n/a' (endianess irrelevant for
