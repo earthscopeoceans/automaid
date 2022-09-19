@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 27-Jan-2022
+# Last modified by JDS: 19-Sep-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -280,9 +280,20 @@ def linear_interpolation(gps_list, date):
         input_lat_drift_dist_deg = gps_list[j].latitude - gps_list[i].latitude
         input_lat_drift_vel_degs = input_lat_drift_dist_deg / input_drift_time
 
+        # Do longitude arithmetic on [0:360] instead of [-180:180] system to
+        # avoid wrapping issues when float crosses antimeridian
+        # Ex.
+        #    lon[i] = -174 (converted: 186)
+        #    lon[j] = +178
+        # Drifted west -8 degrees, not +352 if we do lon[j]-lon[i]
+        # At conclusion of this algorithm, subtract 360 (if >180) to convert
+        # back to [-180:+180]
+        lonj = gps_list[j].longitude if gps_list[j].longitude >= 0 else gps_list[j].longitude + 360
+        loni = gps_list[i].longitude if gps_list[i].longitude >= 0 else gps_list[i].longitude + 360
+
         # This is a bit of a cheat because it assumes an longitude lines are equally spaced on the
         # sphere, which they are not
-        input_lon_drift_dist_deg = gps_list[j].longitude - gps_list[i].longitude
+        input_lon_drift_dist_deg = lonj - loni
         input_lon_drift_vel_degs = input_lon_drift_dist_deg / input_drift_time
 
         interp_drift_time = date - gps_list[i].date
@@ -292,7 +303,11 @@ def linear_interpolation(gps_list, date):
 
         interp_lon_drift_vel_degs = input_lon_drift_vel_degs # they must equal
         interp_lon_drift_dist_deg = interp_lon_drift_vel_degs * interp_drift_time
-        interp_lon = gps_list[i].longitude + interp_lon_drift_dist_deg
+        interp_lon = loni + interp_lon_drift_dist_deg
+
+        # Previously longitudes converted to [0:360] from [-180:180]
+        if interp_lon > 180:
+            interp_lon -= 360
 
         # This is also a bit of flub -- the interpolated drift distance computed here is using our
         # (ever so slightly) incorrect longitude, so when projected on a sphere we get a slightly
