@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 19-Sep-2022
+# Last modified by JDS: 03-Oct-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -167,11 +167,11 @@ def linear_interpolation(gps_list, date):
             interp_drift_time = 0.0
             interp_lat_drift_dist_deg = 0.0
             interp_lon_drift_dist_deg = 0.0
-            description = description + "; interpolation not required (interpolation date is gps_list.date)"
+            description += "; interpolation not required (interpolation date is gps_list.date)"
 
         else:
             date = gps_list[0].date # overwrite: we did not interpolate at the requested date
-            description = description + "; location and date fixed to input gps_list"
+            description += "; location and date fixed to input gps_list"
 
         interp_dict = locals()
 
@@ -269,7 +269,7 @@ def linear_interpolation(gps_list, date):
         interp_lat = gps_list[i].latitude
         interp_lon = gps_list[i].longitude
         date = gps_list[i].date  # overwrite: we did not interpolate at the requested date
-        description = description + "; retained points too close (spatially) for interpolation; location and date fixed to one of input gps_list"
+        description += "; retained points too close (spatially) for interpolation; location and date fixed to one of input gps_list"
 
     else:
         input_drift_dist_m = gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, \
@@ -316,7 +316,7 @@ def linear_interpolation(gps_list, date):
         # will be slightly different
         interp_drift_dist_m = gps2dist_azimuth(interp_lat, interp_lon, gps_list[i].latitude, gps_list[i].longitude)[0]
         interp_drift_vel_ms = interp_drift_dist_m / interp_drift_time
-        description = description + "; executed successfully"
+        description += "; executed successfully"
 
     interp_dict = locals()
 
@@ -751,7 +751,7 @@ def write_gps(dive_logs, creation_datestr, processed_path, mfloat_path):
     created_line = "#created {}\n".format(creation_datestr)
 
     # Specify field headers of both csv and txt files
-    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time mer_clockfreq             source       raw_gps_lat        raw_gps_lon\n"
+    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time mer_clockfreq               source       raw_gps_lat        raw_gps_lon\n"
     header_line_csv = '#' + ','.join(header_line_txt.split()) + '\n'
     header_line_txt = '#' + header_line_txt # add pound sign after comma substitution
 
@@ -763,7 +763,7 @@ def write_gps(dive_logs, creation_datestr, processed_path, mfloat_path):
            '{:>6.3f}',
            '{:>17.6f}',
            '{:>10.0f}',
-           '{:>15s}',
+           '{:>17s}',
            '{:>14s}',
            '{:>15s}\n']
 
@@ -925,7 +925,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                 else:
                     f.write("\n")
             f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z'))
-            f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
+            f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                   SAC_MSEED_TRACE\n")
 
             # Parse the GPS ('input') components of surface drift before dive: these are actual GPS points
             gps_surface_descent, gps_fmt_spec = parse_input_params(leg_descent.interp_dict)
@@ -951,7 +951,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                 interp_drift_to_event_mixed_layer, interp_fmt_spec = parse_interp_params(event.station_loc.interp_dict)
                 interp_drift_to_event_mixed_layer.append(event.processed_file_name)
 
-                interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>40s}\n"
+                interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>42s}\n"
                 f.write(interp_fmt_spec.format(*interp_drift_to_event_mixed_layer))
 
             # The total interpolated drift in the mixed layer -- that drift that occurs between the

@@ -541,6 +541,7 @@ class Event:
         recorded an event
 
         '''
+
         self.station_loc = gps.linear_interpolation([drift_begin_gps,
                                                      drift_end_gps],
                                                     self.corrected_starttime)
@@ -1002,11 +1003,11 @@ def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc and not event.station_loc_is_preliminary)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
-    fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
+    fmt_spec = '{:>42s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}\n'
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#                               filename                   bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n"
+    header_line = "#                                 filename              bin_mer        prev_dive_log    prev_dive_env_mer        this_dive_log    this_dive_env_mer        next_dive_log    next_dive_env_mer\n"
 
     with open(traces_file, "w+") as f:
         f.write(version_line)
@@ -1032,11 +1033,11 @@ def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path)
     event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
-    fmt_spec = "{:<47s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
+    fmt_spec = "{:>42s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#                               filename          interp_STLA    interp_STLO      STDP\n"
+    header_line = "#                                 filename   interp_STLA    interp_STLO      STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)

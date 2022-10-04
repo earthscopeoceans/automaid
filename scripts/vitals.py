@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-Jan-2022
+# Last modified by JDS: 03-Oct-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -247,27 +247,35 @@ def write_corrected_pressure_offset(lastdive, processed_path):
 
     '''
 
-    lastdive_fmt_spec = "{:>12s}    {:>19s}    {:>15s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
+    lastdive_fmt_spec = "{:>14s}    {:>19s}    {:>17s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
     lastdive_f = os.path.join(processed_path, "lastdive_pressure_offset.txt")
     with open(lastdive_f, "w+") as f:
-        f.write("     MERMAID         LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
+        f.write("       MERMAID         LAST_SURFACING             LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
 
         for mfloat in sorted(lastdive.keys()):
             ld = lastdive[mfloat]
 
-            warn_str = ''
-            if ld.p2t_offset_corrected > 200:
-                warn_str = '!!!'
-                print("\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing"
-                      .format(mfloat, ld.p2t_offset_corrected))
-                print("!!! The corrected external pressure must stay below 300 mbar")
-                print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...'\n"
-                      .format(mfloat))
+            if ld.p2t_log_name is not None:
+                print("Checking final corrected external pressure reading for float {:s} [from {:s}]".format(mfloat, str(ld.p2t_log_name)))
+                warn_str = ''
 
-            f.write(lastdive_fmt_spec.format(mfloat,
-                                             str(ld.ascent_reach_surface_date)[0:19],
-                                             ld.log_name[-1],
-                                             ld.p2t_offset_measurement,
-                                             ld.p2t_offset_param,
-                                             ld.p2t_offset_corrected,
-                                             warn_str))
+                if ld.p2t_offset_corrected > 200:
+                    warn_str = '!!!'
+                    print("\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing"
+                          .format(mfloat, ld.p2t_offset_corrected))
+                    print("!!! The corrected external pressure must stay below 300 mbar")
+                    print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...'\n"
+                          .format(mfloat))
+
+                f.write(lastdive_fmt_spec.format(mfloat,
+                                                 str(ld.ascent_reach_surface_date)[0:19],
+                                                 ld.p2t_log_name,
+                                                 ld.p2t_offset_measurement,
+                                                 ld.p2t_offset_param,
+                                                 ld.p2t_offset_corrected,
+                                                 warn_str))
+            else:
+                # Final .LOG did not record any external pressure measurements
+                # (e.g. due error/reset/incomplete transmission)
+                f.write("{:>14s} >> no external pressure measurements in {:s}) <<\n"\
+                        .format(mfloat, ld.log_name[-1]))

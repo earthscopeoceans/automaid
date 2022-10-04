@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Feb-2022
+# Last modified by JDS: 13-Jul-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -542,6 +542,11 @@ class Complete_Dive:
         self.ascent_reach_surface_layer_loc = None
         self.ascent_first_loc_after_event = None
 
+        self.p2t_offset_param = None
+        self.p2t_offset_measurement = None
+        self.p2t_offset_corrected = None
+        self.p2t_log_name = None
+
         self.log_name = [d.log_name for d in complete_dive]
         self.log_content = ''.join(d.log_content for d in complete_dive)
         self.mer_environment_name = [d.mer_environment_name for d in complete_dive]
@@ -608,10 +613,11 @@ class Complete_Dive:
 
         # Retain most recent external pressure measurement
         for d in reversed(complete_dive):
-            self.p2t_offset_param = d.p2t_offset_param
-            self.p2t_offset_measurement = d.p2t_offset_measurement
-            self.p2t_offset_corrected = d.p2t_offset_corrected
             if d.p2t_offset_corrected is not None:
+                self.p2t_offset_measurement = d.p2t_offset_measurement
+                self.p2t_offset_corrected = d.p2t_offset_corrected
+                self.p2t_offset_param = d.p2t_offset_param
+                self.p2t_log_name = d.log_name
                 break
 
     def set_incl_prev_next_dive_gps(self, prev_dive=None, next_dive=None):
@@ -1161,11 +1167,11 @@ def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     '''
 
     dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
-    fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>10d}    {:>9.3f}    {:>15s}    {:>15s}\n"
+    fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>10d}    {:>9.3f}    {:>17s}    {:>17s}\n"
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#dive_id               log_start                 log_end      len_secs     len_days           log_name       mer_env_name\n".format()
+    header_line = "#dive_id               log_start                 log_end      len_secs     len_days             log_name         mer_env_name\n".format()
 
     with open(dives_file, "w+") as f:
         f.write(version_line)
