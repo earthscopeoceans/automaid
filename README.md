@@ -35,6 +35,9 @@ An easy installation procedure is described here:
   `source activate pymaid`
 * Install obspy:
   `conda install obspy`
+  (or try these following if the above fails/stalls)<br>
+  `conda install --channel https://conda.anaconda.org/obspy obspy`<br>
+  `conda install obspy=1.2.2` # WARNING!^1<br>
 * Install plotly 2.7.0:
   `conda install plotly=2.7.0`
 * Quit the virtual environment:
@@ -85,3 +88,8 @@ disk space.
 Joel D. Simon, Sébastien Bonnieux, Frederik J. Simons & The EarthScope-Oceans
 Consortium. (2021). earthscopeoceans/automaid: v3.5.0
 (v3.5.0). Zenodo. https://doi.org/10.5281/zenodo.5514229
+
+^! Joel could not get `conda install` to work without specifying a version...he
+choose the seemingly most recent Python 2.7 version, though this needs to
+validated.
+
