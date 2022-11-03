@@ -6,8 +6,9 @@ This program converts raw data transmitted by MERMAID instruments to classify
 their data, correct clock drifts, interpolate float positions, generate seismic
 SAC and miniSEED files, plot seismic events and dives, and generate KML files.
 
-Developed by Joel D. Simon (jdsimon@princeton.edu).
-Originally written by Sebastien Bonnieux.
+Continually developed by @joelsimon (jdsimon@princeton.edu).  Originally written
+by @sebastienbx .  Many v3.6+ additions for generation 3+ MERMAID floats (.BIN
+decryption, CTD profiling, etc.) coded by @oseanfro.
 
 ### 1. INSTALLATION
 
@@ -37,7 +38,7 @@ An easy installation procedure is described here:
   `conda install obspy`
   (or try these following if the above fails/stalls)<br>
   `conda install --channel https://conda.anaconda.org/obspy obspy`<br>
-  `conda install obspy=1.2.2` # WARNING!^1<br>
+  `conda install obspy=1.2.2` # WARNING<sup>1</sup> (see note at bottom)
 * Install plotly 2.7.0:
   `conda install plotly=2.7.0`
 * Quit the virtual environment:
@@ -89,7 +90,5 @@ Joel D. Simon, Sébastien Bonnieux, Frederik J. Simons & The EarthScope-Oceans
 Consortium. (2021). earthscopeoceans/automaid: v3.5.0
 (v3.5.0). Zenodo. https://doi.org/10.5281/zenodo.5514229
 
-^! Joel could not get `conda install` to work without specifying a version...he
-choose the seemingly most recent Python 2.7 version, though this needs to
-validated.
-
+<sup>1</sup>Joel could not get `conda install` to work without specifying a version...
+he choose the seemingly most recent Python 2.7 version, though this needs to validated.
