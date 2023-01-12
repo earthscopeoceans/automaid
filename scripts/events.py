@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 07-Mar-2022
+# Last modified by JDS: 12-Jan-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import sys
@@ -385,9 +385,9 @@ class Event:
     def set_processed_data(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
         '''Convert raw .MER binary data to processed MERMAID traces or Stanford PSD
         50-95% arrays.  The former's binary are generally inverted via a
-        CDF(2,4) wavelet transform for "WLT?" data (or simply though casting to
-        int32 in the case of "RAW" [STAGES=-1] data), while the latter's are
-        simply cast to int8 and.
+        CDF(2,4) wavelet transform for "WLT?" data (or through casting to int32
+        in the case of "RAW" [STAGES=-1] data), while the latter's are simply
+        cast to int8 and...
 
         Sets attrs:
         `processed_data`          (for V1 floats and V2 Stanford PSD floats)
@@ -405,7 +405,7 @@ class Event:
             self.stanford_psd_perc95 = x_split[1]
             freq_max = float(self.stanford_psd_perc50.size * 40 / int(self.stanford_win_len))
 
-            dt = '<f8'  # little-endian float64 (native Python "float" on my Mac)
+            dt = '<f8'  # little-endian float64 (native Python "float" on JDS' Mac)
             #dt = '>f4' # big-endian float32
             self.stanford_psd_freqs = np.arange(0., freq_max, freq_max/self.stanford_psd_perc50.size,
                                                 dtype=dt)
@@ -749,6 +749,8 @@ class Event:
         plt.clf()
         plt.close()
 
+        # This *_2.png left here to compare JDS' rewrite using .stanford attrs
+        # with Rocca's original code (e.g., x0, x1)...later to be removed after
         processed_path_png2 = processed_path + self.processed_file_name + "_2.png"
         print processed_path_png2
         plt.figure(figsize=(9, 4))

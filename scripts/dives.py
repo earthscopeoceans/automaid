@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 13-Jul-2022
+# Last modified by JDS: 11-Jan-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -76,6 +76,8 @@ class Dive:
         self.descent_leave_surface_date = None
         self.ascent_reach_surface_date = None
 
+        self.events = None
+
         self.p2t_offset_param = None
         self.p2t_offset_measurement = None
         self.p2t_offset_corrected = None
@@ -106,6 +108,11 @@ class Dive:
         # Read the content of the LOG
         with open(self.base_path + self.log_name, "r") as f:
             self.log_content = f.read()
+
+            # Empty .LOG file, e.g. 0003_5FDCB1EE.LOG in testing
+            # (maybe it was later transmitted?)
+            if not self.log_content:
+                return
 
         # Get the last date (last line of the log file)
         #
@@ -1085,7 +1092,9 @@ def get_dives(path, events, profiles, begin, end):
     # Create Dive objects
     dives = []
     for log_name in log_names:
-        dives.append(Dive(path, log_name, events, profiles, begin, end))
+        d = Dive(path, log_name, events, profiles, begin, end)
+        if d.log_content:
+            dives.append(d)
     return dives
 
 
