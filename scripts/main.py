@@ -8,7 +8,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Feb-2022
+# Last modified by JDS: 19-Jan-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -55,8 +55,11 @@ max_gps_time = 5400
 # Toggle preliminary (rapid) location estimates on and off
 preliminary_location_ok = False
 
-# Set default paths
-automaid_path = os.environ["AUTOMAID"]
+# Set automaid scripts' directory path
+main_path = os.path.abspath(__file__)
+scripts_path = os.path.dirname(main_path)
+
+# Set default processed and server paths
 def_mermaid_path = os.environ["MERMAID"]
 def_server_path = os.path.join(def_mermaid_path, "server")
 def_processed_path = os.path.join(def_mermaid_path, "processed")
@@ -135,7 +138,7 @@ lastdive = {}
 
 def main():
     # Set working directory in "scripts"
-    os.chdir(os.path.join(automaid_path, "scripts", ""))
+    os.chdir(scripts_path)
 
     # Create processed directory if it doesn't exist
     if not os.path.exists(processed_path):

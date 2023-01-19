@@ -382,7 +382,7 @@ class Event:
             # Bumps and other matters," 28 Mar 2021.
             self.uncorrected_starttime = self.info_date - float(self.trig) / self.decimated_fs
 
-    def set_processed_data(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
+    def set_processed_data(self):
         '''Convert raw .MER binary data to processed MERMAID traces or Stanford PSD
         50-95% arrays.  The former's binary are generally inverted via a
         CDF(2,4) wavelet transform for "WLT?" data (or through casting to int32
@@ -435,10 +435,9 @@ class Event:
 
             # If scales == -1 this is a raw signal, just convert binary data to np array of int32
             if self.scales != "-1":
-                # Change to binary directory because the executable C inversion program
-                # called below can fail with full paths :(
-                start_dir = os.getcwd();
-                os.chdir(bin_path)
+                # Change to bin/ directory because the executable C inversion
+                # program called below can fail with full paths :(
+                os.chdir("bin")
 
                 # The following scripts READ wavelet coefficients (what MERMAID
                 # generally sends) from a file named "wtcoeffs" and WRITE the inverted
@@ -502,8 +501,8 @@ class Event:
                 os.remove(wtcoeffs_data_file_name)
                 os.remove(inverted_data_file_name)
 
-                # Return to start directory.
-                os.chdir(start_dir)
+                # Move up one level back into the scripts/ directory
+                os.chdir("..")
 
             else:
                 self.processed_data = np.frombuffer(self.mer_binary_binary, np.int32)

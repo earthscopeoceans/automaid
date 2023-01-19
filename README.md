@@ -50,10 +50,9 @@ using `make` the wavelet inversion programs located in
 must be in the "bin" directory and must be named `icdf24_v103_test` and
 `icdf24_v103ec_test`.
 
-Finally, ensure the environmental variables:
-(1) $MERMAID, itself a directory containing "server/" and "processed/", and
-(2) $AUTOMAID, the path to this cloned directory, containing "scripts/",
-are defined in your system.
+Finally, ensure the environmental variable, `MERMAID`, is set as a directory
+containing "server/" and "processed/" subdirectories.  These defaults may be
+overridden at execution using the `--server` and `--processed` arguments.
 
 ### 2. USAGE
 
