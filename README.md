@@ -83,7 +83,24 @@ of the content of the content of the `processed` directory.
 of events in a html page. This kind of plot can be disabled to save
 disk space.
 
-### 3. CITATION
+#### 3. SUMMARY OF ABOVE TO CLONE, CHECKOUT DEVELOPMENT BRANCH (V3.6.0), AND EXECUTE
+```
+    $ cd ~/Desktop/
+    $ git clone https://github.com/earthscopeoceans/automaid.git
+    $ cd automaid/scripts/src/V103
+    $ make
+    $ mv icdf24_v103_test ../../bin/
+    $ cd ../V103EC
+    $ make
+    $ mv icdf24_v103ec_test ../../bin
+    $ cd ../..
+    $ git checkout v3.6.0
+    $ conda activate pymaid                     # or `source activate pymaid`
+    $ python main.py -s <server> -p <processed> # replace "<*>" with full paths ending in "/"
+    $ conda deactivate                          # or `source deactivate`
+```
+
+### 4. CITATION
 
 Joel D. Simon, Sébastien Bonnieux, Frederik J. Simons & The EarthScope-Oceans
 Consortium. (2021). earthscopeoceans/automaid: v3.5.0
