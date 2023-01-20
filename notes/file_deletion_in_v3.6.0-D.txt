@@ -1,0 +1,43 @@
+23-Jan-2023
+
+v3.6.0-D SEEMINGLY deletes these files with `redo=True`:
+
+    452.020-P-23/20211205-05h35m54sIcDive/23_61AC4FBA.LOG.h
+    452.020-P-23/20211205-05h35m54sIcDive/23_61AC4FBA.html
+    452.020-P-25/20220629-11h58m50sIcDive/25_62BC3E7A.LOG.h
+    452.020-P-25/20220629-11h58m50sIcDive/25_62BC3E7A.html
+
+However, observe the current $MERMAID/processed
+(commit 99a6164906c0932255b73e790b13f3054a41ecbb):
+
+    $ ls1 452.020-P-23/20211205-05h35m54s*
+    452.020-P-23/20211205-05h35m54s:
+    23_61AC4FBA.LOG.23_61B771AA.MER.env
+    23_61AC4FBA.LOG.h
+    23_61AC4FBA.html
+
+    452.020-P-23/20211205-05h35m54sIcDive:
+    23_61AC4FBA.LOG.h
+    23_61AC4FBA.html
+
+
+    $ ls1 452.020-P-25/20220629-11h58m50s*
+    452.020-P-25/20220629-11h58m50s:
+    25_62BC3E7A.LOG.25_62C7739C.MER.env
+    25_62BC3E7A.LOG.h
+    25_62BC3E7A.html
+
+    452.020-P-25/20220629-11h58m50sIcDive:
+    25_62BC3E7A.LOG.h
+    25_62BC3E7A.html
+
+So for both 23 and 25 there is an IcDive and regular dive folder associated with
+the same .LOG file, and if you look at those .LOG.h files you will see the
+IcDive file is incomplete, and yet both folders were saved only once (not
+updated) in the same commit.
+
+So what must have happened is I pulled the server, made the processed directory
+with an incomplete .LOG, then re-pulled the server (at which point Clog's were
+completed) and remade the processed directory.  automaid does not check for
+IcDive or Init folders to overwrite, so those outdated folders just stayed. So
+there is no issue. I'm deleting those IcDive folders from processed now.
