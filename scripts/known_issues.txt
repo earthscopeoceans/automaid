@@ -1,3 +1,8 @@
+* `gps_before_dive_incl_prev_dive` and `gps_after_dive_incl_next_dive`
+  are not compiled correctly in cases when there is no complete prev/next dive
+  because splitting the gps list requires a descent/ascent to parse `after` and
+  `before`.  Maybe consider entire list of prev/next dive in cases when no dive?
+
 * IcDive folders are not cleaned up in cases when .LOG/.MER incomplete
   transmission later completed (e.g., '452.020-P-23/20211205-05h35m54sIcDive')
 

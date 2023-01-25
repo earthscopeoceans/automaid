@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Jan-2023
+# Last modified by JDS: 20-Jan-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import sys
@@ -70,6 +70,10 @@ class Events:
             events = content.split("</PARAMETERS>")[-1].split("<EVENT>")[1:]
 
             for event in events:
+                # Ensure every event block is complete(ly transmitted)
+                if event[0:14] != "\n\r\t<INFO DATE=" or event[-22:] != "\n\r\t</DATA>\n\r</EVENT>\n\r":
+                    continue
+
                 # The header of this specific </EVENT> block (NOT the </ENVIRONMENT> of
                 # the same .MER file, which may be unrelated (different time))
                 mer_binary_header = event.split("<DATA>\x0A\x0D")[0]
