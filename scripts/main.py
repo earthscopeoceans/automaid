@@ -8,7 +8,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 19-Jan-2023
+# Last modified by JDS: 31-Jan-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -145,7 +145,7 @@ def main():
         os.mkdir(processed_path)
 
     # Search MERMAID floats
-    vitfile_path = os.path.join(server_path, "*.vit")
+    vitfile_path = os.path.join(server_path, "[0-9]*.*-*-*[0-9].vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
     # For each MERMAID float
