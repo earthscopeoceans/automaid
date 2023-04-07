@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Feb-2022
+# Last modified by JDS: 04-Apr-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -41,7 +41,7 @@ class GeoCSV:
     def __init__(self,
                  complete_dives,
                  creation_datestr=datetime.datetime.now(pytz.UTC).isoformat().split(".")[0]+"Z",
-                 version='v2.2.0-0',  # Semantic versioning: v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
+                 version='v2.2.0-1',  # Semantic versioning: v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
                  delimiter=',',
                  lineterminator='\n'):
 
@@ -60,9 +60,9 @@ class GeoCSV:
         self.delimiter_header = ['#delimiter: ' + repr(self.delimiter)]
         self.lineterminator_header = ['#lineterminator: ' + repr(self.lineterminator)]
 
-        self.field_unit_header = [
-            '#field_unit',
-            'ISO_8601',
+        self.FieldUnit_header = [
+            'FieldUnit',
+            'iso8601',
             'unitless',
             'unitless',
             'unitless',
@@ -77,8 +77,8 @@ class GeoCSV:
             'seconds'
         ]
 
-        self.field_type_header = [
-            '#field_type',
+        self.FieldType_header = [
+            'FieldType',
             'datetime',
             'string',
             'string',
@@ -122,8 +122,8 @@ class GeoCSV:
             self.version_header,
             self.delimiter_header,
             self.lineterminator_header,
-            self.field_unit_header,
-            self.field_type_header,
+            self.FieldUnit_header,
+            self.FieldType_header,
             self.MethodIdentifier_header
         ]
 
