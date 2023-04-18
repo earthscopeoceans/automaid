@@ -24,9 +24,11 @@ Until that time you must manually decrypt using these instructions
 ```
 (note that final "/" in server/ path is REQUIRED!)
 [ FJS: python -c "import decrypt; decrypt.decrypt_all('/u/fjsimons/MERMAID/sustech/')" ]
+[ FJS: python -c "import decrypt; decrypt.decrypt_all('/u/fjsimons/MERMAID/psdmaid/')" ]
 
 [3] Run `automaid` as normal --
 ```
     $ python $AUTOMAID/scripts/main.py -s $MERMAID/server/ -p $MERMAID/processed/
 ```
 [ FJS: python $YFILES/automaid/scripts/main.py -s $MERMAID/sustech -p $MERMAID/processed-sustech ]
+[ FJS: python $YFILES/automaid/scripts/main.py -s $MERMAID/psdmaid -p $MERMAID/processed-stanford ]
