@@ -37,6 +37,7 @@ An easy installation procedure is described here:
 * Install obspy:
   `conda install obspy`
   (or try these following if the above fails/stalls)<br>
+  `conda install -c obspy obspy`
   `conda install --channel https://conda.anaconda.org/obspy obspy`<br>
   `conda install obspy=1.2.2` # WARNING<sup>1</sup> (see note at bottom)
 * Install plotly 2.7.0:
