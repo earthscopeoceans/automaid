@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Jan-2023
+# Last modified by JDS: 15-May-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -114,13 +114,44 @@ class Dive:
             if not self.log_content:
                 return
 
+
+        # Trim LOG file lines with times purpotedly before dive start time,
+        # indicating clock reset or error during dive, e.g., 25_643FB6EF.LOG
+        #
+        # Build list of line numbers in LOG file with bad/error timing
+        log_lines = utils.split_log_lines(self.log_content)
+        bad_lines = [];
+        for idx, log_line in enumerate(log_lines):
+            epoch_time = int(log_line.split(":")[0])
+            epoch_date = UTCDateTime(epoch_time)
+            if epoch_date < self.start_date:
+                bad_lines.append(idx)
+
+        # Delete lines in LOG file with bad/error timing
+        if bad_lines:
+            for idx in sorted(bad_lines, reverse=True):
+                del log_lines[idx]
+
+            # Reconstruct/concentate LOG-file content with bad/error-timing lines removed
+            log_delim = utils.get_log_delimiter(self.log_content)
+            self.log_content = log_delim.join(log_lines)
+
+            # Exit if LOG file now void of useable lines, e.g. 25_644AE21D.LOG
+            if not self.log_content:
+                return
+
+            elif not self.log_content.endswith(log_delim):
+                # Maybe append a final delimiter to the newly rebuilt content string.
+                self.log_content += log_delim
+
         # Get the last date (last line of the log file)
         #
         # Unfortunately, .LOG files can also suffer from incomplete transmission
         # and I do not yet know how to get around that; if this line fails wait
-        # until next surfacing to rerun automaid until a fix is found
-        ed = re.findall("(\d+):", utils.split_log_lines(self.log_content)[-1])[0]
-        self.end_date = UTCDateTime(int(ed))
+        # until next surfacing to rerun automaid until a fix is found?
+        last_epoch_time = utils.split_log_lines(self.log_content)[-1].split(':')[0]
+        self.end_date = UTCDateTime(int(last_epoch_time))
+
         self.len_secs = int(self.end_date - self.start_date)
         self.len_days = self.len_secs / (60*60*24.)
 

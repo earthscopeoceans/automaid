@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Aug-2022
+# Last modified by JDS: 15-May-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -25,22 +25,32 @@ import setup
 version = setup.get_version()
 
 #
-# Log files utilities
+# LOG file utilities
 #
+
+def get_log_delimiter(content):
+    if "\r\n" in content:
+        delim = "\r\n"
+
+    elif "\r" in content:
+        delim = "\r"
+
+    elif "\n" in content:
+        delim = "\n"
+
+    else:
+        raise ValueError("Delimiter from list of expected delimiters not found")
+
+    return delim
 
 # Split logs in several lines
 def split_log_lines(content):
-    splitted = []
-    if "\r\n" in content:
-        splitted = content.split("\r\n")
-    elif "\r" in content:
-        splitted = content.split("\r")
-    elif "\n" in content:
-        splitted = content.split("\n")
-    if splitted[-1] == "":
-        splitted = splitted[:-1]
-    return splitted
+    delim = get_log_delimiter(content)
+    splits = content.split(delim)
+    if splits[-1] == "":
+        splits = splits[:-1]
 
+    return splits
 
 # Search timestamps for a specific keyword
 def find_timestamped_values(regexp, content):
