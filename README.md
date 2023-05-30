@@ -27,21 +27,30 @@ An easy installation procedure is described here:
 * Restart your terminal to load the new PATH variables.
 * Add the conda-forge channel:
   `conda config --add channels conda-forge`
-* Create a virtual environment called "pymaid":
-  `conda create -n pymaid python=2.7`
-
-* Make sure you are in the `bash` shell!
-
 * Activate the environment:
   `source activate pymaid`
+* Make sure you are in the `bash` shell!
+
+!! Option 1 !!
+* Crate a virtual environment called "pymaid" with required packages:<br>
+  `conda create -n pymaid python=2.7 obspy plotly=2.7.0` # WARNING<sup>1</sup><br>
+
+!! Option 1 / end !!
+
+!! Option 2 !!
+* Create a virtual environment called "pymaid":
+  `conda create -n pymaid python=2.7`
 * Install obspy:
   `conda install obspy`
   (or try these following if the above fails/stalls)<br>
   `conda install -c obspy obspy`
   `conda install --channel https://conda.anaconda.org/obspy obspy`<br>
-  `conda install obspy=1.2.2` # WARNING<sup>1</sup> (see note at bottom)
+  `conda install obspy=1.2.2` # WARNING<sup>2</sup>
 * Install plotly 2.7.0:
   `conda install plotly=2.7.0`
+
+!! Option 2 / end !!
+
 * Quit the virtual environment:
   `source deactivate`
 
@@ -107,5 +116,10 @@ Joel D. Simon, Sébastien Bonnieux, Frederik J. Simons & The EarthScope-Oceans
 Consortium. (2021). earthscopeoceans/automaid: v3.5.0
 (v3.5.0). Zenodo. https://doi.org/10.5281/zenodo.5514229
 
-<sup>1</sup>Joel could not get `conda install` to work without specifying a version...
-he choose the seemingly most recent Python 2.7 version, though this needs to validated.
+<sup>1</sup>One-liner of conda install including all packages suggested by
+Dalija Namjesnik after she and Joel Simon struggled with an install in May 2023;
+similar to note 2 below, this should also probably be validated...
+
+<sup>2</sup>Joel Simon could not get `conda install` to work in early 2023
+without specifying a version...he choose the seemingly(?) most recent Python 2.7
+version, though this needs to validated.
