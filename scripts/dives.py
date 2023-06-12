@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 15-May-2023
+# Last modified by JDS: 12-Jun-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -122,10 +122,18 @@ class Dive:
         log_lines = utils.split_log_lines(self.log_content)
         bad_lines = [];
         for idx, log_line in enumerate(log_lines):
-            epoch_time = int(log_line.split(":")[0])
-            epoch_date = UTCDateTime(epoch_time)
-            if epoch_date < self.start_date:
+            try:
+                epoch_time = int(log_line.split(":")[0])
+
+            except ValueError:
+                # e.g., in 0054_5E4F9E40.LOG
+                # log_line.split(":")[0] == '[MRMAID,56'
                 bad_lines.append(idx)
+
+            else:
+                epoch_date = UTCDateTime(epoch_time)
+                if epoch_date < self.start_date:
+                    bad_lines.append(idx)
 
         # Delete lines in LOG file with bad/error timing
         if bad_lines:
