@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Jun-2023
+# Last modified by JDS: 15-Jun-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -924,9 +924,9 @@ class Complete_Dive:
         # (NOT 1 m = 101 mbar as stated in MERMAID manual Réf : 452.000.852 Version 00)
         pressure_dbar = [int(p[0])/100. for p in self.pressure_mbar]
 
-        # Compute location of events from surface position if MERMAID does not reach mixed layer
-        # Recall that we assume 1 m of water = 1 dbar of pressure
+        # Determine if using one- or two-layer ocean.
         if max(pressure_dbar) > mixed_layer_depth_m:
+            # Two-layer ocean case (surface and mixed)
 
             # Interpolate for location that MERMAID passed from the surface layer to the mixed layer
             # on the descent
@@ -1003,8 +1003,10 @@ class Complete_Dive:
             self.ascent_first_loc_after_event = self.ascent_reach_surface_layer_loc
 
         else:
-            # MERMAID never passed through the surface layer and into the mixed layer -- interpolate
-            # the location of the recorded event assuming a single-layer ocean
+            # One-layer ocean case (surface only)
+
+            # MERMAID never passed through the surface layer and into the mixed layer --
+            # interpolate the location of the recorded event assuming single-layer ocean
             self.descent_last_loc_before_event = self.descent_leave_surface_loc
             self.ascent_first_loc_after_event = self.ascent_reach_surface_loc
 
