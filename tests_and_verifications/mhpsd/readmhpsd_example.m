@@ -8,7 +8,7 @@ function readmhpsd_example()
 %
 % Author: Joel D. Simon
 % Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-% Last modified: 26-Apr-2022, Version 9.3.0.948333 (R2017b) Update 9 on MACI64
+% Last modified: 25-Apr-2023, Version 9.3.0.948333 (R2017b) Update 9 on MACI64
 
 clc
 close all
@@ -26,6 +26,9 @@ semilogx(psd.freq, psd.perc50, 'b', 'LineWidth', 2)
 hold on
 semilogx(psd.freq, psd.perc95, 'r', 'LineWidth', 2)
 hold off
+legend('50th percentile', '95th percentile')
+title(sprintf('Network: %s Station: %s Start Time: %s', hdr.Network, hdr.Station, ...
+              hdr.StartTime))
 
 % Note that psd.freq(1) = 0, log(0) is undef, so the first point MATLAB plots is
 % psd.freq(2) (and Python draws a straight line headed towards 0 to the left and
