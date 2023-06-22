@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-Jan-2023
+# Last modified by JDS: 20-Apr-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import sys
@@ -941,6 +941,13 @@ class Event:
             utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
     def write_sac(self, processed_path, force_without_loc=False, force_redo=False):
+        '''
+        A note about starttime and .sac, and the headers NZMSEC and B, if
+        str(event.obspy_trace_stats["starttime"]) == '2018-09-28T10:14:34.251926Z',
+        then in the .sac header "NZMSEC" would be 251 and "B" would be 926.
+
+        '''
+
         if self.is_stanford_event:
             return
 
