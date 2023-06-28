@@ -35,8 +35,9 @@ profiles  = None
 csv_file = True
 ## !!! TEMP VARS !! ##
 
-# Log a creation date for metadata files
-creation_datestr = datetime.datetime.now(pytz.UTC).isoformat().split(".")[0] + "Z"
+# Log a creation date for metadata files in ISO 8601, milliseconds precision,
+# with "Z" suffix for UTC: "YYYY-MM-DDTHH:MM:SS.sssZ"
+creation_datestr = datetime.datetime.now(pytz.UTC).isoformat()[:23] + "Z"
 
 # Get current version number.
 version = setup.get_version()

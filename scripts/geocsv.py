@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 04-Apr-2023
+# Last modified by JDS: 23-Jun-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -30,9 +30,8 @@ class GeoCSV:
 
     Args:
         complete_dives (list): List of dives.Complete_Dive instances
-        creation_date (str): File-creation datestr
-                             (def: current UTC time ("Z" designation) in seconds precision)
-        version (str): GeoCSV version (def: 'v2.2.0-0')
+        creation_datestr (str): File-creation datestr as "YYYY-MM-DDTHH:MM:SS.sssZ"
+        version (str): GeoCSV version (def: 'v2.2.0-1')
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
 
@@ -40,7 +39,7 @@ class GeoCSV:
 
     def __init__(self,
                  complete_dives,
-                 creation_datestr=datetime.datetime.now(pytz.UTC).isoformat().split(".")[0]+"Z",
+                 creation_datestr = datetime.datetime.now(pytz.UTC).isoformat()[:23] + "Z",
                  version='v2.2.0-1',  # Semantic versioning: v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
                  delimiter=',',
                  lineterminator='\n'):
@@ -54,14 +53,21 @@ class GeoCSV:
         self.delimiter = delimiter
         self.lineterminator = lineterminator
 
-        self.dataset_header = ['#dataset: GeoCSV ' + self.version]
-        self.created_header = ['#created: ' + self.creation_datestr]
-        self.version_header = ['#automaid: {} ({})'.format(setup.get_version(), setup.get_url())]
-        self.delimiter_header = ['#delimiter: ' + repr(self.delimiter)]
-        self.lineterminator_header = ['#lineterminator: ' + repr(self.lineterminator)]
+        # Comments (multiple, some keywords required, start with # or "#)
+        self.dataset_comment = ['#dataset: GeoCSV ' + self.version]
+        self.created_comment = ['#created: ' + self.creation_datestr]
+        self.description_comment = ['#description: Metadata for drifting Mobile Earthquake Recording in Marine Areas by Independent Divers (MERMAID) hydrophones, www.EarthScopeOceans.org']
+        self.attribution_comment = ['#attribution: automaid {} ({})'.format(setup.get_version(), setup.get_url())]
+        self.matlab_comment = ['#matlab_reader: https://github.com/joelsimon/GeoCSV/blob/master/readGeoCSV.m']
+        self.waterpressure_comment = ['#waterpressure2depth: 100 mbar is approximately equal to the pressure of 1 meter of water']
+        self.response_comment = ["#frequency_response: http://ds.iris.edu/data/reports/MH/MH.Mermaids.Response.V3.pdf"]
 
-        self.FieldUnit_header = [
-            'FieldUnit',
+        self.lineterminator_comment = ['#lineterminator: ' + repr(self.lineterminator)]
+        self.delimiter_comment = ['#delimiter: ' + repr(self.delimiter)]
+        self.field_unit_comment = [
+            # Keyword and first value must be together so that csvwriter does
+            # not put a comment between the two (i.e. "#field_unit: ,unitless")
+            '#field_unit: unitless',
             'iso8601',
             'unitless',
             'unitless',
@@ -76,9 +82,10 @@ class GeoCSV:
             'seconds',
             'seconds'
         ]
-
-        self.FieldType_header = [
-            'FieldType',
+        self.field_type_comment = [
+            # Keyword and first value must be together so that csvwriter does
+            # not put a comment between the two (i.e. "#field_type: ,string")
+            '#field_type: string',
             'datetime',
             'string',
             'string',
@@ -94,7 +101,8 @@ class GeoCSV:
             'float'
         ]
 
-        self.MethodIdentifier_header = [
+        # Header line (single, first uncommented line after some comment(s))
+        self.header = [
             'MethodIdentifier',
             'StartTime',
             'Network',
@@ -104,8 +112,8 @@ class GeoCSV:
             'Latitude',
             'Longitude',
             'Elevation',
-            'AbsolutePressure',
-            'SensorDescription',
+            'WaterPressure',
+            'InstrumentDescription',
             'SampleRate',
             'TimeDelay',
             'TimeCorrection'
@@ -115,19 +123,22 @@ class GeoCSV:
         self.MethodIdentifier_Pressure = 'Measurement:Pressure:{:s}'.format(utils.get_absolute_pressure_sensor_name().replace(' ', '_'))
         self.MethodIdentifier_Algorithm = 'Algorithm:automaid:{:s}'.format(setup.get_version())
 
-    def get_header_lines(self):
-        header_lines = [
-            self.dataset_header,
-            self.created_header,
-            self.version_header,
-            self.delimiter_header,
-            self.lineterminator_header,
-            self.FieldUnit_header,
-            self.FieldType_header,
-            self.MethodIdentifier_header
-        ]
+    def get_comment_lines(self):
+        comment_lines = [
+            self.dataset_comment,
+            self.created_comment,
+            self.description_comment,
+            self.attribution_comment,
+            self.matlab_comment,
+            self.waterpressure_comment,
+            self.response_comment,
+            self.lineterminator_comment,
+            self.delimiter_comment,
+            self.field_unit_comment,
+            self.field_type_comment,
+     ]
 
-        return header_lines
+        return comment_lines
 
     def write(self, filename='geo.csv'):
         """Write three GeoCSV files: both 'DET' and 'REQ'; only 'DET'; and only 'REQ'
@@ -162,15 +173,15 @@ class GeoCSV:
             for gps in sorted(complete_dive.gps_list, key=lambda x: x.date):
                 gps_rows.append([
                     self.MethodIdentifier_GPS,
-                    str(gps.date)[0:19]+'Z',
+                    str(gps.date)[:23]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
                     nan,
                     nan,
                     d6(gps.latitude),
                     d6(gps.longitude),
-                    d0(0),
-                    d0(0),    # !!! Measured and corrected external pressure at surface? 1 atm? NaN?
+                    nan,
+                    nan,
                     'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
                     nan,
                     d6(gps.mseed_time_delay),
@@ -197,15 +208,15 @@ class GeoCSV:
             for pressure in sorted(complete_dive.pressure_mbar, key=lambda x:x[1]):
                 pressure_row = [
                     self.MethodIdentifier_Pressure,
-                    str(pressure[1])[0:19]+'Z',
+                    str(pressure[1])[:23]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
                     nan,
                     nan,
                     nan,
                     nan,
-                    d0(0),
-                    d0(pressure[0]),    # !!! External pressure at surface? Just list 1 atm?
+                    nan,
+                    d0(pressure[0]),
                     'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
                     nan,
                     nan,
@@ -244,14 +255,14 @@ class GeoCSV:
 
                 algorithm_row = [
                     self.MethodIdentifier_Algorithm,
-                    str(event.obspy_trace_stats["starttime"])[:19]+'Z',
+                    str(event.obspy_trace_stats["starttime"])[:23]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
                     event.obspy_trace_stats["location"],
                     event.obspy_trace_stats["channel"],
                     d6(event.obspy_trace_stats.sac["stla"]),
                     d6(event.obspy_trace_stats.sac["stlo"]),
-                    d0(0),
+                    nan,
                     d0(event.pressure_mbar),
                     'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
                     d1(event.obspy_trace_stats["sampling_rate"]),
@@ -329,10 +340,11 @@ class GeoCSV:
             csvwriter_det = csv.writer(csvfile_det, delimiter=self.delimiter, lineterminator=self.lineterminator)
             csvwriter_req = csv.writer(csvfile_req, delimiter=self.delimiter, lineterminator=self.lineterminator)
 
-            # Write the same header lines to all three files
+            # Write the same comment lines and single header to all three files
             csvwriter_list = [csvwriter_det_req, csvwriter_det, csvwriter_req]
             for csvwriter in csvwriter_list:
-                csvwriter.writerows(self.get_header_lines())
+                csvwriter.writerows(self.get_comment_lines())
+                csvwriter.writerow(self.header)
 
             # Write the combined "Measurement" and "Algorithm" rows to all three files
             csvwriter_det.writerows(geocsv_det_rows)
@@ -348,21 +360,22 @@ class GeoCSV:
              open(csvfile_det.name, 'r') as csvfile_det, \
              open(csvfile_req.name, 'r') as csvfile_req:
 
-            len_header = len(self.get_header_lines())
+            len_comment = len(self.get_comment_lines())
             csvfile_list = [csvfile_det_req, csvfile_det, csvfile_req]
             for csvfile in csvfile_list:
                 # Read
                 csvreader = csv.reader(csvfile, delimiter=self.delimiter, lineterminator=self.lineterminator)
                 rows = list(csvreader)
 
-                # (1) Verify all dates sorted (skip header lines)
-                dates = [row[1] for row in rows[len_header:]]
+                # (1) Verify all dates sorted (skip comments and single header line)
+                # NB, this assumes all comments grouped and contiguous at top of file
+                dates = [row[1] for row in rows[len_comment+1:]]
                 if dates == sorted(dates):
                     print("Verified: {} rows sorted".format(csvfile.name))
                 else:
                     raise ValueError("{} rows not sorted".format(csvfile.name))
 
-                # (2) Verify all rows unique (include header lines)
+                # (2) Verify all rows unique (include comments and header line)
                 str_rows = [(',').join(row) for row in rows]
                 if len(str_rows) == len(set(str_rows)):
                     print("Verified: {} rows unique\n".format(csvfile.name))
