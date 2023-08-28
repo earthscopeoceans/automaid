@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 03-Oct-2022
+# Last modified by JDS: 28-Aug-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -306,6 +306,12 @@ def linear_interpolation(gps_list, date):
         interp_lon = loni + interp_lon_drift_dist_deg
 
         # Previously longitudes converted to [0:360] from [-180:180]
+        if loni > 180:
+            loni -= 360
+
+        if lonj > 180:
+            lonj -= 360
+
         if interp_lon > 180:
             interp_lon -= 360
 
