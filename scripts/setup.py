@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Jun-2023
+# Last modified by JDS: 01-Sep-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
@@ -19,7 +19,7 @@ def get_version():
 
     """
 
-    return 'v3.5.2' # v3.6.0-J with 3.5.1 GeoCSV
+    return 'v3.5.3' # v3.6.0-J (+v3.6.0-L loni/lonj fix) with 3.5.1 GeoCSV
 
 def get_url():
     return 'https://github.com/earthscopeoceans/automaid [doi: 10.5281/zenodo.5057096]'

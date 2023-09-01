@@ -306,6 +306,12 @@ def linear_interpolation(gps_list, date):
         interp_lon = loni + interp_lon_drift_dist_deg
 
         # Previously longitudes converted to [0:360] from [-180:180]
+        if loni > 180:
+            loni -= 360
+
+        if lonj > 180:
+            lonj -= 360
+
         if interp_lon > 180:
             interp_lon -= 360
 
