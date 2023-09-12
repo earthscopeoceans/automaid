@@ -3,11 +3,11 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
 #
-# Usage: python main.py [-p processed] [-s server]
-#
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
+# Last modified by JDS: 11-Sep-2023
+# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 # Last modified by JDS: 03-Apr-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
@@ -86,43 +86,8 @@ server_path = os.path.abspath(args.server)
 processed_path = os.path.abspath(args.processed)
 
 # Set an inclusive time range of analysis for a specific float
-filterDate = {
-    "452.112-N-01": (datetime.datetime(2018, 12, 27), datetime.datetime(2100, 1, 1)),
-    "452.112-N-02": (datetime.datetime(2018, 12, 28), datetime.datetime(2100, 1, 1)),
-    "452.112-N-03": (datetime.datetime(2018, 4, 9), datetime.datetime(2100, 1, 1)),
-    "452.112-N-04": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-    "452.112-N-05": (datetime.datetime(2019, 1, 3), datetime.datetime(2100, 1, 1)),
-    "452.020-P-06": (datetime.datetime(2018, 6, 26, 19, 13, 53), datetime.datetime(2100, 1, 1)),
-    "452.020-P-07": (datetime.datetime(2018, 6, 27, 18, 39, 02), datetime.datetime(2100, 1, 1)),
-    # *
-    "452.020-P-08": (datetime.datetime(2018, 8,  5, 13, 23, 14), datetime.datetime(2100, 1, 1)),
-    "452.020-P-09": (datetime.datetime(2018, 8,  6, 15, 21, 26), datetime.datetime(2100, 1, 1)),
-    "452.020-P-10": (datetime.datetime(2018, 8,  7, 12, 53, 42), datetime.datetime(2100, 1, 1)),
-    "452.020-P-11": (datetime.datetime(2018, 8,  9, 11,  2,  6), datetime.datetime(2100, 1, 1)),
-    "452.020-P-12": (datetime.datetime(2018, 8, 10, 19, 51, 31), datetime.datetime(2100, 1, 1)),
-    "452.020-P-13": (datetime.datetime(2018, 8, 31, 16, 50, 23), datetime.datetime(2100, 1, 1)),
-    "452.020-P-16": (datetime.datetime(2018, 9,  4,  7, 12, 15), datetime.datetime(2100, 1, 1)),
-    "452.020-P-17": (datetime.datetime(2018, 9,  4, 11,  2, 54), datetime.datetime(2100, 1, 1)),
-    "452.020-P-18": (datetime.datetime(2018, 9,  5, 17, 38, 32), datetime.datetime(2100, 1, 1)),
-    "452.020-P-19": (datetime.datetime(2018, 9,  6, 20,  7, 30), datetime.datetime(2100, 1, 1)),
-    "452.020-P-20": (datetime.datetime(2018, 9,  8, 10, 32,  8), datetime.datetime(2100, 1, 1)),
-    "452.020-P-21": (datetime.datetime(2018, 9,  9, 17, 42, 36), datetime.datetime(2100, 1, 1)),
-    "452.020-P-22": (datetime.datetime(2018, 9, 10, 19,  7, 21), datetime.datetime(2100, 1, 1)),
-    "452.020-P-23": (datetime.datetime(2018, 9, 12,  2,  4, 14), datetime.datetime(2100, 1, 1)),
-    "452.020-P-24": (datetime.datetime(2018, 9, 13,  8, 52, 18), datetime.datetime(2100, 1, 1)),
-    "452.020-P-25": (datetime.datetime(2018, 9, 14, 11, 57, 12), datetime.datetime(2100, 1, 1)),
-    # *
-    "452.020-P-0050": (datetime.datetime(2019, 8, 11), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0051": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0052": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0053": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1)),
-    "452.020-P-0054": (datetime.datetime(2019, 7, 1), datetime.datetime(2100, 1, 1))
-}
-# *I found dates in the same range (~minutes before) as misalo.txt and set these
-# filterDates to the actual corresponding date in the LOG (GPS time pairs are
-# printed in .LOG then .MER, in that order, so it is valid to use the .LOG time
-# here) ; if the date did not match exactly I looked for the first date where
-# the clock drift reset and the associated LOG recorded an actual dive
+# (by default, deployment to present...adjust here or there)
+filterDate = utils.deploy2present()
 
 # Boolean set to true in order to delete every processed data and redo everything
 redo = False
