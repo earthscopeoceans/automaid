@@ -23,6 +23,7 @@ Until that time you must manually decrypt using these instructions
     $ python -c "import decrypt; decrypt.decrypt_all('/path/to/mermaid/server/')"
 ```
 (note that final "/" in server/ path is REQUIRED!)
+[ JDS: python -c "import decrypt; decrypt.decrypt_all('/Users/joelsimon/mermaid/server/')" ]
 [ FJS: python -c "import decrypt; decrypt.decrypt_all('/u/fjsimons/MERMAID/sustech/')" ]
 [ FJS: python -c "import decrypt; decrypt.decrypt_all('/u/fjsimons/MERMAID/psdmaid/')" ]
 
