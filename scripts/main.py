@@ -6,9 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Sep-2023
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
-# Last modified by JDS: 03-Apr-2023
+# Last modified by JDS: 24-Oct-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -116,6 +114,10 @@ def main():
 
     # For each MERMAID float
     for mfloat in sorted(mfloats):
+        # JDS apparently needs to update databases for proper .BIN -> .LOG decrypt
+        if "467.174-T-0100" in mfloat:
+            continue
+
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
         # Set the path for the float
