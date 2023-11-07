@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 24-Oct-2023
+# Last modified by JDS: 01-Nov-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import os
@@ -325,7 +325,7 @@ def main():
         events.write_obspy_trace_stats(complete_dives, creation_datestr, processed_path, mfloat_path)
 
         # Write GeoCSV files
-        geocsv_meta = geocsv.GeoCSV(complete_dives, creation_datestr)
+        geocsv_meta = geocsv.GeoCSV(complete_dives, creation_datestr, mixed_layer_depth_m)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories

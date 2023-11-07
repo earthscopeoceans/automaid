@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 23-Jun-2023
+# Last modified by JDS: 01-Nov-2023
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 # Todo:
@@ -31,7 +31,8 @@ class GeoCSV:
     Args:
         complete_dives (list): List of dives.Complete_Dive instances
         creation_datestr (str): File-creation datestr as "YYYY-MM-DDTHH:MM:SS.sssZ"
-        version (str): GeoCSV version (def: 'v2.2.0-1')
+        mixed_layer_depth_m (float): Depth to thermocline in meters positive down (def: np.float32('nan'))
+        version (str): GeoCSV version (def: 'v2.2.0-2')
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
 
@@ -40,6 +41,7 @@ class GeoCSV:
     def __init__(self,
                  complete_dives,
                  creation_datestr = datetime.datetime.now(pytz.UTC).isoformat()[:23] + "Z",
+                 mixed_layer_depth_m = np.float32('nan'),
                  version='v2.2.0-1',  # Semantic versioning: v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
                  delimiter=',',
                  lineterminator='\n'):
@@ -49,6 +51,7 @@ class GeoCSV:
 
         self.complete_dives = complete_dives
         self.creation_datestr = creation_datestr
+        self.mixed_layer_depth_m = mixed_layer_depth_m
         self.version = version
         self.delimiter = delimiter
         self.lineterminator = lineterminator
@@ -121,7 +124,8 @@ class GeoCSV:
 
         self.MethodIdentifier_GPS = 'Measurement:GPS:{:s}'.format(utils.get_gps_sensor_name().replace(' ', '_'))
         self.MethodIdentifier_Pressure = 'Measurement:Pressure:{:s}'.format(utils.get_absolute_pressure_sensor_name().replace(' ', '_'))
-        self.MethodIdentifier_Algorithm = 'Algorithm:automaid:{:s}'.format(setup.get_version())
+        self.MethodIdentifier_Algorithm_Event = 'Algorithm(event):automaid:{:s}'.format(setup.get_version())
+        self.MethodIdentifier_Algorithm_Thermocline = 'Algorithm(thermocline):automaid:{:s}'.format(setup.get_version())
 
     def get_comment_lines(self):
         comment_lines = [
@@ -190,7 +194,7 @@ class GeoCSV:
 
             return gps_rows
 
-        def format_pressure_rows(complete_dive):
+        def format_press_rows(complete_dive):
             """Format GeoCSV rows of mbar absolute pressure measurements
 
             pressure metadata == 'Measurement'
@@ -203,7 +207,7 @@ class GeoCSV:
             # Initialize a "previous" row to check for redundancies
             # This can occur when, e.g., "[SURFIN ..." and "[PRESS ..." print same info in .LOG
             # (07_5B773AF5.LOG, lines 916 and 917)
-            pressure_rows = []
+            press_rows = []
             prev_pressure_row = []
             for pressure in sorted(complete_dive.pressure_mbar, key=lambda x:x[1]):
                 pressure_row = [
@@ -224,19 +228,19 @@ class GeoCSV:
                 ]
 
                 if pressure_row != prev_pressure_row:
-                    pressure_rows.append(pressure_row)
+                    press_rows.append(pressure_row)
 
                 prev_pressure_row = pressure_row
 
-            return pressure_rows
+            return press_rows
 
-        def format_algorithm_rows(complete_dive):
+        def format_algo_event_rows(complete_dive):
             """Format GeoCSV rows of event metadata (e.g., starttime and MERMAID location)
 
             Event metadata == 'Algorithm'
 
             Args:
-                complete_dive (dives.Complete_Dive instance):
+                complete_dive (dives.Complete_Dive instance)
 
             """
 
@@ -246,15 +250,15 @@ class GeoCSV:
 
             # Initialize a "previous" row to check for redundancies
             # This can occur when, e.g., a REQ file is multiply requested
-            det_algorithm_rows = []
-            req_algorithm_rows = []
+            det_algo_rows = []
+            req_algo_rows = []
             prev_algorithm_row = []
             for event in sorted(event_list, key=lambda x: x.corrected_starttime):
                 if event.station_loc_is_preliminary:
                     continue
 
                 algorithm_row = [
-                    self.MethodIdentifier_Algorithm,
+                    self.MethodIdentifier_Algorithm_Event,
                     str(event.obspy_trace_stats["starttime"])[:23]+'Z',
                     complete_dive.network,
                     complete_dive.kstnm,
@@ -272,7 +276,7 @@ class GeoCSV:
 
                 if algorithm_row != prev_algorithm_row:
                     if event.is_requested:
-                        req_algorithm_rows.append(algorithm_row)
+                        req_algo_rows.append(algorithm_row)
 
                     else:
                         # Sanity checks just to make sure all "depth" units in their expected mbar
@@ -284,43 +288,82 @@ class GeoCSV:
                         if event.pressure_dbar is not event.obspy_trace_stats.sac["stdp"]:
                             raise ValueError("`stdp` (roughly meters) should be the dbar pressure from .MER")
 
-                        det_algorithm_rows.append(algorithm_row)
+                        det_algo_rows.append(algorithm_row)
 
                 prev_algorithm_row = algorithm_row
 
-            return (det_algorithm_rows, req_algorithm_rows)
+            return (det_algo_rows, req_algo_rows)
 
+        def format_algo_thermo_rows(complete_dive):
+            """Format GeoCSV rows of interpolated dates and lat/lons of des(as)cending into(out of) the thermocline
+
+            Passage into/out of thermocline == 'Algorithm' (interpolated)
+
+            Args:
+                complete_dive (dives.Complete_Dive instance):
+
+            """
+
+            thermo_algo_rows = []
+            descent = complete_dive.descent_leave_surface_layer_loc
+            ascent =  complete_dive.ascent_reach_surface_layer_loc
+            for thermo in [descent, ascent]:
+                if thermo is None:
+                    continue
+
+                thermo_algo_rows.append([
+                    self.MethodIdentifier_Algorithm_Thermocline,
+                    str(thermo.date)[:23]+'Z',
+                    complete_dive.network,
+                    complete_dive.kstnm,
+                    nan,
+                    nan,
+                    d6(thermo.latitude),
+                    d6(thermo.longitude),
+                    nan,
+                    self.mixed_layer_depth_m * 100,
+                    'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
+                    nan,
+                    nan,
+                    nan
+                ])
+
+            return thermo_algo_rows
 
         ## Script of self.write()
         ## ___________________________________________________________________________ ##
 
         # Build lists of formatted strings to be written to each GeoCSV
         gps_rows = []
-        det_algorithm_rows = []
-        req_algorithm_rows = []
-        pressure_rows = []
+        det_algo_rows = []
+        req_algo_rows = []
+        thermo_algo_rows = []
+        press_rows = []
         for complete_dive in self.complete_dives:
             # Get and extend lists of formatted "Measurement" rows
             gps_rows.extend(format_gps_rows(complete_dive))
-            pressure_rows.extend(format_pressure_rows(complete_dive))
+            press_rows.extend(format_press_rows(complete_dive))
 
-            # "Algorithm" formatted lists returned as (DET, REQ) tuple
-            algorithm_rows_tup = format_algorithm_rows(complete_dive)
-            det_algorithm_rows.extend(algorithm_rows_tup[0])
-            req_algorithm_rows.extend(algorithm_rows_tup[1])
+            # "Algorithm"-event formatted lists returned as (DET, REQ) tuple
+            algo_rows_tup = format_algo_event_rows(complete_dive)
+            det_algo_rows.extend(algo_rows_tup[0])
+            req_algo_rows.extend(algo_rows_tup[1])
+
+            # "Algorithm"-thermocline formatted rows
+            thermo_algo_rows.extend(format_algo_thermo_rows(complete_dive))
 
         # Remove pressure measurements taken before(after) first(last) GPS measurements
         # (currently: GPS dates, but not pressure dates, affected by `filterDate` in main.py)
         gps_dates = [x[1] for x in sorted(gps_rows, key=lambda x: x[1])]
-        pressure_rows = [x for x in pressure_rows if x[1] > gps_dates[0] and x[1] < gps_dates[-1]]
+        press_rows = [x for x in press_rows if x[1] > gps_dates[0] and x[1] < gps_dates[-1]]
 
         # The "Measurement:" rows are "GPS" and "Pressure"
-        measurement_rows = gps_rows + pressure_rows
+        meas_rows = gps_rows + press_rows
 
         # The complete file combines "Measurement" and "Algorithm" rows
-        geocsv_det_rows = measurement_rows + det_algorithm_rows
-        geocsv_req_rows = measurement_rows + req_algorithm_rows
-        geocsv_det_req_rows = geocsv_det_rows + req_algorithm_rows
+        geocsv_det_rows = meas_rows + det_algo_rows + thermo_algo_rows
+        geocsv_req_rows = meas_rows + req_algo_rows + thermo_algo_rows
+        geocsv_det_req_rows = meas_rows + det_algo_rows + req_algo_rows + thermo_algo_rows
 
         # Sort the combined rows by date
         geocsv_det_req_rows.sort(key=lambda x: x[1])
