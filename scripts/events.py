@@ -532,8 +532,8 @@ class Event:
         # The miniSEED convention of a time correction is of the same sign of
         # the `clockdrift` (or the `clockdrift_correction') of this program
         #
-        # positive clockdrift = negative time delay => MER time early w.r.t GPS
-        # negative clockdrift = positive time delay => MER time delayed w.r.t GPS
+        # positive clockdrift => uncorrected MER time early (onboard clock is slow) w.r.t GPS
+        # negative clockdrift => uncorrected MER time late (oboard clock is fast) w.r.t GPS
         self.mseed_time_correction = self.clockdrift_correction
 
         # Apply correction
