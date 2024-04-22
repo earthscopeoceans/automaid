@@ -1,11 +1,17 @@
-* `gps_before_dive_incl_prev_dive` and `gps_after_dive_incl_next_dive`
-  are not compiled correctly in cases when there is no complete prev/next dive
-  because splitting the gps list requires a descent/ascent to parse `after` and
-  `before`.  Maybe consider entire list of prev/next dive in cases when no dive?
+[ ] P0012 crashing -- skipping for now (empty or missing .MER?)
 
-* IcDive folders are not cleaned up in cases when .LOG/.MER incomplete
-  transmission later completed (e.g., '452.020-P-23/20211205-05h35m54sIcDive')
+[ ] MERMAIDs 43, 44, 45, 49: missing KSTNM column in GPS measurement (and
+    others?) row; prints ",,"
 
-* "incl_preliminary" in main,py
-  - Untested with newest versions; likely does not work
-  - Supersedes tool_invert_mer.py; delete that when this is fixed
+[ ] `gps_before_dive_incl_prev_dive` and `gps_after_dive_incl_next_dive` are not
+    compiled correctly in cases when there is no complete prev/next dive because
+    splitting the gps list requires a descent/ascent to parse `after` and
+    `before`.  Maybe consider entire list of prev/next dive in cases when no
+    dive?
+
+[ ] IcDive folders are not cleaned up in cases when .LOG/.MER incomplete
+    transmission later completed (e.g., '452.020-P-23/20211205-05h35m54sIcDive')
+
+[ ] "incl_preliminary" in main,py
+    - Untested with newest versions; likely does not work
+    - Supersedes tool_invert_mer.py; delete that when this is fixed
