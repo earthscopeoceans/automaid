@@ -37,9 +37,9 @@ Python 2.7 is no longer natively supported in conda on Silicon Macs (`conda
 create`) below will not work---must be run in Rosetta 2 by flagging `osx-64`
 conda subdir. Example of Option 1:
 
-`CONDA_SUBDIR=osx-64 conda create -n pymaid python=2.7 obspy plotly=2.7.0`
-`conda activate pymaid`
-`conda config --env --set subdir osx-64`
+`CONDA_SUBDIR=osx-64 conda create -n pymaid python=2.7 obspy plotly=2.7.0`<br>
+`conda activate pymaid`<br>
+`conda config --env --set subdir osx-64`<br>
 
 See here for more detail:
 https://stackoverflow.com/questions/67380286/anaconda-channel-for-installing-python-2-7
