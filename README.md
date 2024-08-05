@@ -12,10 +12,10 @@ decryption, CTD profiling, etc.) coded by @oseanfro.
 
 ### 1. INSTALLATION
 
-This installation procedure has been tested with MacOS. For Linux the
-procedure is valid but one could prefer to use a package manager.
-For Windows the installation of Python 2.7 is valid but the
-compilation of the wavelet inversion program with "make" could be
+This installation procedure has been tested with Intel and Silicon Mac OS (see
+note below for Silicon users). For Linux the procedure is valid but one could
+prefer to use a package manager.  For Windows the installation of Python 2.7 is
+valid but the compilation of the wavelet inversion program with "make" could be
 problematic.
 
 An easy installation procedure is described here:
@@ -30,6 +30,21 @@ An easy installation procedure is described here:
 * Activate the environment:
   `source activate pymaid`
 * Make sure you are in the `bash` shell!
+
+### NOTE FOR SILICON MAC USERS >>>
+
+Python 2.7 is no longer natively supported in conda on Silicon Macs (`conda
+create`) below will not work---must be run in Rosetta 2 by flagging `osx-64`
+conda subdir. Example of Option 1:
+
+`CONDA_SUBDIR=osx-64 conda create -n pymaid python=2.7 obspy plotly=2.7.0`
+`conda activate pymaid`
+`conda config --env --set subdir osx-64`
+
+See here for more detail:
+https://stackoverflow.com/questions/67380286/anaconda-channel-for-installing-python-2-7
+
+### NOTE FOR SILICON MAC USERS <<<
 
 !! Option 1 !!
 * Crate a virtual environment called "pymaid" with required packages:<br>
