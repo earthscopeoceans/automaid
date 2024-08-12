@@ -88,8 +88,8 @@ To use the application:
 * Activate the virtual environment:
   `source activate pymaid` or `conda activate pymaid` or (if "conda" not found)
   e.g., `source /Users/joelsimon/anaconda3/etc/profile.d/conda.sh ; conda  activate pymaid`
-* Run the main.py file:
-  `python $AUTOMAID/scripts/main.py`
+* Run the main.py file AFTER performing steps in README_ALSO.md
+  (concatentate, decrypt, run `main.py`)
 * Quit the virtual environment:
   `source deactivate`
 

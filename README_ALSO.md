@@ -15,21 +15,17 @@ Until that time you must manually decrypt using these instructions
 ```
 (or maybe ```$ source activate pymaid```)
 
-
 [1] Navigate to decrypt/ directory --
 ```
     $ cd $AUTOMAID/preprocess/
 ```
-
 
 [4] Concatenate .000, .001, ..., .00N etc .LOG files (latter will be placed in same server/ directory) --
 ```
     $ python -c "import concatenate; concatenate.concatenate_files('/path/to/mermaid/server/')"
 ```
 (note that final "/" in server/ path is REQUIRED!)
-[ JDS: python -c "import concatenate; concatenate.concatenate_files('/Users/jdsimon/mermaid/server_jamstec/')" ]
-[ JDS: python -c "import concatenate; concatenate.concatenate_files('/Users/joelsimon/mermaid/server_jamstec/')" ]
-
+[ JDS: python -c "import concatenate; concatenate.concatenate_files('/Users/jdsimon/mermaid/server')" ]
 
 [3] Decrypt *BIN to *LOG (latter will be placed in same server/ directory) --
 ```
@@ -37,10 +33,8 @@ Until that time you must manually decrypt using these instructions
 ```
 (note that final "/" in server/ path is REQUIRED!)
 [ JDS: python -c "import decrypt; decrypt.decrypt_all('/Users/jdsimon/mermaid/server/')" ]
-[ JDS: python -c "import decrypt; decrypt.decrypt_all('/Users/joelsimon/mermaid/server/')" ]
 [ FJS: python -c "import decrypt; decrypt.decrypt_all('/u/fjsimons/MERMAID/sustech/')" ]
 [ FJS: python -c "import decrypt; decrypt.decrypt_all('/u/fjsimons/MERMAID/psdmaid/')" ]
-
 
 [4] Run `automaid` as normal --
 ```
