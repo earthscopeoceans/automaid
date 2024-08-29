@@ -72,7 +72,7 @@ class Profile:
         self.speedstart = None
 
         self.file_name = file_name
-        print "SBE41 file name : " + self.file_name
+        print("SBE41 file name : " + self.file_name)
         self.date = utils.get_date_from_file_name(file_name)
         self.header = header
         self.binary = binary
@@ -111,7 +111,7 @@ class Profile:
                             ord(self.binary[index])
                     self.data.append(value)
         except:
-            print "error"
+            print("error")
             self.data = None
         else:
             self.data_pressure = list()
@@ -156,9 +156,9 @@ class Profile:
                     for row in rows:
                         csv_file.writerow(row)
             if os.path.exists(processed_path):
-                print processed_path + "already exist"
+                print(processed_path + "already exist")
                 return
-            print export_name
+            print(export_name)
             # Add acoustic values to the graph
             data_line = graph.Scatter(x=self.data_temperature,
                                       y=self.data_pressure,
@@ -183,7 +183,7 @@ class Profile:
                         filename=processed_path,
                         auto_open=False)
         else:
-            print processed_path + " can't be exploited for temperature profile"
+            print(processed_path + " can't be exploited for temperature profile")
 
     def plot_salinity_html(self, processed_path):
         if list(self.data):
@@ -192,7 +192,7 @@ class Profile:
                 UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
                 "." + self.file_name + ".SAL" + ".html"
             if os.path.exists(processed_path):
-                print processed_path + "already exist"
+                print(processed_path + "already exist")
                 return
             # Add acoustic values to the graph
             data_line = graph.Scatter(x=self.data_salinity,
@@ -219,4 +219,4 @@ class Profile:
                         filename=processed_path,
                         auto_open=False)
         else:
-            print processed_path + " can't be exploited for salinity profile"
+            print(processed_path + " can't be exploited for salinity profile")

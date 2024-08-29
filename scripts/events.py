@@ -65,9 +65,9 @@ class Events:
             mer_binary_name = mer_file.split("/")[-1]
 
             # The </EVENT> binary blocks contained in this .MER file
-            with open(mer_file, "r") as f:
+            with open(mer_file, "rb") as f:
                 content = f.read()
-            events = content.split("</PARAMETERS>")[-1].split("<EVENT>")[1:]
+            events = content.split(b'</PARAMETERS>')[-1].split(b'<EVENT>')[1:]
 
             for event in events:
                 # Ensure every event block is complete(ly transmitted)
@@ -659,7 +659,7 @@ class Event:
     def plot_html_stanford(self, processed_path):
         # Check if file exist
         processed_path_html = processed_path + self.processed_file_name+ ".html"
-        print processed_path_html
+        print(processed_path_html)
         if os.path.exists(processed_path_html):
             return
         win_sz = re.findall("WINDOW_LEN=(\d+)", self.mer_environment, re.DOTALL)
@@ -727,7 +727,7 @@ class Event:
 
         # Check if file exist
         processed_path_png = processed_path + self.processed_file_name + ".png"
-        print processed_path_png
+        print(processed_path_png)
         if os.path.exists(processed_path_png):
             return
         win_sz = re.findall("WINDOW_LEN=(\d+)", self.mer_environment, re.DOTALL)
@@ -755,7 +755,7 @@ class Event:
         # This *_2.png left here to compare JDS' rewrite using .stanford attrs
         # with Rocca's original code (e.g., x0, x1)...later to be removed after
         processed_path_png2 = processed_path + self.processed_file_name + "_2.png"
-        print processed_path_png2
+        print(processed_path_png2)
         plt.figure(figsize=(9, 4))
         plt.title(self.__get_figure_title_stanford(), fontsize=12)
         plt.plot(self.stanford_psd_freqs, self.stanford_psd_perc50, color='b')

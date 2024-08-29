@@ -106,8 +106,8 @@ class Dive:
         self.start_date = utils.get_date_from_file_name(log_name)
 
         # Read the content of the LOG
-        with open(self.base_path + self.log_name, "r") as f:
-            self.log_content = f.read()
+        with open(self.base_path + self.log_name, "rb") as f:
+            self.log_content = f.read().decode("utf-8","replace")
 
             # Empty .LOG file, e.g. 0003_5FDCB1EE.LOG in testing
             # (maybe it was later transmitted?)
@@ -260,8 +260,8 @@ class Dive:
                 # them all).
 
                 # Read the Mermaid environment associated to the dive
-                with open(mer_fullfile_name, "r") as f:
-                    content = f.read()
+                with open(mer_fullfile_name, "rb") as f:
+                    content = f.read().decode("utf-8","replace")
                     catch = re.findall("<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)
 
                     # Sometimes the .MER file exists but it is empty (0037_605CB34D.MER)
@@ -328,7 +328,7 @@ class Dive:
                 with open(self.base_path + self.s41_name, "r") as f:
                     content = f.read()
             except IOError:
-                print "manque le fichier " + self.s41_name
+                print("manque le fichier " + self.s41_name)
             else:
                 self.s41_environment = re.findall(
                     "<PARAMETERS>.+</PILOTS>", content, re.DOTALL)[0]
@@ -1196,7 +1196,7 @@ def write_complete_dives_txt(complete_dives, creation_datestr, processed_path, m
             f.write(d.print_log_mer_id())
             f.write(d.print_events())
 
-            print ""
+            print("")
             f.write("\n")
 
         # Determine the total number of SAC and/or miniSEED files that COULD be
@@ -1208,6 +1208,7 @@ def write_complete_dives_txt(complete_dives, creation_datestr, processed_path, m
         print(sac_str)
         f.write(sac_str)
 
+
 def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     '''Writes dives.txt, which treats every .LOG as a single (possibly incomplete) dive
 
@@ -1215,7 +1216,6 @@ def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     print info associated with those .LOG/.MER within datetime range of  `main.py`
 
     '''
-
     dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
     fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>10d}    {:>9.3f}    {:>17s}    {:>17s}\n"
 
@@ -1226,7 +1226,7 @@ def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
     with open(dives_file, "w+") as f:
         f.write(version_line)
         f.write(created_line)
-	f.write(header_line)
+        f.write(header_line)
 
         # 1 .LOG == 1 dive
         for d in sorted(dive_logs, key=lambda x: x.start_date):
@@ -1236,4 +1236,4 @@ def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
                                     int(d.len_secs),
                                     d.len_days,
                                     d.log_name,
-                                    d.mer_environment_name))
+                                    str(d.mer_environment_name)))

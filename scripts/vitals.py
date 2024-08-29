@@ -23,8 +23,8 @@ version = setup.get_version()
 
 def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
     # Read file
-    with open(vital_file_path + vital_file_name, "r") as f:
-        content = f.read()
+    with open(vital_file_path + vital_file_name, "rb") as f:
+        content = f.read().decode("utf-8","replace")
 
     # Find battery values
     battery_catch = re.findall("(.+): Vbat (\d+)mV \(min (\d+)mV\)", content)
@@ -78,8 +78,8 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
 
 def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
     # Read file
-    with open(vital_file_path + vital_file_name, "r") as f:
-        content = f.read()
+    with open(vital_file_path + vital_file_name, "rb") as f:
+        content = f.read().decode("utf-8","replace")
 
     # Find battery values
     date = []
@@ -131,8 +131,8 @@ def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
 
 def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
     # Read file
-    with open(vital_file_path + vital_file_name, "r") as f:
-        content = f.read()
+    with open(vital_file_path + vital_file_name, "rb") as f:
+        content = f.read().decode("utf-8","replace")
 
     # Find battery values
     pressure_offset_catch = re.findall("(.+): Pext (-?\d+)mbar \(range (-?\d+)mbar\)", content)

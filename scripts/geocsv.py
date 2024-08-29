@@ -122,10 +122,10 @@ class GeoCSV:
             'TimeCorrection'
         ]
 
-        self.MethodIdentifier_GPS = 'Measurement:GPS:{:s}'.format(utils.get_gps_sensor_name().replace(' ', '_'))
-        self.MethodIdentifier_Pressure = 'Measurement:Pressure:{:s}'.format(utils.get_absolute_pressure_sensor_name().replace(' ', '_'))
-        self.MethodIdentifier_Algorithm_Event = 'Algorithm(event):automaid:{:s}'.format(setup.get_version())
-        self.MethodIdentifier_Algorithm_Thermocline = 'Algorithm(thermocline):automaid:{:s}'.format(setup.get_version())
+        self.MethodIdentifier_GPS = 'Measurement:GPS:{:s}'.format(utils.get_gps_sensor_name().replace(' ', '_')).encode('ascii')
+        self.MethodIdentifier_Pressure = 'Measurement:Pressure:{:s}'.format(utils.get_absolute_pressure_sensor_name().replace(' ', '_')).encode('ascii')
+        self.MethodIdentifier_Algorithm_Event = 'Algorithm(event):automaid:{:s}'.format(setup.get_version()).encode('ascii')
+        self.MethodIdentifier_Algorithm_Thermocline = 'Algorithm(thermocline):automaid:{:s}'.format(setup.get_version()).encode('ascii')
 
     def get_comment_lines(self):
         comment_lines = [
@@ -140,8 +140,8 @@ class GeoCSV:
             self.delimiter_comment,
             self.field_unit_comment,
             self.field_type_comment,
-     ]
-
+        ]
+        print(comment_lines)
         return comment_lines
 
     def write(self, filename='geo.csv'):
@@ -373,9 +373,9 @@ class GeoCSV:
         # Open as as 'wb' in Python 2 rather than 'w' with newline='' in Python 3
         # https://docs.python.org/2/library/csv.html#csv.writer
         basename = filename.strip('.csv') if filename.endswith('.csv') else filename
-        with open(basename+'_DET_REQ.csv', 'wb') as csvfile_det_req, \
-             open(basename+'_DET.csv', 'wb') as csvfile_det, \
-             open(basename+'_REQ.csv', 'wb') as csvfile_req:
+        with open(basename+'_DET_REQ.csv', 'w', newline='') as csvfile_det_req, \
+             open(basename+'_DET.csv', 'w', newline='') as csvfile_det, \
+             open(basename+'_REQ.csv', 'w', newline='') as csvfile_req:
 
             # Define writer object for all three files
             # https://stackoverflow.com/questions/3191528/csv-in-python-adding-an-extra-carriage-return-on-windows
