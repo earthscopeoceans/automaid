@@ -26,6 +26,7 @@ import events
 import vitals
 import geocsv
 import profile
+import preprocess
 #import databases
 
 ## !!! TEMP VARS !! ##
@@ -58,10 +59,11 @@ preliminary_location_ok = False
 main_path = os.path.abspath(__file__)
 scripts_path = os.path.dirname(main_path)
 
-# Set default processed and server paths
+# Set default processed,server paths and database path
 def_mermaid_path = os.environ["MERMAID"]
 def_server_path = os.path.join(def_mermaid_path, "server")
 def_processed_path = os.path.join(def_mermaid_path, "processed")
+def_database_path = os.path.join(def_mermaid_path, "database")
 
 # Parse (optional) command line inputs to override default paths
 parser = argparse.ArgumentParser()
@@ -79,9 +81,16 @@ parser.add_argument('-p',
                     dest='processed',
                     #metavar='',
                     help="processed directory (default: {:s})".format(def_processed_path))
+parser.add_argument('-d',
+                    '--database',
+                    default=def_database_path,
+                    dest='database',
+                    #metavar='',
+                    help="database directory (default: {:s})".format(def_database_path))
 args = parser.parse_args()
 server_path = os.path.abspath(args.server)
 processed_path = os.path.abspath(args.processed)
+database_path = os.path.abspath(args.database)
 
 # Set an inclusive time range of analysis for a specific float
 # (by default, deployment to present...adjust here or there)
@@ -112,6 +121,13 @@ def main():
     vitfile_path = os.path.join(server_path, "[0-9]*.*-*-*[0-9].vit")
     mfloats = [p.split("/")[-1][:-4] for p in glob.glob(vitfile_path)]
 
+    # Create database directory if it doesn't exist
+    if not os.path.exists(database_path):
+        os.mkdir(database_path)
+
+    # Update Database
+    preprocess.database_update(database_path)
+
     # For each MERMAID float
     for mfloat in sorted(mfloats):
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
@@ -137,9 +153,10 @@ def main():
 
         # Copy appropriate files in the directory and remove files outside of the time range
         files_to_copy = []
-        extensions = ["000", "001", "002", "003", "004", "005", "LOG", "MER"]
-        for extension in extensions:
-            files_to_copy += glob.glob(os.path.join(server_path, mfloat_nb +  "*." + extension))
+
+        # All files begin with buoy_nb followed by underscore
+        # Add underscore avoids errors between similar buoy numbers (Ex: 01_* and 0101_*)
+        files_to_copy += glob.glob(os.path.join(server_path, mfloat_nb +  "_*"))
 
         # Add .cmd, .out, and .vit files
         files_to_copy += glob.glob(os.path.join(server_path, mfloat + "*"))
@@ -147,6 +164,12 @@ def main():
         # Copy files
         for f in files_to_copy:
             shutil.copy(f, mfloat_path)
+
+        # Concatenate all files for this float
+        preprocess.concatenate_files(mfloat_path);
+
+        # Decrypt all files for this float
+        preprocess.decrypt_all(mfloat_path);
 
         # Really: collect all the .MER files (next we correlate their environments to .LOG files)
         print(" ...compiling a list of events from {:s} .MER files (GPS & seismic data)..." \
@@ -213,7 +236,6 @@ def main():
             # Use those "known" complete dives to compile list of in-between fragmented dives
             if dive_log.is_complete_dive:
                 complete_dives.append(dives.Complete_Dive([dive_log]))
-
             else:
                 fragmented_dive.append(dive_log)
 
@@ -325,9 +347,7 @@ def main():
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories
-        for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG"):
-            os.remove(f)
-        for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER"):
+        for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*"):
             os.remove(f)
 
         # Save the last complete dive of this float to later write output list
