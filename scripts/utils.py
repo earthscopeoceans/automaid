@@ -87,7 +87,6 @@ def get_date_from_file_name(filename):
     timestamp = int(hexdate, 16)
     return UTCDateTime(timestamp)
 
-
 #
 # Plot utilities
 #

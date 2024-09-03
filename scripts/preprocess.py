@@ -6,15 +6,30 @@ import requests
 import struct
 import re
 import traceback
+import functools
+import utils
+from obspy import UTCDateTime
 
 mermaid_path = os.environ["MERMAID"]
 database_path = os.path.join(mermaid_path, "database")
+
+
+'''
+
+Update databases files into 'database_path' (need connection)
+(Does not stop script execution if connection is not established)
+
+Keyword arguments:
+path -- Path to store databases, can be null (defaut : os.environ["MERMAID"]/database)
+
+'''
 
 DATABASE_LINK_NAME = "Databases.json"
 def database_update(path):
     print("Update Databases")
     network = 1
-    database_path = path
+    if path :
+        database_path = path
     try:
         # Get linker file (link database and profiler version)
         url = 'http://mermaid.osean.fr/databases/' + DATABASE_LINK_NAME
@@ -62,8 +77,62 @@ def database_update(path):
             with open(link_path, 'w') as linkfile:
                 json.dump(database_list, linkfile, indent=4)
 
+
+'''
+
+Concatenate files with decimal extensions
+.000 .001 .002 .LOG => .LOG
+.000 .001 .002 .BIN => .BIN
+
+Keyword arguments:
+path -- Path with source files of one profiler
+
+'''
+ # Concatenate .[0-9][0-9][0-9] files .LOG and .BIN files in the path
+def concatenate_files(path):
+    # List log files (not cyphered)
+    files_path = glob.glob(path + "*.LOG")
+    # Add bin files
+    files_path += glob.glob(path + "*.BIN")
+    # Concatenate all files
+    for file_path in files_path:
+        bin = b''
+        # list file with same head than log file
+        files_to_merge = list(glob.glob(file_path[:-4] +".[0-9][0-9][0-9]"))
+        # Add end file to the list
+        files_to_merge.append(file_path)
+        # Sort list => [0000_XXXXXX.000,0000_XXXXXX.001,0000_XXXXXX.002,0000_XXXXXX.LOG]
+        files_to_merge.sort()
+        if len(files_to_merge) > 1:
+            # Need to merge multiple file
+            for file_to_merge in files_to_merge :
+                if file_to_merge[-3:].isdigit():
+                    # Extension with digit => append to string
+                    with open(file_to_merge, "rb") as fl:
+                        bin += fl.read()
+                    # Remove file after read
+                    os.remove(file_to_merge)
+                else :
+                    if len(bin) > 0:
+                        # If log extension is not a digit and the log string is not empty
+                        # we need to add it at the end of the file
+                        with open(file_to_merge, "rb") as fl:
+                            bin += fl.read()
+                        with open(file_to_merge, "wb") as fl:
+                            fl.write(bin)
+                        bin = b''
+
+'''
+
+Read link file and return the database associated with the binary file.
+
+Keyword arguments:
+file_version -- String contain version of profiler with format MAJOR.MINOR
+model -- Model number of the profiler (0:classic;1:Marittimo(Moored version);2:Multimer(Next generation))
+
+'''
 # Get database name with linker file and version read on file
-def database_get_version(file_version,model) :
+def decrypt_get_database(file_version,model) :
     link_path = os.path.join(database_path,DATABASE_LINK_NAME)
     if os.path.exists(link_path):
         with open(link_path,"r") as f:
@@ -98,40 +167,20 @@ def database_get_version(file_version,model) :
         print(("No link file : " + link_path))
         return ""
 
- # Concatenate .[0-9][0-9][0-9] files .LOG and .BIN files in the path
-def concatenate_files(path):
-    # List log files (not cyphered)
-    files_path = glob.glob(path + "*.LOG")
-    # Add bin files
-    files_path += glob.glob(path + "*.BIN")
-    # Concatenate all files
-    for file_path in files_path:
-        bin = b''
-        # list file with same head than log file
-        files_to_merge = list(glob.glob(file_path[:-4] +".[0-9][0-9][0-9]"))
-        # Add end file to the list
-        files_to_merge.append(file_path)
-        # Sort list => [0000_XXXXXX.000,0000_XXXXXX.001,0000_XXXXXX.002,0000_XXXXXX.LOG]
-        files_to_merge.sort()
-        if len(files_to_merge) > 1:
-            # Need to merge multiple file
-            print("Files to merge :" + repr(files_to_merge))
-            for file_to_merge in files_to_merge :
-                if file_to_merge[-3:].isdigit():
-                    # Extension with digit => append to string
-                    with open(file_to_merge, "rb") as fl:
-                        bin += fl.read()
-                    # Remove file after read
-                    os.remove(file_to_merge)
-                else :
-                    if len(bin) > 0:
-                        # If log extension is not a digit and the log string is not empty
-                        # we need to add it at the end of the file
-                        with open(file_to_merge, "rb") as fl:
-                            bin += fl.read()
-                        with open(file_to_merge, "wb") as fl:
-                            fl.write(bin)
-                        bin = b''
+
+
+'''
+
+Decrypts a log line using an expilicit format
+The number and size of arguments is explicitly described in the binary file.
+
+Keyword arguments:
+f -- file reader
+LOG_card -- Object for LOG decryption (database)
+WARN_card -- Object for WARNING decryption (database)
+ERR_card -- Object for ERROR decryption (database)
+
+'''
 
 def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
     #Read head
@@ -359,6 +408,20 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
     string += "\r\n"
     return string
 
+
+
+
+'''
+
+Decrypts a log line using an short format
+The number and size of arguments is implicit.
+Only frequently recurring logs use this format.
+(Pressure measurement, Pump time, valve time ...)
+
+Keyword arguments:
+f -- file reader
+
+'''
 
 def decrypt_short(f) :
     string = ""
@@ -791,6 +854,21 @@ def decrypt_short(f) :
         return format % (hdop,mhdop,vdop,mvdop)
 
     return ""
+
+
+'''
+
+Read a file byte by byte and wait for header characters.
+Depending on the header, we decrypt an explicit (decrypt_explicit) or implicit log (decrypt_short).
+
+Keyword arguments:
+f -- file reader
+LOG_card -- Object for LOG decryption (database)
+WARN_card -- Object for WARNING decryption (database)
+ERR_card -- Object for ERROR decryption (database)
+
+'''
+
 # Decrypt one file with LOG, WARN,and ERR cards give in arguments
 def decrypt_one(path,LOG_card,WARN_card,ERR_card):
     #parse data
@@ -811,6 +889,19 @@ def decrypt_one(path,LOG_card,WARN_card,ERR_card):
                 else :
                     string += decrypt_explicit(f,LOG_card,WARN_card,ERR_card);
     return string
+
+
+'''
+Decrypt all Binary file within a folder.
+1/ Read profiler software version and model number
+2/ Get database file
+3/ Read byte by byte file and decrypt it into .LOG file
+4/ Delete binary file
+
+Keyword arguments:
+path -- folder path
+
+'''
 # Decrypt all BIN files in a path
 def decrypt_all(path):
     # Generate List of BINS file
@@ -837,7 +928,7 @@ def decrypt_all(path):
                 model = 1
             elif catch[-1][0] == "458" :
                 model = 2
-            database_file = database_get_version(file_version,model)
+            database_file = decrypt_get_database(file_version,model)
             if database_file != "" :
                 database_file_path = os.path.join(database_path,database_file)
                 if os.path.exists(database_file_path):
@@ -870,6 +961,171 @@ def decrypt_all(path):
                         with open(log_file,"w") as f:
                             f.write(result)
                         files_decrypted.append(log_file)
+                        os.remove(binary_file)
                 else:
                     print(("No database : " + str(database_file_path)))
     return files_decrypted
+
+
+
+'''
+Get start date of a file with filepath (hexa format : <NUMB>_<HEXADATE>.<EXT>)
+<NUMB> : Buoy number (2 or 4 digits)
+<HEXADATE> : Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
+<EXT> : File extension
+
+Keyword arguments:
+filepath -- path of a .LOG .MER .BIN file
+
+'''
+
+def get_hexa_date(filepath) :
+    return os.path.splitext(os.path.basename(filepath))[0].split("_")[1]
+
+'''
+Sort a list of file in function of buoy_nb and start date (hexa format : <NUMB>_<HEXADATE>.<EXT>)
+<NUMB> : Buoy number (2 or 4 digits)
+<HEXADATE> : Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
+<EXT> : File extension
+
+Keyword arguments:
+a -- First file path to compare
+b -- Second file path to compare
+'''
+def sort_log_files(a,b):
+    buoy_nbA = os.path.splitext(os.path.basename(a))[0].split("_")[0]
+    buoy_nbB = os.path.splitext(os.path.basename(b))[0].split("_")[0]
+    nbA = int(buoy_nbA,10)
+    nbB = int(buoy_nbB,10)
+    if nbA != nbB :
+        return nbA - nbB
+    else :
+        baseA = get_hexa_date(a)
+        baseB = get_hexa_date(b)
+        timestampA = int(baseA,16)
+        timestampB = int(baseB,16)
+        return timestampA - timestampB
+
+
+'''
+Convert all *.LOG files into .CYCLE
+1/ Merge all initialization files before first complete dive (cycle 0)
+2/ Fixes potential datation errors (e.g., 25_643FB6EF.LOG)
+3/ A complete cycle includes :
+    - A complete log with one dive and one ascent
+    - The list of GPS fixes following the dive
+    - The list of log files in the CYCLE file
+4/ A cycle file will be named :
+    <CYCLE_NB>_<HEXADATE>.CYCLE
+
+<CYCLE_NB> : CYCLE NUMBER (0:initialization 1:First dive...)
+<HEXADATE> : Date of file start / Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
+
+'''
+def convert_in_cycle(path):
+    # Init cycle nb
+    cycle_nb = 0
+    # List all LOG files
+    logFiles = glob.glob(os.path.join(path,"*.LOG"));
+    # Sort files by names
+    logFiles = sorted(logFiles, key=functools.cmp_to_key(sort_log_files))
+    # Init Log index
+    iLog = 0
+    # Init Content of cycle file
+    content = ""
+    # First cycle file name
+    cycle_file_name = ""
+    cycle_file_path = ""
+    # Split the path
+    if len(logFiles) > 0 :
+        cycle_file_name = "{:04d}".format(0) + "_" + get_hexa_date(logFiles[0])
+        cycle_file_path = os.path.join(path,cycle_file_name)
+    # Set default delimiter
+    delim = "\r\n"
+
+    while iLog < len(logFiles):
+        logFile = logFiles[iLog]
+        # Get file start date
+        start_date = utils.get_date_from_file_name(os.path.basename(logFile))
+        last_date = start_date
+        with open(logFile, "rb") as f:
+            # Read the content of the LOG
+            fileRead = f.read().decode("utf-8","replace")
+            fileFixed = ""
+            # Get current delimiter char
+            if fileRead :
+                delim = utils.get_log_delimiter(fileRead)
+            # Split file by line
+            is_dive = False
+            is_finish = False
+            is_gps_fix = False
+            lines = utils.split_log_lines(fileRead)
+            for line in lines:
+                # Is diving ?
+                if not is_dive and re.findall("\[DIVING, *\d+\] *(\d+)mbar reached", line) :
+                    is_dive = True
+                # File is switched ?
+                if not is_finish and re.findall("\*\*\* switching to.*", line) :
+                    is_finish = True
+                # Gps fix ?
+                if not is_gps_fix and re.findall("GPS fix...", line) :
+                    is_gps_fix = True
+                # GPS line without gps fix date ?
+                gps_line = re.findall("(\d+):\[SURF *, *\d+\]([S,N])(\d+)deg(\d+.\d+)mn", line)
+                if gps_line :
+                    if not is_gps_fix :
+                        fileFixed += gps_line[0][0] + ":[SURF  ,422]GPS fix..." + delim
+                    is_gps_fix = False
+
+                # Split line and test
+                catch = re.findall("(\d+):", line)
+                if len(catch) > 0:
+                    datetime = UTCDateTime(int(catch[0]))
+                    if datetime < start_date :
+                        # line timestamp is before the start date ?
+                        # Replace timestamp by last line timestamp or start date by default
+                        # e.g., 25_643FB6EF.LOG
+                        last_datetime = str(int(last_date.timestamp))
+                        line.replace(catch[0],last_datetime)
+                    last_date = datetime
+                # Append line into a string with time fixed
+                fileFixed += line + delim
+            # Complete dive ?
+            is_complete_dive = False
+            if is_dive and is_finish :
+                is_complete_dive = True
+            if is_complete_dive :
+                # Split content to get before diving (First internal pressure mesurement)
+                content += str(int(get_hexa_date(logFile),16)) + ":[PREPROCESS]Create " + os.path.basename(logFile) + delim
+                lines = utils.split_log_lines(fileFixed)
+                for line in lines:
+                    value_catch = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
+                    if value_catch :
+                        # exit the loop
+                        content += value_catch[0][0] + ":[PREPROCESS]End of cycle" + delim
+                        break
+                    content += line + delim
+                # Write all content saved before
+                if content :
+                    # Write a complete cycle
+                    with open(cycle_file_path + ".CYCLE", "w") as fcycle:
+                        fcycle.write(content)
+                # Increment cycle nb and change file name
+                cycle_nb = cycle_nb + 1
+                cycle_file_name = "{:04d}".format(cycle_nb) + "_" + get_hexa_date(logFile)
+                cycle_file_path = os.path.join(path,cycle_file_name)
+                # Reset content
+                content = ""
+
+            # Append filename
+            content += str(int(get_hexa_date(logFile),16)) + ":[PREPROCESS]Create " + os.path.basename(logFile) + delim
+            # Append file content
+            content += fileFixed
+        # Next File
+        iLog = iLog +1
+        os.remove(logFile)
+
+    if content :
+        # Write a incomplete cycle
+        with open(cycle_file_path + ".CYCLE", "w") as fcycle:
+            fcycle.write(content)

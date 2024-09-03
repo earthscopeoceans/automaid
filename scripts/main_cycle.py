@@ -20,11 +20,11 @@ import datetime
 import kml
 import gps
 import setup
-import dives
+import cycles
 import utils
 import events
 import vitals
-import geocsv
+import geocsv_cycle as geocsv
 import profile
 import preprocess
 import sbe41
@@ -191,181 +191,129 @@ def main():
             begin = datetime.datetime(1000, 1, 1)
             end = datetime.datetime(3000, 1, 1)
 
-        # Collect all the .LOG files in order (generally 1 .LOG == 1 Dive)
-        # Later we will combine multiple .LOG files in cases when they are fragmented
-        # .LOG files can fragment due to ERR, EMERGENCY, REBOOT etc.
-        # A fragmented .LOG is one that does not include a complete dive
-        # A single-.LOG complete dive starts with '[DIVING]' and ends with '[SURFIN]'
-        # A multiple-.LOG complete dive is a concatenation of fragmented dives
-        # (i.e., a multi-.LOG complete dive may not actually contain a dive at all)
-        # Therefore, concatenate all fragmented .LOG in-between single-LOG complete dives
+        # Collect all the .CYCLE files
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat))
-        dive_logs = dives.get_dives(mfloat_path, mevents, ms41s, ms61s, begin, end)
+        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s, begin, end)
 
         # Verify dive logs are sorted as expected
-        if dive_logs!= sorted(dive_logs, key=lambda x: x.start_date):
-            raise ValueError('`dive_logs` (single .LOG files) improperly sorted')
+        if cycle_logs!= sorted(cycle_logs, key=lambda x: x.start_date):
+            raise ValueError('`cycle_logs` improperly sorted')
 
         # Verify events sublists are sorted as expected
-        events_list = [e for d in dive_logs for e in d.events]
+        events_list = [e for d in cycle_logs for e in d.events]
         if events_list != sorted(events_list, key=lambda x: x.corrected_starttime):
-            raise ValueError('`dive_logs[*].events` improperly sorted')
+            raise ValueError('`cycle_logs[*].events` improperly sorted')
 
-        fragmented_dive = []
-        complete_dives = []
-        for i, dive_log in enumerate(dive_logs):
-
-            # Attach reference to previous / next .LOG and .MER files
-            prev_dive = dive_logs[i-1] if i > 0 else None
-            next_dive = dive_logs[i+1] if i < len(dive_logs)-1 else None
-            dive_log.set_prev_next_dive(prev_dive, next_dive)
-
+        for i, cycle_log in enumerate(cycle_logs):
             # Create the directory
-            if not os.path.exists(dive_log.processed_path):
-                os.mkdir(dive_log.processed_path)
+            if not os.path.exists(cycle_log.processed_path):
+                os.mkdir(cycle_log.processed_path)
 
             # Reformat and write .LOG in individual dive directory
-            dive_log.write_datetime_log()
+            cycle_log.write_datetime_log()
 
             # Write .MER environment in individual directories
-            dive_log.write_mermaid_environment_file()
+            cycle_log.write_mermaid_environment_file()
 
             # Write .S41 environment in individual directories
-            dive_log.write_s41_environment_file();
+            cycle_log.write_s41_environment_file();
+
             # Write .S61 environment in individual directories
-            dive_log.write_s61_environment_file();
+            cycle_log.write_s61_environment_file();
 
             # Generate dive plot
-            dive_log.write_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
+            cycle_log.write_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
 
             # The GPS list is None outside of requested begin/end dates, within
             # which it defaults to an empty list if it is truly empty
-            if dive_log.gps_list is None:
+            if cycle_log.gps_list is None:
                 continue
-
-            # Often a single .LOG defines a complete dive: '[DIVING]' --> '[SURFIN]'
-            # Use those "known" complete dives to compile list of in-between fragmented dives
-            if dive_log.is_complete_dive:
-                complete_dives.append(dives.Complete_Dive([dive_log]))
-            else:
-                fragmented_dive.append(dive_log)
-
-                # If the next .LOG is a complete dive then this log is the last
-                # fragmented/filler .LOG file in-between complete dives
-                # Define the concatenation of all fragmented dives to be one complete dive
-                # Note that this type of complete dive may not define a dive at all
-                # However, we want to group these data so their (possibly legit)
-                # GPS may be used to interpolate previous/succeeding dives
-                if i < len(dive_logs)-1 and dive_logs[i+1].is_complete_dive:
-                    complete_dives.append(dives.Complete_Dive(fragmented_dive))
-                    fragmented_dive = []
-
-        # Verify complete dives are sorted as expected
-        if complete_dives != sorted(complete_dives, key=lambda x: x.start_date) \
-           or complete_dives != sorted(complete_dives, key=lambda x: x.end_date):
-            raise ValueError('`complete_dives` (potentially concatenated .LOG files) improperly sorted')
-
-        # Plot vital data
-        kml.generate(mfloat_path, mfloat, complete_dives)
-        vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
-        vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
-        vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
-        if len(dive_logs) > 1:
-            vitals.plot_corrected_pressure_offset(mfloat_path, complete_dives, begin, end)
-
-        # Use completed (stitched together) dives to generate event metadata and
-        # output data files etc.
-        for i, complete_dive in enumerate(complete_dives):
-
-            # Extend dive's GPS list by searching previous/next dive's GPS list
-            prev_dive = complete_dives[i-1] if i > 0 else None
-            next_dive = complete_dives[i+1] if i < len(complete_dives)-1 else None
-            complete_dive.set_incl_prev_next_dive_gps(prev_dive, next_dive)
 
             # Validate that the GPS may be used to correct various MERMAID
             # timestamps, including diving/surfacing and event starttimes
-            complete_dive.validate_gps(min_gps_fix, max_gps_time)
+            cycle_log.validate_gps(min_gps_fix, max_gps_time)
 
             # Apply clock corrections to the events associated with this
             # completed dive
-            complete_dive.correct_clockdrifts()
+            cycle_log.correct_clockdrifts()
 
             # Set output (.sac, .mseed) file names of the events associated with
             # this complete dive using the adjusted and corrected event dates
-            complete_dive.set_processed_file_names()
+            cycle_log.set_processed_file_names()
 
             # Interpolate station locations at various points in the dive
-            complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
+            cycle_log.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
             # Format station-location metadata for ObsPy and attach to complete dive object
-            complete_dive.set_events_obspy_trace_stats()
+            cycle_log.set_events_obspy_trace_stats()
 
             # Write requested output files
-            if not os.path.exists(complete_dive.processed_path):
-                os.mkdir(complete_dive.processed_path)
-
             if write_png:
-                complete_dive.write_events_png()
+                cycle_log.write_events_png()
 
             if write_html:
-                complete_dive.write_events_html()
+                cycle_log.write_events_html()
 
             if write_sac:
-                complete_dive.write_events_sac()
+                cycle_log.write_events_sac()
 
             if write_mseed:
-                complete_dive.write_events_mseed()
+                cycle_log.write_events_mseed()
 
             if write_mhpsd:
-                complete_dive.write_events_mhpsd(creation_datestr)
+                cycle_log.write_events_mhpsd(creation_datestr)
+        # Plot vital data
+        kml.generate(mfloat_path, mfloat, cycle_logs)
+        vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
+        vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
+        vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
+        if len(cycle_logs) > 1:
+            vitals.plot_corrected_pressure_offset(mfloat_path, cycle_logs, begin, end)
 
         # NB, at this point, the total event lists associated with `dive_logs`
-        # and `complete_dives` may differ because the former collects all events
+        # and `cycle_logs` may differ because the former collects all events
         # and the latter winnows that list to only include unique events (via
         # `dives.set_processed_file_names`, which removes redundant events from
-        # individual `complete_dives.events` lists); ergo, one may use the
+        # individual `cycle_logs.events` lists); ergo, one may use the
         # existence of `event.station_loc` to determine what events in
-        # `dive_logs` were actually retained in `complete_dives` (see e.g.,
+        # `dive_logs` were actually retained in `cycle_logs` (see e.g.,
         # `events.write_traces_txt`)
 
         # Write csv and txt files containing all GPS fixes from .LOG and .MER
-        gps.write_gps(dive_logs, creation_datestr, processed_path, mfloat_path)
+        gps.write_gps(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write text file detailing event-station location interpolation parameters
-        gps.write_gps_interpolation_txt(complete_dives,creation_datestr, processed_path, mfloat_path)
+        gps.write_gps_interpolation_txt(cycle_logs,creation_datestr, processed_path, mfloat_path)
 
         # Write text file detailing which SINGLE .LOG and .MER files define
         # (possibly incomplete) dives
-        dives.write_dives_txt(dive_logs, creation_datestr,  processed_path, mfloat_path)
-
-        # Write text file and printout detailing which (and potentially
-        # MULTIPLE) .LOG and .MER files define complete dives
-        dives.write_complete_dives_txt(complete_dives, creation_datestr, processed_path, mfloat_path, mfloat)
+        cycles.write_dives_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path)
 
         # Write a text file relating all SAC and mSEED to their associated .LOG
         # and .MER files
-        events.write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path)
+        events.write_traces_txt(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write a text file with our best-guess at the location of MERMAID at
         # the time of recording
-        events.write_loc_txt(dive_logs, creation_datestr, processed_path, mfloat_path)
+        events.write_loc_txt(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write mseed2sac and automaid metadata csv and text files
-        events.write_obspy_trace_stats(complete_dives, creation_datestr, processed_path, mfloat_path)
+        events.write_obspy_trace_stats(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write GeoCSV files
-        geocsv_meta = geocsv.GeoCSV(complete_dives, creation_datestr, mixed_layer_depth_m)
+        geocsv_meta = geocsv.GeoCSV(cycle_logs, creation_datestr, mixed_layer_depth_m)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories
-        for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*"):
+        for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER"):
             os.remove(f)
-
+        for f in glob.glob(mfloat_path + "/" + "*.CYCLE"):
+            os.remove(f)
         # Save the last complete dive of this float to later write output list
         # of external pressure measurements for the entire array
-        if complete_dives:
-            lastdive[mfloat] = complete_dives[-1]
+        if cycle_logs:
+            lastdive[mfloat] = cycle_logs
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
