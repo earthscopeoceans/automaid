@@ -18,7 +18,7 @@ import argparse
 import datetime
 
 import kml
-import gps
+import gps_cycle as gps
 import setup
 import cycles
 import utils
@@ -106,8 +106,8 @@ write_sac = True
 write_mseed = True
 write_mhpsd = True
 
-# Dictionary to write last-dive vital data to output files
-lastdive = {}
+# Dictionary to write last-cycle vital data to output files
+lastcycle = {}
 
 def main():
     # Set working directory in "scripts"
@@ -200,21 +200,16 @@ def main():
         if cycle_logs!= sorted(cycle_logs, key=lambda x: x.start_date):
             raise ValueError('`cycle_logs` improperly sorted')
 
-        # Verify events sublists are sorted as expected
-        events_list = [e for d in cycle_logs for e in d.events]
-        if events_list != sorted(events_list, key=lambda x: x.corrected_starttime):
-            raise ValueError('`cycle_logs[*].events` improperly sorted')
-
         for i, cycle_log in enumerate(cycle_logs):
             # Create the directory
             if not os.path.exists(cycle_log.processed_path):
                 os.mkdir(cycle_log.processed_path)
 
             # Reformat and write .LOG in individual dive directory
-            cycle_log.write_datetime_log()
+            cycle_log.write_datetime_cycle()
 
             # Write .MER environment in individual directories
-            cycle_log.write_mermaid_environment_file()
+            cycle_log.write_mermaid_environment_files()
 
             # Write .S41 environment in individual directories
             cycle_log.write_s41_environment_file();
@@ -239,7 +234,7 @@ def main():
             cycle_log.correct_clockdrifts()
 
             # Set output (.sac, .mseed) file names of the events associated with
-            # this complete dive using the adjusted and corrected event dates
+            # this cycle using the adjusted and corrected event dates
             cycle_log.set_processed_file_names()
 
             # Interpolate station locations at various points in the dive
@@ -263,6 +258,13 @@ def main():
 
             if write_mhpsd:
                 cycle_log.write_events_mhpsd(creation_datestr)
+
+        # Verify events sublists are sorted as expected
+        events_list = [event for cycle in cycle_logs for event in cycle.events]
+        for event in events_list:
+            print(event.corrected_starttime)
+        if events_list != sorted(events_list, key=lambda x: x.corrected_starttime):
+            raise ValueError('`cycle_logs[*].events` improperly sorted')
         # Plot vital data
         kml.generate(mfloat_path, mfloat, cycle_logs)
         vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
@@ -290,6 +292,9 @@ def main():
         # (possibly incomplete) dives
         cycles.write_dives_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path)
 
+        # Write text file detailing .CYCLE files (init,complete dives, last dive)
+        cycles.write_cycles_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path,mfloat)
+
         # Write a text file relating all SAC and mSEED to their associated .LOG
         # and .MER files
         events.write_traces_txt(cycle_logs, creation_datestr, processed_path, mfloat_path)
@@ -313,7 +318,7 @@ def main():
         # Save the last complete dive of this float to later write output list
         # of external pressure measurements for the entire array
         if cycle_logs:
-            lastdive[mfloat] = cycle_logs
+            lastcycle[mfloat] = cycle_logs[-1]
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
@@ -321,7 +326,7 @@ def main():
     # Print a text file of corrected external pressures measured on the final
     # dive, and warn if any are approaching the limit of 300 mbar (at which
     # point adjustment is required)
-    vitals.write_corrected_pressure_offset(lastdive, processed_path)
+    vitals.write_corrected_pressure_offset(lastcycle, processed_path)
 
 if __name__ == "__main__":
     main()

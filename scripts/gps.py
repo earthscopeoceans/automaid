@@ -855,6 +855,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                         leg['input_drift_vel_ms'] * 3.6 * 24  if leg['input_drift_vel_ms'] else float("Nan")] # km/day
 
         input_params = map(abs, input_params)
+        input_params = list(input_params)
         input_fmt_spec = '{:>6.0f}        {:>7.1f}        {:>6.0f}        {:>4.1f}        {:>5.2f}        {:>7.2f}        {:>7.2f}'
 
         return (input_params, input_fmt_spec)
@@ -871,6 +872,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                         leg['interp_drift_vel_ms'] * 3.6 * 24  if leg['interp_drift_vel_ms'] else float("Nan")] # km/day
 
         interp_params = map(abs, interp_params)
+        interp_params = list(interp_params)
         interp_fmt_spec = '{:>6.0f}        {:>7.1f}        {:>6.0f}        {:>4.1f}        {:>5.2f}        {:>7.2f}        {:>7.2f}'
 
         return (interp_params, interp_fmt_spec)

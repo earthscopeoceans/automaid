@@ -175,7 +175,7 @@ class GeoCSV:
 
             # Loop over all GPS instances and write single line for each
             gps_rows = []
-            for gps in sorted(cycle.gps_list_dive, key=lambda x: x.date):
+            for gps in sorted(cycle.gps_list, key=lambda x: x.date):
                 gps_rows.append([
                     self.MethodIdentifier_GPS,
                     str(gps.date)[:23]+'Z',
@@ -247,7 +247,7 @@ class GeoCSV:
 
             # Only keep events with an interpolated station location (STLA/STLO)
             ## !! Is this condition good enough / algorithm rows match DET SAC? !!
-            event_list = [event for event in cycle.events if event.obspy_trace_stats]
+            event_list = [event for log in cycle.logs for event in log.events if event.obspy_trace_stats]
 
             # Initialize a "previous" row to check for redundancies
             # This can occur when, e.g., a REQ file is multiply requested

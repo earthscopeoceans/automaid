@@ -27,18 +27,37 @@ class Log:
     log_content = None
     start_date = None
     end_date = None
+    len_secs = None
+    len_days = None
     gps_list_from_log = []
     gps_list_from_mermaid = []
     gps_list = []
+    mer_environment = None
     mer_environment_name = None
     mer_environment_name_exists = False
     p2t_offset_param = None
     p2t_offset_measurement = None
     p2t_offset_corrected = None
-    def __init__(self,base_path,log_name, og_content,begin,end):
+    dive_id = None
+    kstnm = None
+    kinst = None
+    def __init__(self,base_path,events,log_name,log_content,kstnm,kinst,begin,end):
         self.base_path = base_path
         self.log_name = log_name
         self.log_content = log_content
+        self.kstnm = kstnm
+        self.kinst = kinst
+
+        # Get the date from the file name -- the hexadecimal component of the
+        # .LOG file name is the same Unix Epoch time as the first line of the
+        # LOG file (there in int seconds); i.e., .LOG files are named for the
+        # time that their first line is written
+        self.start_date = utils.get_date_from_file_name(log_name)
+        # Get the last date (last line of the log file)
+        last_epoch_time = utils.split_log_lines(self.log_content)[-1].split(':')[0]
+        self.end_date = UTCDateTime(int(last_epoch_time))
+        self.len_secs = int(self.end_date - self.start_date)
+        self.len_days = self.len_secs / (60*60*24.)
         # get gps list from log file
         self.gps_list_from_log = gps.get_gps_from_log_content(self.log_name, log_content, begin, end)
         # Find external pressure offset
@@ -55,12 +74,6 @@ class Log:
         # Compute the corrected pressure offset
         if offset_param and offset_measurement:
             self.p2t_offset_corrected =  self.p2t_offset_measurement - self.p2t_offset_param
-        # Compile all water presure (100 mbar = 1 dbar = 1 m)
-        # Run some verifications like we do for GPS to check for redudancies?
-        # I do not know if pressure values are repeated over fragmented LOGs...
-        # DO NOT DO: `('\[PRESS ,\s*\d+\]P\s*(\+?\-?\d+)mbar', self.cycle_content)`
-        # because "P.*mbar" is a valid pressure, even if prefixed with "[SURFIN, ..."
-        self.pressure_mbar = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.cycle_content)
         # Find the .MER file whose environment (and maybe binary, but not
         # necessarily) is associated with this .LOG file
         #
@@ -114,8 +127,6 @@ class Log:
                     # Sometimes the .MER file exists but it is empty (0037_605CB34D.MER)
                     if catch:
                         self.mer_environment = catch[0]
-                        # Extract fixe GPS from mermaid environment
-                        gps_from_mer_environment = gps.get_gps_from_mer_environment(self.mer_environment_name,self.mer_environment,begin,end)
                         # Get dive ID according to .MER (this iterator can be reset)
                         # NB, a dive ID does not necessarily mean MERMAID actually dove
                         # It just means the float transmitted a .MER file(?)
@@ -124,12 +135,11 @@ class Log:
                         dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
                         self.dive_id = int(dive_id.group(1))
 
+        self.gps_list_from_mermaid = events.get_gps_between(self.start_date, self.end_date);
         # Get list of events associated with this .MER file's environment
         # (the metadata header, which does not necessarily relate to the
         # events and their binary data below that header in the same .MER)
         self.events = events.get_events_between(self.start_date, self.end_date)
-        # Re-sort events based on starttime (rather than INFO DATE)
-        self.events.sort(key=lambda x: x.uncorrected_starttime)
         # Set and parse info from .MER file and invert wavelet transform any binary data
         # (cannot invert the data without vital information from the .MER environment)
         if self.mer_environment:
@@ -139,6 +149,8 @@ class Log:
                 event.find_measured_sampling_frequency()
                 event.set_uncorrected_starttime()
                 event.set_processed_data()
+        # Re-sort events based on starttime (rather than INFO DATE)
+        self.events.sort(key=lambda x: x.uncorrected_starttime)
         # Merge gps list into an unique
         self.gps_list = gps.merge_gps_list(self.gps_list_from_log,self.gps_list_from_mermaid)
 
@@ -179,9 +191,14 @@ class Cycle:
     profilesS41 = None
     profilesS61 = None
 
+    # All gps (SYNC MERMAID + LOG)
     gps_before_dive = None
     gps_after_dive = None
-    gps_cycle_list = None
+    gps_list = None
+    # Only synchronization mermaid position (.MER file)
+    gps_sync_before_dive = None
+    gps_sync_after_dive = None
+    gps_sync_list = None
 
     descent_leave_surface_date = None
     ascent_reach_surface_date = None
@@ -189,7 +206,8 @@ class Cycle:
     is_init = False
     is_dive = False
     is_complete_cycle = False
-    dive_id = None
+
+    pressure_mbar = None
 
     gps_valid4clockdrift_correction = None
     gps_valid4location_interp = None
@@ -203,6 +221,13 @@ class Cycle:
     ascent_reach_surface_layer_date = None
     ascent_reach_surface_layer_loc = None
     ascent_first_loc_after_event = None
+
+    p2t_offset_corrected = None
+    last_p2t_offset_measurement = None
+    last_p2t_offset_corrected = None
+    last_p2t_offset_param = None
+    last_p2t_log_name = None
+
 
     # Class attribute to hold MERMAID "MH" FDSN network code
     network = utils.network()
@@ -252,13 +277,33 @@ class Cycle:
                 self.set_kstnm_kinst()
                 break;
 
-        # Split cycle file into LOG
+        # Retreive log informations into a cycle
         self.logs = []
         logs_content = self.cycle_content.split("[PREPROCESS]")[1:]
         for log_content in logs_content:
             log_name = re.findall("Create (\d+_[A-Z0-9]+\.LOG)", log_content)
             if log_name :
-                self.logs.append(Log(base_path,log_name[0],log_content,begin,end))
+                self.logs.append(Log(base_path,events,log_name[0],log_content,self.kstnm,self.kinst,begin,end))
+
+        # List all events into a cycle
+        self.events = [event for log in self.logs for event in log.events]
+        # List all offset correction
+        self.p2t_offset_corrected = [log.p2t_offset_corrected for log in self.logs]
+        # Retain most recent external pressure measurement
+        for log in reversed(self.logs):
+            if log.p2t_offset_corrected is not None:
+                self.last_p2t_offset_measurement = log.p2t_offset_measurement
+                self.last_p2t_offset_corrected = log.p2t_offset_corrected
+                self.last_p2t_offset_param = log.p2t_offset_param
+                self.last_p2t_log_name = log.log_name
+                break
+
+        # Compile all water presure (100 mbar = 1 dbar = 1 m)
+        # Run some verifications like we do for GPS to check for redudancies?
+        # I do not know if pressure values are repeated over fragmented LOGs...
+        # DO NOT DO: `('\[PRESS ,\s*\d+\]P\s*(\+?\-?\d+)mbar', self.cycle_content)`
+        # because "P.*mbar" is a valid pressure, even if prefixed with "[SURFIN, ..."
+        self.pressure_mbar = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.cycle_content)
 
         # Check if the .CYCLE corresponds to float initialization
         if self.cycle_nb == 0 :
@@ -273,7 +318,7 @@ class Cycle:
                 self.descent_leave_surface_date = diving[0][1]
                 self.start_cycle = self.descent_leave_surface_date
         # Check if the .CYCLE is completed
-        complete = utils.find_timestamped_values("[PREPROCESS]End of cycle", self.cycle_content)
+        complete = utils.find_timestamped_values(":\[PREPROCESS\]End of cycle", self.cycle_content)
         if complete :
             self.is_complete_cycle = True
             self.end_cycle = complete[0][1]
@@ -301,21 +346,32 @@ class Cycle:
         # Constitute lists of gps
         self.gps_before_dive = []
         self.gps_after_dive = []
+        self.gps_list = []
+        self.gps_sync_before_dive = []
+        self.gps_sync_after_dive = []
+        self.gps_sync_list = []
+
         for log in self.logs :
             for gps in log.gps_list :
                 # All gps before leave surface (last cycle positions)
                 if self.descent_leave_surface_date and gps.date < self.descent_leave_surface_date :
                     self.gps_before_dive.append(gps)
+                    if gps.clockdrift is not None:
+                        self.gps_sync_before_dive.append(gps)
                 # All gps after leave surface (cycle positions when dive)
                 if self.ascent_reach_surface_date and gps.date > self.ascent_reach_surface_date :
                     self.gps_after_dive.append(gps)
+                    if gps.clockdrift is not None:
+                        self.gps_sync_after_dive.append(gps)
                 # All gps of this cycle (unique for a cycle)
                 if gps.date > self.start_cycle :
-                    self.gps_cycle_list.append(gps)
+                    self.gps_list.append(gps)
+                    if gps.clockdrift is not None:
+                        self.gps_sync_list.append(gps)
     def __len__(self):
         return 1
 
-    def write_datetime_log(self):
+    def write_datetime_cycle(self):
         # Check if file exist
         processed_path = self.processed_path + self.cycle_name + ".h"
         if os.path.exists(processed_path):
@@ -326,20 +382,22 @@ class Cycle:
         with open(processed_path, "w") as f:
             f.write(formatted_log)
 
-    def write_mermaid_environment_file(self):
-        # The .MER file can be listed in the .LOG but not actually exist on the server
-        if self.mer_environment_name is None or not self.mer_environment_name_exists:
-            return
+    def write_mermaid_environment_files(self):
+        # Write all mermaid environement in one cycle
+        for log in self.logs :
+            # The .MER file can be listed in the .LOG but not actually exist on the server
+            if log.mer_environment_name is None or not log.mer_environment_name_exists:
+                continue
 
-        # Check if the output file already exists
-        processed_path = self.processed_path + self.cycle_name + "." + self.mer_environment_name + ".env"
-        if os.path.exists(processed_path):
-            return
+            # Check if the output file already exists
+            processed_path = self.processed_path + log.log_name + "." + log.mer_environment_name + ".env"
+            if os.path.exists(processed_path):
+                return
 
-        # Write file
-        with open(processed_path, "w") as f:
-            if self.mer_environment:
-                f.write(self.mer_environment)
+            # Write file
+            with open(processed_path, "w") as f:
+                if log.mer_environment:
+                    f.write(log.mer_environment)
 
     def write_s41_environment_file(self):
         # Check if there is a s41 profile
@@ -528,28 +586,30 @@ class Cycle:
         self.gps_valid4clockdrift_correction = False
         self.gps_valid4location_interp = False
 
-        if self.gps_before_dive:
-            gps_before = self.gps_before_dive
+        # Only gps synchronization save one .MER file give clockfreq and clockdift
+        if self.gps_sync_before_dive:
+            gps_before = self.gps_sync_before_dive
         else:
+            print("!!!!!!!!!!! self.gps_sync_before_dive")
+            print(self.cycle_name)
+            print(self.descent_leave_surface_date)
             return
 
-        if self.gps_after_dive:
-            gps_after = self.gps_after_dive
+        if self.gps_sync_after_dive:
+            gps_after = self.gps_sync_after_dive
         else:
+            print("!!!!!!!!!!! self.gps_sync_after_dive")
             return
 
         # Ensure MERMAID clock synchronized with last(first) GPS before(after) diving(surfacing)
         # (this also handles the case of verifying `gps.mer_time_log_loc` if `num_gps=1`)
         if gps.valid_clockfreq(gps_before[-1]) \
-           and gps_before[-1].mer_time_log_loc() \
            and gps_before[-1].clockdrift < 5 \
            and gps.valid_clockfreq(gps_after[0]) \
-           and gps_after[0].mer_time_log_loc() \
            and gps_after[0].clockdrift < 5:
-
            self.gps_valid4clockdrift_correction = True
-
         else:
+            print("!!!!!!!!!!! gps_valid4clockdrift_correction is false")
             return
 
         # We only require that `gps.mer_time_log_loc()` be true for the
@@ -585,7 +645,6 @@ class Cycle:
 
         # If here, all tests passed
         self.gps_valid4location_interp = True
-
         return
 
     def correct_clockdrifts(self):
@@ -593,14 +652,14 @@ class Cycle:
         complete dive.
 
         '''
+
         if not self.gps_valid4clockdrift_correction:
             return
 
-
         # Correct clock drift
         for event in self.events:
-            event.correct_clockdrift(self.gps_before_dive_incl_prev_dive[-1],
-                                     self.gps_after_dive_incl_next_dive[0])
+            event.correct_clockdrift(self.gps_sync_before_dive[-1],
+                                     self.gps_sync_after_dive[0])
 
     def set_processed_file_names(self):
         '''Sets `processed_file_name` attr for each event attached to this complete
@@ -619,7 +678,7 @@ class Cycle:
         fractional seconds).
 
         This check for redundancy only considers a single redundant file name
-        appearing twice in any give complete dive; if multiple filenames appear
+        appearing twice in any give cycle; if multiple filenames appear
         twice and/or any one appears three or more times this will error (the
         fix complicates the code a lot and I've yet to see the need for it...).
 
@@ -673,7 +732,7 @@ class Cycle:
            self.events[redundant_index[1]].mer_binary_binary:
 
             # Remove the redundant event from the list of events associated with
-            # this complete dive.  This does not delete the events.Event object
+            # this cycle.  This does not delete the events.Event object
             # itself, which is still referenced elsewhere, including
             # `dive_logs`, so be careful
             del self.events[redundant_index[1]]
@@ -720,11 +779,11 @@ class Cycle:
             return
 
         # Find when & where the float left the surface
-        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive_incl_prev_dive, \
+        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive, \
                                                                   self.descent_leave_surface_date)
 
         # Find when & where the float reached the surface
-        self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
+        self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive, \
                                                                   self.ascent_reach_surface_date)
         # Find pressure values
         pressure_date = [p[1] for p in self.pressure_mbar]
@@ -737,7 +796,6 @@ class Cycle:
         # Determine if using one- or two-layer ocean.
         if max(pressure_dbar) > mixed_layer_depth_m:
             # Two-layer ocean case (surface and mixed)
-
             # Interpolate for location that MERMAID passed from the surface layer to the mixed layer
             # on the descent
 
@@ -767,7 +825,7 @@ class Cycle:
             descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
             self.descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
 
-            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive_incl_prev_dive, \
+            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, \
                                                                             self.descent_leave_surface_layer_date)
 
             #______________________________________________________________________________________#
@@ -802,7 +860,7 @@ class Cycle:
             ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
             self.ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
 
-            self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive_incl_next_dive, \
+            self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive, \
                                                                            self.ascent_reach_surface_layer_date)
 
             #______________________________________________________________________________________#
@@ -861,18 +919,6 @@ class Cycle:
         for event in self.events:
             event.write_mhpsd(self.processed_path, creation_datestr)
 
-    def write_statistics(self, csv_path):
-        csv_filename = os.path.join(csv_path,"stats.csv")
-        for event in self.events:
-            row = [self.station_name] + event.statistics()
-            with open(csv_filename, mode='ab') as csv_file:
-                csv_file = csv.writer(csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                csv_file.writerow(row)
-
-    def get_buoy(self):
-        list = self.base_path.split("/")
-        return (list[len(list) - 3])
-
     def print_len(self):
         len_str  = "   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s}/{:s})" \
                    .format(str(self.start_date)[0:19], str(self.end_date)[0:19],
@@ -882,29 +928,23 @@ class Cycle:
 
     def print_log_mer_id(self):
         log_mer_str = ""
-        for i,_ in enumerate(self.cycle_name):
-            if self.dive_id[i] is None:
+        for i,_ in enumerate(self.logs):
+            if self.logs[i].dive_id is None:
                 id_str = "     ID: <none>"
-
             else:
-                id_str = "     ID: #{:>5d}".format(self.dive_id[i])
-
-            if self.cycle_name[i] and self.mer_environment_name[i]:
-                tmp_str = "{:s} ({:s}, {:s})".format(id_str, self.cycle_name[i], self.mer_environment_name[i])
-
-            elif self.cycle_name[i] and not self.mer_environment_name[i]:
+                id_str = "     ID: #{:>5d}".format(self.logs[i].dive_id)
+            if self.logs[i].log_name and self.logs[i].mer_environment_name:
+                tmp_str = "{:s} ({:s}, {:s})".format(id_str, self.logs[i].log_name, self.logs[i].mer_environment_name)
+            elif self.logs[i].log_name and not self.logs[i].mer_environment_name:
                 # For example, 16_5F9C20FC.MER, which would have been P-16 Dive
                 # #120, and which was supposedly uploaded associated with
                 # 16_5F92A09C.LOG, does not/never existed on the server (no idea
                 # what happened)
-                tmp_str = "{:s} ({:s}, <none>)".format(id_str, self.cycle_name[i])
-
-            elif self.mer_environment_name[i] and not self.cycle_name[i]:
-                tmp_str = "{:s} (<none>, {:s})".format(id_str, self.mer_environment_name[i])
-
+                tmp_str = "{:s} ({:s}, <none>)".format(id_str, self.logs[i].log_name)
+            elif self.logs[i].mer_environment_name and not self.logs[i].log_name:
+                tmp_str = "{:s} (<none>, {:s})".format(id_str, self.logs[i].mer_environment_name)
             else:
                 tmp_str = "(<none>, <none>)".format()
-
             print(tmp_str)
             log_mer_str += tmp_str + "\n"
 
@@ -916,19 +956,16 @@ class Cycle:
             tmp_str = "  Event: (no detected or requested events fall within the time window of this dive)"
             print(tmp_str)
             evt_str += tmp_str + "\n"
-
         else:
             for e in self.events:
                 if e.station_loc is None:
                     tmp_str = " Event: ! NOT MADE ! (invalid and/or not enough GPS fixes) {:s} (</EVENT> binary in {:s})" \
                               .format(e.processed_file_name, e.mer_binary_name)
-
                 else:
                     tmp_str = "  Event: {:s} (</EVENT> binary in {:s})" \
                               .format(e.processed_file_name, e.mer_binary_name)
                 print(tmp_str)
                 evt_str += tmp_str + "\n"
-
         return evt_str
 
 
@@ -946,29 +983,26 @@ def get_cycles(path, events, profilesS41, profilesS61, begin, end):
             cycles.append(c)
     return cycles
 
-def write_complete_dives_txt(complete_dives, creation_datestr, processed_path, mfloat_path, mfloat):
-    '''Writes complete_dives.txt and prints the same info to stdout
+def write_cycles_txt(cycles, creation_datestr, processed_path, mfloat_path, mfloat):
+    '''
 
-    A complete dive is either: (1) wholly defined in a single .LOG file, or (2)
-    a concatenation of many (fragmented/error/reboot/testmd) .LOG files that lie
-    in-between single-.LOG complete dives
+    Writes cycles.txt and prints the same info to stdout
 
-    Prints all data for every .LOG/.MER in the server; does not, e.g., only
-    print info associated with those .LOG/.MER within datetime range of `main.py`
+    A complete cycle is defined by two successive descents of the profiler.
 
     '''
 
-    complete_dives_file = os.path.join(processed_path, mfloat_path, "complete_dives.txt")
+    cycles_file = os.path.join(processed_path, mfloat_path, "cycles.txt")
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
 
-    with open(complete_dives_file, "w+") as f:
+    with open(cycles_file, "w+") as f:
         f.write(version_line)
         f.write(created_line)
 
-        for d in sorted(complete_dives, key=lambda x: x.start_date):
-            print("Complete Dive")
-            f.write("Complete Dive\n")
+        for d in sorted(cycles, key=lambda x: x.start_date):
+            print("Cycles")
+            f.write("Cycles\n")
 
             # These methods both return, and print to stdout, the same formatted string
             f.write(d.print_len())
@@ -982,13 +1016,13 @@ def write_complete_dives_txt(complete_dives, creation_datestr, processed_path, m
         # written (but do not necessarily exists, e.g., if `events_sac=False` in
         # main.py).
         sac_str = "    {:s} total: {:d} (non-preliminary) SAC & miniSEED files\n".format(mfloat, \
-                  len([e for d in complete_dives for e in d.events if e.station_loc and not e.station_loc_is_preliminary]))
+                  len([e for d in cycles for e in d.events if e.station_loc and not e.station_loc_is_preliminary]))
 
         print(sac_str)
         f.write(sac_str)
 
 
-def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
+def write_dives_txt(cycles, creation_datestr, processed_path, mfloat_path):
     '''Writes dives.txt, which treats every .LOG as a single (possibly incomplete) dive
 
     Prints all data for every .LOG/.MER in the server; does not, e.g., only
@@ -1008,11 +1042,12 @@ def write_dives_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
         f.write(header_line)
 
         # 1 .LOG == 1 dive
-        for d in sorted(dive_logs, key=lambda x: x.start_date):
-            f.write(fmt_spec.format(str(d.dive_id),
-                                    str(d.start_date)[:19] + 'Z',
-                                    str(d.end_date)[:19] + 'Z',
-                                    int(d.len_secs),
-                                    d.len_days,
-                                    d.cycle_name,
-                                    str(d.mer_environment_name)))
+        for cycle in sorted(cycles, key=lambda x: x.start_date):
+            for log in sorted(cycle.logs, key=lambda x: x.start_date):
+                f.write(fmt_spec.format(str(log.dive_id),
+                                        str(log.start_date)[:19] + 'Z',
+                                        str(log.end_date)[:19] + 'Z',
+                                        int(log.len_secs),
+                                        log.len_days,
+                                        log.log_name,
+                                        str(log.mer_environment_name)))

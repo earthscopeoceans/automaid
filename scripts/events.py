@@ -29,7 +29,7 @@ from obspy.core.trace import Trace
 from obspy.core.trace import Stats
 from obspy.core.stream import Stream
 
-import gps
+import gps_cycle as gps
 import sys
 import setup
 import utils
@@ -51,6 +51,7 @@ class Events:
         self.mer_name = mer_name
         self.base_path = base_path
         self.events = []
+        self.gps_info = []
         self.__version__ = version
 
         # If just a base path to (e.g., a server directory) is passed, load all
@@ -67,16 +68,20 @@ class Events:
             # The </EVENT> binary blocks contained in this .MER file
             with open(mer_file, "rb") as f:
                 content = f.read()
-            events = content.split(b'</PARAMETERS>')[-1].split(b'<EVENT>')[1:]
 
+            catch = re.findall(b"<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)
+            if catch :
+                mer_environment = catch[0].decode("utf-8","replace")
+                self.gps_info += gps.get_gps_from_mer_environment(mer_binary_name,mer_environment)
+
+            events = content.split(b'</PARAMETERS>')[-1].split(b'<EVENT>')[1:]
             for event in events:
                 # Ensure every event block is complete(ly transmitted)
-                if event[0:14] != "\n\r\t<INFO DATE=" or event[-22:] != "\n\r\t</DATA>\n\r</EVENT>\n\r":
+                if event[0:14] != b"\n\r\t<INFO DATE=" or event[-22:] != b"\n\r\t</DATA>\n\r</EVENT>\n\r":
                     continue
-
                 # The header of this specific </EVENT> block (NOT the </ENVIRONMENT> of
                 # the same .MER file, which may be unrelated (different time))
-                mer_binary_header = event.split("<DATA>\x0A\x0D")[0]
+                mer_binary_header = event.split(b"<DATA>\x0A\x0D")[0]
 
                 # The actual binary data contained in this </EVENT> block (the seismogram)
                 # N.B:
@@ -84,7 +89,7 @@ class Events:
                 # "\x0D" is "\r": True
                 # "\x09" is "\t": True
                 # https://docs.python.org/2/reference/lexical_analysis.html#string-and-bytes-literals
-                mer_binary_binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
+                mer_binary_binary = event.split(b"<DATA>\x0A\x0D")[1].split(b"\x0A\x0D\x09</DATA>")[0]
 
                 # The double split above is not foolproof; if the final data
                 # block in the .MER file ends without </DATA> (i.e., the file
@@ -94,10 +99,10 @@ class Events:
                 # returns the byte-length of a string, though I am not super
                 # happy with this solution because I would prefer to know the
                 # specific encoding used for event binary...)
-                if " ROUNDS=" not in mer_binary_header:
+                if b" ROUNDS=" not in mer_binary_header:
                     actual_binary_length = len(mer_binary_binary)
-                    bytes_per_sample = int(re.search('BYTES_PER_SAMPLE=(\d+)', mer_binary_header).group(1))
-                    num_samples = int(re.search('LENGTH=(\d+)', mer_binary_header).group(1))
+                    bytes_per_sample = int(re.search(b'BYTES_PER_SAMPLE=(\d+)', mer_binary_header).group(1))
+                    num_samples = int(re.search(b'LENGTH=(\d+)', mer_binary_header).group(1))
                     expected_binary_length = bytes_per_sample * num_samples
                     if actual_binary_length != expected_binary_length:
                         continue
@@ -129,13 +134,18 @@ class Events:
         #   </PARAMETERS><EVENT>
         #   <INFO DATE=1970-01-03T10:18:13.513763 ... />
         # "
-
         catched_events = []
         for event in self.events:
             if begin < event.info_date < end:
                 catched_events.append(event)
         return sorted(catched_events, key=lambda x: x.info_date)
 
+    def get_gps_between(self, begin, end):
+        catched_gps = []
+        for gps in self.gps_info:
+            if begin < gps.date < end:
+                catched_gps.append(gps)
+        return sorted(catched_gps, key=lambda x: x.date)
     # def __repr__(self):
     #     return "Events('{}', '{}')".format(self.base_path, self.mer_name)
 
@@ -204,10 +214,10 @@ class Event:
 
         print("{} (binary)".format(self.mer_binary_name))
 
-        if len(re.findall(" ROUNDS=(-?\d+)", self.mer_binary_header)) > 0 :
+        if len(re.findall(b" ROUNDS=(-?\d+)", self.mer_binary_header)) > 0 :
             self.is_stanford_event = True
-            self.stanford_rounds = re.findall(" ROUNDS=(-?\d+)", self.mer_binary_header)[0]
-            date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
+            self.stanford_rounds = re.findall(b" ROUNDS=(-?\d+)", self.mer_binary_header)[0]
+            date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
             self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
             self.is_requested = False
             #if len(re.findall("FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.\d{6})", self.header))  0 :
@@ -215,8 +225,8 @@ class Event:
 
         else:
             self.is_stanford_event = False
-            self.scales = re.findall(" STAGES=(-?\d+)", self.mer_binary_header)[0]
-            catch_trig = re.findall(" TRIG=(\d+)", self.mer_binary_header)
+            self.scales = re.findall(b" STAGES=(-?\d+)", self.mer_binary_header)[0].decode("utf-8","replace")
+            catch_trig = re.findall(b" TRIG=(\d+)", self.mer_binary_header)
             if len(catch_trig) > 0:
                 # Event detected with STA/LTA algorithm
                 self.is_requested = False
@@ -225,7 +235,7 @@ class Event:
                 # Sometimes "INFO DATE" is transferred with the incorrect precision,
                 # e.g., in 0039_5E71459C.MER, which is missing fractional seconds
                 # ("INFO DATE=2020-03-16T01:06:42")
-                date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
+                date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
                 if not date:
                     return
 
@@ -242,19 +252,19 @@ class Event:
                 # (not mbar, like other pressures in the .LOG)
                 # We assume 1 dbar = 1 m = 100 mbar
                 # (NOT 1 m = 101 mbar as stated in MERMAID manual Réf : 452.000.852 Version 00)
-                self.pressure_dbar = int(re.findall(" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
+                self.pressure_dbar = int(re.findall(b" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
                 self.pressure_mbar = self.pressure_dbar * 100
-                self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
+                self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S.%f")
                 self.depth = self.pressure_dbar # ~= meters
-                self.temperature = int(re.findall(" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
-                self.criterion = float(re.findall(" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
-                self.snr = float(re.findall(" SNR=(\d+\.\d+)", self.mer_binary_header)[0])
+                self.temperature = int(re.findall(b" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
+                self.criterion = float(re.findall(b" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
+                self.snr = float(re.findall(b" SNR=(\d+\.\d+)", self.mer_binary_header)[0])
 
             else:
                 # Event requested by user
                 self.is_requested = True
-                date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
-                self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
+                date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
+                self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S")
 
     def set_kstnm_kinst(self, kstnm=None, kinst=None):
         '''Sets `kstnm` and `kinst` attrs using those station and instrument names
@@ -359,14 +369,14 @@ class Event:
             # milliseconds could be introduced in the date of the requested
             # signal (and the error would be of several tenths of seconds by
             # considering the sampling frequency exactly equal to 40Hz)."
-            rec_file_date = re.findall("FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2})", self.mer_binary_header)
-            rec_file_date = UTCDateTime.strptime(rec_file_date[0], "%Y-%m-%dT%H_%M_%S")
+            rec_file_date = re.findall(b"FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2})", self.mer_binary_header)
+            rec_file_date = UTCDateTime.strptime(rec_file_date[0].decode("utf-8","replace"), "%Y-%m-%dT%H_%M_%S")
 
-            rec_file_ms = re.findall("FNAME=\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.?(\d{6}?)", self.mer_binary_header)
+            rec_file_ms = re.findall(b"FNAME=\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.?(\d{6}?)", self.mer_binary_header)
             if len(rec_file_ms) > 0:
-                rec_file_date += float("0." + rec_file_ms[0])
+                rec_file_date += float("0." + rec_file_ms[0].decode("utf-8","replace"))
 
-            sample_offset = re.findall("SMP_OFFSET=(\d+)", self.mer_binary_header)
+            sample_offset = re.findall(b"SMP_OFFSET=(\d+)", self.mer_binary_header)
             sample_offset = float(sample_offset[0])
             self.uncorrected_starttime = rec_file_date + sample_offset / self.measured_fs
         else:
@@ -459,7 +469,7 @@ class Event:
                     os.remove(inverted_data_file_name)
 
                 # Write cdf24 data to file named "wtcoeffs" in local directory
-                with open(wtcoeffs_data_file_name, 'w') as f:
+                with open(wtcoeffs_data_file_name, 'wb') as f:
                     f.write(self.mer_binary_binary)
 
                 # The inverse wavelet transform C code (`icdf24_v103(ec)_test`) is
@@ -1011,30 +1021,25 @@ class Event:
     #     return "Event('{}', '{}', {})".format(self.mer_binary_name, self.mer_binary_header, bin_str)
 
 
-def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
-    event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc and not event.station_loc_is_preliminary)
+def write_traces_txt(cycles, creation_datestr, processed_path, mfloat_path):
+    event_cycle_tup = ((event, cycle) for cycle in cycles for event in cycle.events if event.station_loc and not event.station_loc_is_preliminary)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
-    fmt_spec = '{:>42s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}    {:>17s}\n'
+    fmt_spec = '{:>42s}    {:>17s}    {:>17s}   \n'
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#                                 filename              bin_mer        prev_dive_log    prev_dive_env_mer        this_dive_log    this_dive_env_mer        next_dive_log    next_dive_env_mer\n"
+    header_line = "#                                 filename              bin_mer        cycle_name    \n"
 
     with open(traces_file, "w+") as f:
         f.write(version_line)
         f.write(created_line)
         f.write(header_line)
 
-        for e, d in sorted(event_dive_tup, key=lambda x: x[0].corrected_starttime):
+        for e, c in sorted(event_cycle_tup, key=lambda x: x[0].corrected_starttime):
             f.write(fmt_spec.format(e.processed_file_name,
                                     e.mer_binary_name,
-                                    d.prev_dive_log_name,
-                                    d.prev_dive_mer_environment_name,
-                                    d.log_name,
-                                    d.mer_environment_name,
-                                    d.next_dive_log_name,
-                                    d.next_dive_mer_environment_name))
+                                    c.cycle_name))
 
 def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each
