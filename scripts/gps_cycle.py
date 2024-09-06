@@ -270,6 +270,21 @@ def linear_interpolation(gps_list, date):
         # different distance than in our equal-box lat/lon projection; as such, the interpolated
         # drift velocity, which in reality must equal the drift velocity computed from the input,
         # will be slightly different
+        # print("************************")
+        # print("first {} source {}".format(gps_list[i].rawstr_dict,gps_list[i].source))
+        # print("second {} source {}".format(gps_list[j].rawstr_dict,gps_list[j].source))
+        # print("latitude 1 {} / latitude 2 {}".format(gps_list[i].latitude,gps_list[j].latitude))
+        # print("longitude 1 {} / longitude 2 {}".format(gps_list[i].longitude,gps_list[j].longitude))
+        # print("interp_lat_drift_dist_deg {} ".format(interp_lat_drift_dist_deg))
+        # print("interp_drift_time {} ".format(interp_drift_time))
+        # print("interp_lat_drift_vel_degs {} ".format(interp_lat_drift_vel_degs))
+        #
+        # print("input_lat_drift_vel_degs {} ".format(input_lat_drift_vel_degs))
+        # print("input_lat_drift_dist_deg {} ".format(input_lat_drift_dist_deg))
+        # print("input_drift_time {} ".format(input_drift_time))
+        # print("input_drift_vel_ms {} ".format(input_drift_vel_ms))
+        # print("input_drift_dist_m {}".format(input_drift_dist_m))
+        # print("************************")
         interp_drift_dist_m = gps2dist_azimuth(interp_lat, interp_lon, gps_list[i].latitude, gps_list[i].longitude)[0]
         interp_drift_vel_ms = interp_drift_dist_m / interp_drift_time
         description += "; executed successfully"
@@ -460,7 +475,7 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment):
     return gps_out
 
 
-def get_gps_from_log_content(log_name, log_content, begin, end):
+def get_gps_from_log_content(log_name, log_content):
     '''
 
         Collect GPS fixes from LOG files within an inclusive datetime range
@@ -515,11 +530,34 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
         else:
             vdop = None
 
+        clockdrift = re.findall("GPSACK:(.\d+),(.\d+),(.\d+),(.\d+),(.\d+),(.\d+),(.\d+)?;", gps_log)
+        if len(clockdrift) > 0:
+            clockdrift = clockdrift[0]
+            rawstr_dict['clockdrift'] = clockdrift
+            # YEAR + MONTH + DAY + HOUR + MIN + SEC + USEC
+            clockdrift = 365 * 24 * 60 * 60 * float(clockdrift[0]) \
+                + 30 * 24 * 60 * 60 * float(clockdrift[1]) \
+                + 24 * 60 * 60 * float(clockdrift[2]) \
+                + 60 * 60 * float(clockdrift[3]) \
+                + 60 * float(clockdrift[4]) \
+                + float(clockdrift[5]) \
+                + 10 ** (-6) * float(clockdrift[6])
+        else:
+            clockdrift = None
+
+        clockfreq = re.findall("GPSOFF:(-?\d+);", gps_log)
+        if len(clockfreq) > 0:
+            clockfreq = clockfreq[0]
+            clockfreq = int(clockfreq)
+        else:
+            clockfreq = None
+
         if fixdate is not None and latitude is not None and longitude is not None:
-            if begin <= fixdate <= end:
-                gps_out.append(GPS(date=fixdate,
+            gps_out.append(GPS(date=fixdate,
                                              latitude=latitude,
                                              longitude=longitude,
+                                             clockdrift=clockdrift,
+                                             clockfreq=clockfreq,
                                              hdop=hdop,
                                              vdop=vdop,
                                              source=log_name,
@@ -726,7 +764,7 @@ def write_gps_interpolation_txt(cycles, creation_datestr, processed_path, mfloat
                 interp_perc_ascent = float("nan")
 
             # Write headers to each cycle block
-            f.write("CYCLE ID: {:>4d}".format(cycle.cycle_nb))
+            f.write("CYCLE ID: {:>4d} ".format(cycle.cycle_nb))
             f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(cycle.start_date)[:19] + 'Z', str(cycle.end_date)[:19] + 'Z'))
             f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                   SAC_MSEED_TRACE\n")
 

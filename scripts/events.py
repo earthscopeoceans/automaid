@@ -107,7 +107,7 @@ class Events:
                     if actual_binary_length != expected_binary_length:
                         continue
 
-                evt = Event(mer_binary_name, mer_binary_header, mer_binary_binary)
+                evt = Event(mer_binary_name, mer_binary_header, mer_binary_binary,mer_environment)
 
                 # Use weak catchall for obj init issues (e.g., formatting
                 # abnormalities in the .MER file)
@@ -162,10 +162,11 @@ class Event:
 
     '''
 
-    def __init__(self, mer_binary_name=None, mer_binary_header=None, mer_binary_binary=None):
+    def __init__(self, mer_binary_name=None, mer_binary_header=None, mer_binary_binary=None, default_mer_environment=None):
         self.mer_binary_name = mer_binary_name
         self.mer_binary_header = mer_binary_header
         self.mer_binary_binary = mer_binary_binary
+        self.default_mer_environment = default_mer_environment
         self.__version__ = version
 
         self.kstnm = None
@@ -342,6 +343,8 @@ class Event:
         '''
 
         if not self.measured_fs:
+            print("=> measured_fs not found  !!!!!!")
+            self.uncorrected_starttime = self.info_date
             return
 
         if self.is_stanford_event:
@@ -1025,21 +1028,24 @@ def write_traces_txt(cycles, creation_datestr, processed_path, mfloat_path):
     event_cycle_tup = ((event, cycle) for cycle in cycles for event in cycle.events if event.station_loc and not event.station_loc_is_preliminary)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
-    fmt_spec = '{:>42s}    {:>17s}    {:>17s}   \n'
+    fmt_spec = '{:>42s}    {:>17s}    {:>23s}    {:>32s}\n'
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#                                 filename              bin_mer        cycle_name    \n"
+    header_line = "#                                 filename              bin_mer                 cycle_name                             log_files\n"
 
     with open(traces_file, "w+") as f:
         f.write(version_line)
         f.write(created_line)
         f.write(header_line)
-
         for e, c in sorted(event_cycle_tup, key=lambda x: x[0].corrected_starttime):
+            log_files = ""
+            for log in c.logs :
+                log_files += "{:>17s} ".format(log.log_name)
             f.write(fmt_spec.format(e.processed_file_name,
                                     e.mer_binary_name,
-                                    c.cycle_name))
+                                    c.cycle_name,
+                                    log_files))
 
 def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each

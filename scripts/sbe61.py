@@ -192,7 +192,7 @@ class Profile:
         header += " <speed_control_mbar_per_s>"+str(self.speed_control_mbar_per_s)+"</speed_control_mbar_per_s>\r\n"
         return header
 
-    def plotly_temperature(self, export_path, csv_file):
+    def plot_temperature_html(self, export_path, csv_file):
         if list(self.data):
             # Check if file exist
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
@@ -234,15 +234,11 @@ class Profile:
                                   )
 
             figure = graph.Figure(data=data, layout=layout)
-            if arguments.local_html:
-                figure.write_html(file=export_path, include_plotlyjs=True)
-            else:
-                figure.write_html(file=export_path,
-                                  include_plotlyjs='cdn', full_html=False)
+            figure.write_html(file=export_path, include_plotlyjs=True)
         else:
             print((export_path + " can't be exploited for temperature profile"))
 
-    def plotly_salinity(self, export_path):
+    def plot_salinity_html(self, export_path):
         if list(self.data):
             # Check if file exist
             export_path = export_path + \
@@ -274,10 +270,6 @@ class Profile:
                                   hovermode='closest'
                                   )
             figure = graph.Figure(data=data, layout=layout)
-            if arguments.local_html:
-                figure.write_html(file=export_path, include_plotlyjs=True)
-            else:
-                figure.write_html(file=export_path,
-                                  include_plotlyjs='cdn', full_html=False)
+            figure.write_html(file=export_path, include_plotlyjs=True)
         else:
             print((export_path + " can't be exploited for salinity profile"))

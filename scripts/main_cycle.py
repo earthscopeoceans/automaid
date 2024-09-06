@@ -16,6 +16,7 @@ import pytz
 import shutil
 import argparse
 import datetime
+import functools
 
 import kml
 import gps_cycle as gps
@@ -109,6 +110,17 @@ write_mhpsd = True
 # Dictionary to write last-cycle vital data to output files
 lastcycle = {}
 
+
+def sort_events(eventA,eventB) :
+    if eventA.corrected_starttime and eventB.corrected_starttime :
+        return eventA.corrected_starttime - eventB.corrected_starttime
+    elif eventA.corrected_starttime and not eventB.corrected_starttime :
+        return eventA.corrected_starttime - eventB.uncorrected_starttime
+    elif not eventA.corrected_starttime and eventB.corrected_starttime :
+        return eventA.uncorrected_starttime - eventB.corrected_starttime
+    else :
+        return eventA.uncorrected_starttime - eventB.uncorrected_starttime
+
 def main():
     # Set working directory in "scripts"
     os.chdir(scripts_path)
@@ -171,8 +183,16 @@ def main():
         # Decrypt all files for this float
         preprocess.decrypt_all(mfloat_path);
 
+        # Determine the time range of analysis (generally; birth to death of a MERMAID)
+        if mfloat in filterDate.keys():
+            begin = filterDate[mfloat][0]
+            end = filterDate[mfloat][1]
+        else:
+            begin = datetime.datetime(1000, 1, 1)
+            end = datetime.datetime(3000, 1, 1)
+
         # Convert in cycle files
-        preprocess.convert_in_cycle(mfloat_path);
+        preprocess.convert_in_cycle(mfloat_path,begin,end);
 
         # Really: collect all the .MER files (next we correlate their environments to .LOG files)
         print(" ...compiling a list of events from {:s} .MER files (GPS & seismic data)..." \
@@ -183,18 +203,13 @@ def main():
         # Build list of all S61 profiles recorded
         ms61s = sbe61.Profiles(mfloat_path)
 
-        # Determine the time range of analysis (generally; birth to death of a MERMAID)
-        if mfloat in filterDate.keys():
-            begin = filterDate[mfloat][0]
-            end = filterDate[mfloat][1]
-        else:
-            begin = datetime.datetime(1000, 1, 1)
-            end = datetime.datetime(3000, 1, 1)
-
         # Collect all the .CYCLE files
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat))
-        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s, begin, end)
+        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s)
+
+        kml.generate(mfloat_path, mfloat, cycle_logs)
+
 
         # Verify dive logs are sorted as expected
         if cycle_logs!= sorted(cycle_logs, key=lambda x: x.start_date):
@@ -243,6 +258,9 @@ def main():
             # Format station-location metadata for ObsPy and attach to complete dive object
             cycle_log.set_events_obspy_trace_stats()
 
+            # Write profiles html
+            cycle_log.write_profile_html(csv_file)
+
             # Write requested output files
             if write_png:
                 cycle_log.write_events_png()
@@ -261,9 +279,8 @@ def main():
 
         # Verify events sublists are sorted as expected
         events_list = [event for cycle in cycle_logs for event in cycle.events]
-        for event in events_list:
-            print(event.corrected_starttime)
-        if events_list != sorted(events_list, key=lambda x: x.corrected_starttime):
+        # Sort event lists by corrected starttime is exist => use uncorrected_starttime elsewhere
+        if events_list != sorted(events_list, key=functools.cmp_to_key(sort_events)):
             raise ValueError('`cycle_logs[*].events` improperly sorted')
         # Plot vital data
         kml.generate(mfloat_path, mfloat, cycle_logs)
@@ -290,7 +307,7 @@ def main():
 
         # Write text file detailing which SINGLE .LOG and .MER files define
         # (possibly incomplete) dives
-        cycles.write_dives_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path)
+        cycles.write_logs_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path)
 
         # Write text file detailing .CYCLE files (init,complete dives, last dive)
         cycles.write_cycles_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path,mfloat)
@@ -311,9 +328,14 @@ def main():
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories
-        for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER"):
-            os.remove(f)
-        for f in glob.glob(mfloat_path + "/" + "*.CYCLE"):
+        files_to_delete = list()
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S41")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S61")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.BIN")
+        files_to_delete += glob.glob(mfloat_path + "/" + "*.CYCLE")
+        for f in files_to_delete:
             os.remove(f)
         # Save the last complete dive of this float to later write output list
         # of external pressure measurements for the entire array

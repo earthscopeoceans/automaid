@@ -35,19 +35,27 @@ class Log:
     mer_environment = None
     mer_environment_name = None
     mer_environment_name_exists = False
+
+    s41_file_name = None
+    s41_file_name_exists = False
+    s61_file_name = None
+    s61_file_name_exists = False
+
     p2t_offset_param = None
     p2t_offset_measurement = None
     p2t_offset_corrected = None
     dive_id = None
     kstnm = None
     kinst = None
-    def __init__(self,base_path,events,log_name,log_content,kstnm,kinst,begin,end):
+    is_partial = False
+
+    def __init__(self,base_path,events,log_name,log_content,kstnm,kinst):
         self.base_path = base_path
         self.log_name = log_name
         self.log_content = log_content
         self.kstnm = kstnm
         self.kinst = kinst
-
+        print("{} (Log)".format(self.log_name))
         # Get the date from the file name -- the hexadecimal component of the
         # .LOG file name is the same Unix Epoch time as the first line of the
         # LOG file (there in int seconds); i.e., .LOG files are named for the
@@ -59,7 +67,7 @@ class Log:
         self.len_secs = int(self.end_date - self.start_date)
         self.len_days = self.len_secs / (60*60*24.)
         # get gps list from log file
-        self.gps_list_from_log = gps.get_gps_from_log_content(self.log_name, log_content, begin, end)
+        self.gps_list_from_log = gps.get_gps_from_log_content(self.log_name, log_content)
         # Find external pressure offset
         # Commanded as "p2t qm!offset ??? "in .cmd file
         # Reported as "...p2t37: ??x????s, offset ???mbar" in .LOG file
@@ -135,6 +143,7 @@ class Log:
                         dive_id = re.search("<DIVE ID=(\d+)", self.mer_environment)
                         self.dive_id = int(dive_id.group(1))
 
+        # Get list of gps even with partial file
         self.gps_list_from_mermaid = events.get_gps_between(self.start_date, self.end_date);
         # Get list of events associated with this .MER file's environment
         # (the metadata header, which does not necessarily relate to the
@@ -142,18 +151,37 @@ class Log:
         self.events = events.get_events_between(self.start_date, self.end_date)
         # Set and parse info from .MER file and invert wavelet transform any binary data
         # (cannot invert the data without vital information from the .MER environment)
-        if self.mer_environment:
-            for event in self.events:
-                event.set_kstnm_kinst(self.kstnm, self.kinst)
-                event.set_environment(self.mer_environment_name, self.mer_environment)
-                event.find_measured_sampling_frequency()
-                event.set_uncorrected_starttime()
-                event.set_processed_data()
+        if not self.mer_environment and len(self.events) > 0:
+            # Mer file is not logged on LOG file but events are found during this dive
+            # E.g : 12_65B5EC90.LOG / 12_65BF9636.MER
+            self.mer_environment = self.events[0].default_mer_environment
+
+        for event in self.events:
+            event.set_kstnm_kinst(self.kstnm, self.kinst)
+            event.set_environment(self.mer_environment_name, self.mer_environment)
+            event.find_measured_sampling_frequency()
+            event.set_uncorrected_starttime()
+            event.set_processed_data()
         # Re-sort events based on starttime (rather than INFO DATE)
         self.events.sort(key=lambda x: x.uncorrected_starttime)
         # Merge gps list into an unique
         self.gps_list = gps.merge_gps_list(self.gps_list_from_log,self.gps_list_from_mermaid)
-
+        # Check if CTD samples stored on S41 file
+        sbe41_catch = re.findall("samples in (\w+/\w+\.S41)", self.log_content)
+        if len(sbe41_catch) > 0:
+            self.s41_file_name = sbe41_catch[-1].replace("/", "_")
+            # Sometimes the S41 .file named in the .LOG does not exist on the server
+            s41_fullfile_name = self.base_path + self.s41_file_name
+            if os.path.exists(s41_fullfile_name):
+                self.s41_file_name_exists = True
+        # Check if CTD samples stored on S61 file
+        sbe61_catch = re.findall("samples in (\w+/\w+\.S61)", self.log_content)
+        if len(sbe61_catch) > 0:
+            self.s61_file_name = sbe61_catch[-1].replace("/", "_")
+            # Sometimes the S41 .file named in the .LOG does not exist on the server
+            s61_fullfile_name = self.base_path + self.s61_file_name
+            if os.path.exists(s61_fullfile_name):
+                self.s61_file_name_exists = True
 # Class to manipulate cycle files
 class Cycle:
     '''
@@ -187,6 +215,8 @@ class Cycle:
     end_cycle = None
 
     logs = None
+    complete_logs = None
+
     events = None
     profilesS41 = None
     profilesS61 = None
@@ -200,13 +230,17 @@ class Cycle:
     gps_sync_after_dive = None
     gps_sync_list = None
 
+    # Dates
     descent_leave_surface_date = None
+    ascent_start_date = None
     ascent_reach_surface_date = None
 
     is_init = False
     is_dive = False
     is_complete_cycle = False
 
+    mermaid_reboots = None
+    emergency_triggers = None
     pressure_mbar = None
 
     gps_valid4clockdrift_correction = None
@@ -228,11 +262,10 @@ class Cycle:
     last_p2t_offset_param = None
     last_p2t_log_name = None
 
-
     # Class attribute to hold MERMAID "MH" FDSN network code
     network = utils.network()
 
-    def __init__(self, base_path=None, cycle_name=None, events=None, profilesS41=None ,profilesS61=None, begin=None, end=None):
+    def __init__(self, base_path=None, cycle_name=None, events=None, profilesS41=None ,profilesS61=None):
         self.base_path = base_path
         self.__version__ = version
         self.cycle_name = cycle_name
@@ -270,21 +303,27 @@ class Cycle:
             if match_buoy :
                 find_name = match_buoy[0]
             if find_name :
-                print(find_name)
                 self.station_name = find_name
                 self.station_number = self.station_name.split("-")[-1]
                 # Zero-pad the (unique part) of the station name so that it is five characters long
                 self.set_kstnm_kinst()
                 break;
 
-        # Retreive log informations into a cycle
+        # Retreive log source informations into a cycle
         self.logs = []
         logs_content = self.cycle_content.split("[PREPROCESS]")[1:]
         for log_content in logs_content:
             log_name = re.findall("Create (\d+_[A-Z0-9]+\.LOG)", log_content)
             if log_name :
-                self.logs.append(Log(base_path,events,log_name[0],log_content,self.kstnm,self.kinst,begin,end))
+                lobject = Log(base_path,events,log_name[0],log_content,self.kstnm,self.kinst)
+                self.logs.append(lobject)
+            end_of_cycle = re.findall("End of cycle", log_content)
+            if end_of_cycle :
+                # Last part of cycle content is an incomplete log file content
+                self.logs[-1].is_partial = True
 
+        # Make a list of complete log file
+        self.complete_logs = [log for log in self.logs if not log.is_partial]
         # List all events into a cycle
         self.events = [event for log in self.logs for event in log.events]
         # List all offset correction
@@ -303,7 +342,8 @@ class Cycle:
         # I do not know if pressure values are repeated over fragmented LOGs...
         # DO NOT DO: `('\[PRESS ,\s*\d+\]P\s*(\+?\-?\d+)mbar', self.cycle_content)`
         # because "P.*mbar" is a valid pressure, even if prefixed with "[SURFIN, ..."
-        self.pressure_mbar = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.cycle_content)
+        # Add \] before P to delete log when battery measurement are done (for new buoys)
+        self.pressure_mbar = utils.find_timestamped_values("\]P\s*(\+?\-?\d+)mbar", self.cycle_content)
 
         # Check if the .CYCLE corresponds to float initialization
         if self.cycle_nb == 0 :
@@ -323,14 +363,37 @@ class Cycle:
             self.is_complete_cycle = True
             self.end_cycle = complete[0][1]
 
+        # Find start of surfacing date
+        # Start of surfacing can be triggered by start of last stage (CTD profile)
+        surfacing_stage = utils.find_timestamped_values("\]Stage \[(\d+)\] surfacing", self.cycle_content)
+        if surfacing_stage:
+            # Surfacing stage
+            stage_nb = surfacing_stage[0][0]
+            regex_stage_begin = "\[MAIN  *, *\d+\]stage\[" + stage_nb + "\]"
+            stage_begin = utils.find_timestamped_values(regex_stage_begin, self.cycle_content)
+            if stage_begin :
+                self.ascent_start_date = stage_begin[0][1]
+        # By default surfacing is triggered when all stage are finished
+        if not self.ascent_start_date :
+            surfacing = utils.find_timestamped_values("\[MAIN *, *\d+\]surfacing", self.cycle_content)
+            if surfacing :
+                self.ascent_start_date = surfacing[-1][1]
+
         # Find Reach surface date
         # It's possible that MERMAID physically dive and returned to the surface but there was
         # an error with the .LOG, so that information was not recorded (ex. 25_5B9CF6CF.LOG)
-        # Log files may record several bladder fillings at the start of a mission
-        surfin = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.cycle_content)
-        if surfin and self.is_dive and surfin[-1][-1] > self.descent_leave_surface_date:
-            self.ascent_reach_surface_date = surfin[-1][-1]
+        # Log files may record several bladder fillings during a mission
+        fillb_list = utils.find_timestamped_values("\[SURFIN, *\d+\]filling external bladder", self.cycle_content)
+        for fillb in fillb_list :
+            if fillb[1] > self.ascent_start_date :
+                # find first fill after surfacing start
+                self.ascent_reach_surface_date = fillb[1]
+                break
 
+        # Find if emergency triggered
+        self.emergency_triggers = utils.find_timestamped_values("\]<ERR>TRIGGERED BY (.*)",self.cycle_content)
+        # Find if mermaid reboot occurs
+        self.mermaid_reboots = utils.find_timestamped_values("\]\$BOARD",self.cycle_content)
         # Generate the directory name (CycleNB_Date)
         self.directory_name = filename_split[0] + "_" + self.start_date.strftime("%Y%m%d-%Hh%Mm%Ss")
         if self.is_init:
@@ -356,17 +419,17 @@ class Cycle:
                 # All gps before leave surface (last cycle positions)
                 if self.descent_leave_surface_date and gps.date < self.descent_leave_surface_date :
                     self.gps_before_dive.append(gps)
-                    if gps.clockdrift is not None:
+                    if gps.clockdrift is not None and gps.clockfreq is not None:
                         self.gps_sync_before_dive.append(gps)
                 # All gps after leave surface (cycle positions when dive)
                 if self.ascent_reach_surface_date and gps.date > self.ascent_reach_surface_date :
                     self.gps_after_dive.append(gps)
-                    if gps.clockdrift is not None:
+                    if gps.clockdrift is not None and gps.clockfreq is not None:
                         self.gps_sync_after_dive.append(gps)
                 # All gps of this cycle (unique for a cycle)
                 if gps.date > self.start_cycle :
                     self.gps_list.append(gps)
-                    if gps.clockdrift is not None:
+                    if gps.clockdrift is not None and gps.clockfreq is not None:
                         self.gps_sync_list.append(gps)
     def __len__(self):
         return 1
@@ -460,7 +523,7 @@ class Cycle:
         bypass = utils.find_timestamped_values(":\[BYPASS", self.cycle_content)
         valve = utils.find_timestamped_values(":\[VALVE", self.cycle_content)
         pump = utils.find_timestamped_values(":\[PUMP", self.cycle_content)
-        mermaid_events = utils.find_timestamped_values("[MRMAID,\d+] *\d+dbar, *-?\d+degC", self.cycle_content)
+        mermaid_events = utils.find_timestamped_values("\[MRMAID,\d+\] *\d+dbar, *-?\d+degC", self.cycle_content)
 
         # Return if there is no data to plot
         if len(pressure) < 1:
@@ -519,8 +582,25 @@ class Cycle:
                                                           ymax=maximum,
                                                           name="MERMAID events",
                                                           color="purple")
+        # Add emergency if any
+        emergency_triggers = [pp[1] for pp in self.emergency_triggers]
+        emergency_triggers_line = utils.plotly_vertical_shape(emergency_triggers,
+                                                                  ymin=minimum,
+                                                                  ymax=maximum,
+                                                                  name="Emergency",
+                                                                  color="black",
+                                                                  width=2.0)
+        # Add mermaid reboot if any
+        mermaid_reboots = [pp[1] for pp in self.mermaid_reboots]
+        mermaid_reboots_line = utils.plotly_vertical_shape(mermaid_reboots,
+                                                                  ymin=minimum,
+                                                                  ymax=maximum,
+                                                                  name="MERMAID reboot",
+                                                                  color="red",
+                                                                  width=2.0)
 
-        data = [bypass_line, valve_line, pump_line, mermaid_events_line, depth_line]
+
+        data = [bypass_line, valve_line, pump_line, mermaid_events_line, depth_line, emergency_triggers_line, mermaid_reboots_line]
 
         layout = graph.Layout(title=self.directory_name + '/' + self.cycle_name,
                               xaxis=dict(title='Coordinated Universal Time (UTC)', titlefont=dict(size=18)),
@@ -590,15 +670,13 @@ class Cycle:
         if self.gps_sync_before_dive:
             gps_before = self.gps_sync_before_dive
         else:
-            print("!!!!!!!!!!! self.gps_sync_before_dive")
-            print(self.cycle_name)
-            print(self.descent_leave_surface_date)
+            print("Cycle {} : no gps sync before dive ({})".format(self.cycle_nb,self.ascent_reach_surface_date))
             return
 
         if self.gps_sync_after_dive:
             gps_after = self.gps_sync_after_dive
         else:
-            print("!!!!!!!!!!! self.gps_sync_after_dive")
+            print("Cycle {} : no gps sync after dive ({})".format(self.cycle_nb,self.ascent_reach_surface_date))
             return
 
         # Ensure MERMAID clock synchronized with last(first) GPS before(after) diving(surfacing)
@@ -609,7 +687,9 @@ class Cycle:
            and gps_after[0].clockdrift < 5:
            self.gps_valid4clockdrift_correction = True
         else:
-            print("!!!!!!!!!!! gps_valid4clockdrift_correction is false")
+            print("Cycle {} : clockdrift or clockfreq not valid".format(self.cycle_nb))
+            print("******** : before drift {} freq {}".format(gps_before[-1].clockdrift,gps_before[-1].clockfreq))
+            print("******** : after drift {} freq {}".format(gps_after[0].clockdrift,gps_after[0].clockfreq))
             return
 
         # We only require that `gps.mer_time_log_loc()` be true for the
@@ -630,6 +710,7 @@ class Cycle:
                     count += 1
 
             if count < num_gps:
+                print("Cycle {} : not enough positions before leave surface ({})".format(self.cycle_nb,self.descent_leave_surface_date))
                 return
 
             # Ensure the required number of valid GPS exist within the required
@@ -641,6 +722,7 @@ class Cycle:
                     count += 1
 
             if count < num_gps:
+                print("Cycle {} : not enough positions after ascent ({})".format(self.cycle_nb,self.ascent_reach_surface_date))
                 return
 
         # If here, all tests passed
@@ -903,7 +985,10 @@ class Cycle:
                 event.plot_png_stanford(self.processed_path)
 
     def write_profile_html(self, csv_file):
-        for profile in self.profiles:
+        for profile in self.profilesS41:
+            profile.plot_temperature_html(self.processed_path,csv_file)
+            profile.plot_salinity_html(self.processed_path)
+        for profile in self.profilesS61:
             profile.plot_temperature_html(self.processed_path,csv_file)
             profile.plot_salinity_html(self.processed_path)
 
@@ -920,31 +1005,45 @@ class Cycle:
             event.write_mhpsd(self.processed_path, creation_datestr)
 
     def print_len(self):
-        len_str  = "   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s}/{:s})" \
+        len_str  = "   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \
                    .format(str(self.start_date)[0:19], str(self.end_date)[0:19],
-                           self.len_days, self.cycle_name[0], self.cycle_name[-1])
+                           self.len_days, self.cycle_name)
         print(len_str)
         return len_str + "\n"
 
-    def print_log_mer_id(self):
+    def print_log_mer_profile(self):
         log_mer_str = ""
         for i,_ in enumerate(self.logs):
             if self.logs[i].dive_id is None:
                 id_str = "     ID: <none>"
             else:
                 id_str = "     ID: #{:>5d}".format(self.logs[i].dive_id)
+
+            if self.logs[i].s41_file_name :
+                profile_str = "{:s}.".format(self.logs[i].s41_file_name)
+            elif self.logs[i].s61_file_name :
+                profile_str = "{:s}.".format(self.logs[i].s61_file_name)
+            else :
+                profile_str = "<none>"
+
             if self.logs[i].log_name and self.logs[i].mer_environment_name:
-                tmp_str = "{:s} ({:s}, {:s})".format(id_str, self.logs[i].log_name, self.logs[i].mer_environment_name)
+                if self.logs[i].is_partial :
+                    tmp_str = "{:s} ({:s},<partial>) ({:s}) ({:s})".format(id_str, self.logs[i].log_name, self.logs[i].mer_environment_name,profile_str)
+                else :
+                    tmp_str = "{:s} ({:s},<complet>) ({:s}) ({:s})".format(id_str, self.logs[i].log_name, self.logs[i].mer_environment_name,profile_str)
             elif self.logs[i].log_name and not self.logs[i].mer_environment_name:
                 # For example, 16_5F9C20FC.MER, which would have been P-16 Dive
                 # #120, and which was supposedly uploaded associated with
                 # 16_5F92A09C.LOG, does not/never existed on the server (no idea
                 # what happened)
-                tmp_str = "{:s} ({:s}, <none>)".format(id_str, self.logs[i].log_name)
+                if self.logs[i].is_partial :
+                    tmp_str = "{:s} ({:s},<partial>) (<none>) ({:s})".format(id_str, self.logs[i].log_name,profile_str)
+                else :
+                    tmp_str = "{:s} ({:s},<complet>) (<none>) ({:s})".format(id_str, self.logs[i].log_name,profile_str)
             elif self.logs[i].mer_environment_name and not self.logs[i].log_name:
-                tmp_str = "{:s} (<none>, {:s})".format(id_str, self.logs[i].mer_environment_name)
+                tmp_str = "{:s} (<none>, <none>) ({:s}) ({:s})".format(id_str, self.logs[i].mer_environment_name,profile_str)
             else:
-                tmp_str = "(<none>, <none>)".format()
+                tmp_str = "(<none>, <none>) (<none>) ({:s})".format(profile_str)
             print(tmp_str)
             log_mer_str += tmp_str + "\n"
 
@@ -958,19 +1057,22 @@ class Cycle:
             evt_str += tmp_str + "\n"
         else:
             for e in self.events:
+                processed_file_name = e.processed_file_name
+                if processed_file_name is None :
+                    processed_file_name = "<None>"
                 if e.station_loc is None:
                     tmp_str = " Event: ! NOT MADE ! (invalid and/or not enough GPS fixes) {:s} (</EVENT> binary in {:s})" \
-                              .format(e.processed_file_name, e.mer_binary_name)
+                              .format(processed_file_name, e.mer_binary_name)
                 else:
                     tmp_str = "  Event: {:s} (</EVENT> binary in {:s})" \
-                              .format(e.processed_file_name, e.mer_binary_name)
+                              .format(processed_file_name, e.mer_binary_name)
                 print(tmp_str)
                 evt_str += tmp_str + "\n"
         return evt_str
 
 
 # Create dives object
-def get_cycles(path, events, profilesS41, profilesS61, begin, end):
+def get_cycles(path, events, profilesS41, profilesS61):
     # Get the list of cycle files
     cycle_names = glob.glob(path + "*.CYCLE")
     cycle_names = [os.path.basename(x) for x in cycle_names]
@@ -978,7 +1080,7 @@ def get_cycles(path, events, profilesS41, profilesS61, begin, end):
     # Create Cycle objects
     cycles = []
     for cycle_name in cycle_names:
-        c = Cycle(path, cycle_name, events, profilesS41, profilesS61 , begin, end)
+        c = Cycle(path, cycle_name, events, profilesS41, profilesS61)
         if c.cycle_content:
             cycles.append(c)
     return cycles
@@ -991,7 +1093,6 @@ def write_cycles_txt(cycles, creation_datestr, processed_path, mfloat_path, mflo
     A complete cycle is defined by two successive descents of the profiler.
 
     '''
-
     cycles_file = os.path.join(processed_path, mfloat_path, "cycles.txt")
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
@@ -1000,15 +1101,27 @@ def write_cycles_txt(cycles, creation_datestr, processed_path, mfloat_path, mflo
         f.write(version_line)
         f.write(created_line)
 
-        for d in sorted(cycles, key=lambda x: x.start_date):
-            print("Cycles")
-            f.write("Cycles\n")
-
+        for cycle in sorted(cycles, key=lambda x: x.start_date):
+            print("Cycle {}\n".format(cycle.cycle_nb))
+            f.write("Cycle {}\n".format(cycle.cycle_nb))
+            # Print emergency triggers
+            if cycle.emergency_triggers:
+                causes = ""
+                for trig in cycle.emergency_triggers:
+                    causes += "{} ".format(trig[0])
+                print("Emergency : ({})\n".format(causes))
+                f.write("Emergency : ({})\n".format(causes))
+            # Print mermaid reboot events
+            if cycle.mermaid_reboots:
+                dates = ""
+                for reboot in cycle.mermaid_reboots:
+                    dates += "{} ".format(reboot[1])
+                print("Mermaid reboot : ({})\n".format(dates))
+                f.write("Mermaid reboot : ({})\n".format(dates))
             # These methods both return, and print to stdout, the same formatted string
-            f.write(d.print_len())
-            f.write(d.print_log_mer_id())
-            f.write(d.print_events())
-
+            f.write(cycle.print_len())
+            f.write(cycle.print_log_mer_profile())
+            f.write(cycle.print_events())
             print("")
             f.write("\n")
 
@@ -1022,29 +1135,30 @@ def write_cycles_txt(cycles, creation_datestr, processed_path, mfloat_path, mflo
         f.write(sac_str)
 
 
-def write_dives_txt(cycles, creation_datestr, processed_path, mfloat_path):
+def write_logs_txt(cycles, creation_datestr, processed_path, mfloat_path):
     '''Writes dives.txt, which treats every .LOG as a single (possibly incomplete) dive
 
     Prints all data for every .LOG/.MER in the server; does not, e.g., only
     print info associated with those .LOG/.MER within datetime range of  `main.py`
 
     '''
-    dives_file = os.path.join(processed_path, mfloat_path, "dives.txt")
-    fmt_spec = "{:>8s}    {:>20s}    {:>20s}    {:>10d}    {:>9.3f}    {:>17s}    {:>17s}\n"
+    logs_file = os.path.join(processed_path, mfloat_path, "logs.txt")
+    fmt_spec = "{:>9s}    {:>8s}    {:>20s}    {:>20s}    {:>10d}    {:>9.3f}    {:>17s}    {:>17s}\n"
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#dive_id               log_start                 log_end      len_secs     len_days             cycle_name         mer_env_name\n".format()
+    header_line = "#cycle_nb     dive_id               log_start                 log_end      len_secs     len_days             cycle_name         mer_env_name\n".format()
 
-    with open(dives_file, "w+") as f:
+    with open(logs_file, "w+") as f:
         f.write(version_line)
         f.write(created_line)
         f.write(header_line)
 
         # 1 .LOG == 1 dive
         for cycle in sorted(cycles, key=lambda x: x.start_date):
-            for log in sorted(cycle.logs, key=lambda x: x.start_date):
-                f.write(fmt_spec.format(str(log.dive_id),
+            for log in sorted(cycle.complete_logs, key=lambda x: x.start_date):
+                f.write(fmt_spec.format(str(cycle.cycle_nb),
+                                        str(log.dive_id),
                                         str(log.start_date)[:19] + 'Z',
                                         str(log.end_date)[:19] + 'Z',
                                         int(log.len_secs),

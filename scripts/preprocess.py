@@ -12,20 +12,19 @@ from obspy import UTCDateTime
 
 mermaid_path = os.environ["MERMAID"]
 database_path = os.path.join(mermaid_path, "database")
-
-
-'''
-
-Update databases files into 'database_path' (need connection)
-(Does not stop script execution if connection is not established)
-
-Keyword arguments:
-path -- Path to store databases, can be null (defaut : os.environ["MERMAID"]/database)
-
-'''
-
 DATABASE_LINK_NAME = "Databases.json"
+
+
 def database_update(path):
+    '''
+
+    Update databases files into 'database_path' (need connection)
+    (Does not stop script execution if connection is not established)
+
+    Keyword arguments:
+    path -- Path to store databases, can be null (defaut : os.environ["MERMAID"]/database)
+
+    '''
     print("Update Databases")
     network = 1
     if path :
@@ -122,6 +121,7 @@ def concatenate_files(path):
                             fl.write(bin)
                         bin = b''
 
+# Get database name with linker file and version read on file
 '''
 
 Read link file and return the database associated with the binary file.
@@ -131,7 +131,6 @@ file_version -- String contain version of profiler with format MAJOR.MINOR
 model -- Model number of the profiler (0:classic;1:Marittimo(Moored version);2:Multimer(Next generation))
 
 '''
-# Get database name with linker file and version read on file
 def decrypt_get_database(file_version,model) :
     link_path = os.path.join(database_path,DATABASE_LINK_NAME)
     if os.path.exists(link_path):
@@ -188,19 +187,19 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
     IDbytes = f.read(2)
     if len(IDbytes) != 2 :
         print("err:IDbytes")
-        return "err:IDbytes\r\n";
+        return "";
     TIMESTAMPbytes = f.read(4)
     if len(TIMESTAMPbytes) != 4 :
         print("err:TIMESTAMPbytes")
-        return "err:TIMESTAMPbytes\r\n";
+        return "";
     INFOSbytes = f.read(1)
     if INFOSbytes == "" :
         print("err:INFOSbytes")
-        return "err:INFOSbytes\r\n";
+        return "";
     DATASIZEbytes = f.read(1)
     if DATASIZEbytes == "" :
         print("err:DATASIZEbytes")
-        return "err:DATASIZEbytes\r\n";
+        return "";
     #unpack head
     try :
         id = struct.unpack('<H', IDbytes)[0]
@@ -210,7 +209,7 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
     except :
         traceback.print_exc()
         print("err:header")
-        return "err:header\r\n";
+        return "";
 
     #Process head
     idString = "0x"+"{0:0{1}X}".format(id,4)+"UL"
@@ -265,8 +264,9 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
         string += str(timestamp) + ":" + type_string + "["+"{:04d}".format(id)+"] Format not found\r\n"
         return string
     #print (Formats)
-    string += str(timestamp) + ":" + type_string
+    string += str(timestamp) + ":"
     string +="["+"{:6}".format(File)+","+"{:04d}".format(id)+"]"
+    string += type_string
     index=0
     argIndex=0
     if dataSize > 0:
@@ -275,11 +275,11 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
             ARGINFOSByte = f.read(1)
             if ARGINFOSByte == "":
                 print("err:ARGINFOSByte")
-                return "err:ARGINFOSByte\r\n"
+                return "";
             ARGSIZEByte = f.read(1)
             if ARGSIZEByte == "":
                 print("err:ARGSIZEByte")
-                return "err:ARGSIZEByte\r\n"
+                return "";
             #Unpack Argument Head
             try :
                 ArgInfos=struct.unpack('<B', ARGINFOSByte)[0]
@@ -287,7 +287,7 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
             except :
                 traceback.print_exc()
                 print("err:INFOSSIZE")
-                return "err:INFOSSIZE\r\n"
+                return "";
 
             #Process Argument Head
             ArgInfosBinary="{0:08b}".format(ArgInfos)
@@ -305,76 +305,76 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
                         ArgByte = f.read(4)
                         if len(ArgByte) != 4 :
                             print("err:TYPE00SIZE04")
-                            return "err:TYPE00SIZE04\r\n"
+                            return "";
                         try :
                             Arg = struct.unpack('<i', ArgByte)[0]
                         except :
                             traceback.print_exc()
                             print("err:TYPE00SIZE04")
-                            return "err:TYPE00SIZE04\r\n"
+                            return "";
                     elif ArgSize == 2:
                         ArgByte = f.read(2)
                         if len(ArgByte) != 2 :
                             print("err:TYPE00SIZE02")
-                            return "err:TYPE00SIZE02\r\n"
+                            return "";
                         try :
                             Arg = struct.unpack('<h', ArgByte)[0]
                         except :
                             traceback.print_exc()
                             print("err:TYPE00SIZE02")
-                            return "err:TYPE00SIZE02\r\n"
+                            return "";
                     elif ArgSize == 1:
                         ArgByte = f.read(1)
                         if ArgByte == "" :
                             print("err:TYPE00SIZE01")
-                            return "err:TYPE00SIZE01\r\n"
+                            return "";
                         try :
                             Arg = struct.unpack('<b', ArgByte)[0]
                         except :
                             traceback.print_exc()
                             print("err:TYPE00SIZE01")
-                            return "err:TYPE00SIZE01\r\n"
+                            return "";
                 elif ArgType == "01":
                     # unsigned integer
                     if ArgSize == 4:
                         ArgByte = f.read(4)
                         if len(ArgByte) != 4 :
                             print("err:TYPE01SIZE04")
-                            return "err:TYPE01SIZE04\r\n"
+                            return "";
                         try :
                             Arg = struct.unpack('<I', ArgByte)[0]
                         except :
                             traceback.print_exc()
                             print("err:TYPE01SIZE04")
-                            return "err:TYPE01SIZE04\r\n"
+                            return "";
                     elif ArgSize == 2:
                         ArgByte = f.read(2)
                         if len(ArgByte) != 2 :
                             print("err:TYPE01SIZE02")
-                            return "err:TYPE01SIZE02\r\n"
+                            return "";
                         try :
                             Arg = struct.unpack('<H', ArgByte)[0]
                         except :
                             traceback.print_exc()
                             print("err:TYPE01SIZE02")
-                            return "err:TYPE01SIZE02\r\n"
+                            return "";
                     elif ArgSize == 1:
                         ArgByte = f.read(1)
                         if ArgByte == "":
                             print("err:TYPE01SIZE01")
-                            return "err:TYPE01SIZE01\r\n"
+                            return "";
                         try :
                             Arg = struct.unpack('<B', ArgByte)[0]
                         except :
                             traceback.print_exc()
                             print("err:TYPE01SIZE01")
-                            return "err:TYPE01SIZE01\r\n"
+                            return "";
                 elif ArgType == "11":
                     # string
                     ArgByte = f.read(ArgSize)
                     if len(ArgByte) != ArgSize :
                         print("err:TYPE11")
-                        return "err:TYPE11\r\n"
+                        return "";
                     if ArgByte[ArgSize-1] == 0 :
                         ArgByte = ArgByte[:-1]
                     Arg = ArgByte
@@ -383,19 +383,25 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
                     except :
                         traceback.print_exc()
                         print("err:TYPE11")
-                        return "err:TYPE11\r\n"
+                        return "";
                     #replace none ascii characters
                 #print (ArgSize)
                 #print ("Format : " + str(Formats[argIndex]) + "\r\n")
                 try :
+                    if "%c" in Formats[argIndex]:
+                        if Arg < 0 :
+                            Arg = 0
+                        elif Arg > 0x10FFFF:
+                            Arg = 0x10FFFF
+
                     if "%.*s" in Formats[argIndex]:
                         string += (Formats[argIndex] % (ArgSize,Arg))
                     else :
                         string += (Formats[argIndex] % Arg)
                 except :
                     traceback.print_exc()
-                    print("error format")
-                    return "err:format\r\n"
+                    print("error format \"{}\" ARG {}".format(Formats[argIndex],Arg))
+                    return "";
             else :
                 #print ("Format : " + str(Formats[argIndex]) + "\r\n")
                 string += str(Formats[argIndex])
@@ -408,46 +414,43 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
     string += "\r\n"
     return string
 
-
-
-
-'''
-
-Decrypts a log line using an short format
-The number and size of arguments is implicit.
-Only frequently recurring logs use this format.
-(Pressure measurement, Pump time, valve time ...)
-
-Keyword arguments:
-f -- file reader
-
-'''
-
 def decrypt_short(f) :
+    '''
+
+    Decrypts a log line using an short format
+    The number and size of arguments is implicit.
+    Only frequently recurring logs use this format.
+    (Pressure measurement, Pump time, valve time ...)
+
+    Keyword arguments:
+    f -- file reader
+
+    '''
+
     string = ""
     id = f.read(1)
     format = ""
     shortId = 256
     if id == "" :
         print("err:EMPTYSHORTID")
-        return "err:EMPTYSHORTID\r\n";
+        return "";
     try :
         shortId = struct.unpack('<B', id)[0]
     except :
         traceback.print_exc()
         print("err:UNPACKSHORTID")
-        return "err:UNPACKSHORTID\r\n"
+        return "";
     if shortId == 0 :
         # Pressure LOG
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         # pressure measure
         PRESSbytes = f.read(4)
         if len(PRESSbytes) != 4 :
             print("err:PRESSbytes")
-            return "err:PRESSbytes\r\n";
+            return "";
         timestamp = 0
         pressure = 0
         try :
@@ -457,7 +460,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKPRESS")
-            return "err:UNPACKPRESS\r\n"
+            return "";
         format = str(timestamp) + ":[PRESS ,0038]P%+7dmbar\r\n"
         return format % pressure
     elif shortId == 1 :
@@ -465,11 +468,11 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         PUMPTIMEbytes = f.read(4)
         if len(PUMPTIMEbytes) != 4 :
             print("err:PUMPTIMEbytes")
-            return "err:PUMPTIMEbytes\r\n";
+            return "";
         timestamp = 0
         pump_time = 0
         try :
@@ -479,7 +482,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKPUMPTIME")
-            return "err:UNPACKPUMPTIME\r\n"
+            return "";
         format = str(timestamp) + ":[PUMP  ,0016]pump during %dms\r\n"
         return format % pump_time
     elif shortId == 2 :
@@ -487,11 +490,11 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         VALVETIMEbytes = f.read(4)
         if len(VALVETIMEbytes) != 4 :
             print("err:VALVETIMEbytes")
-            return "err:VALVETIMEbytes\r\n";
+            return "";
         timestamp = 0
         valve_time = 0
         try :
@@ -501,7 +504,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKVALVETIME")
-            return "err:UNPACKVALVETIME\r\n"
+            return "";
         format = str(timestamp) + ":[VALVE ,0034]valve opening %dms\r\n"
         return format % valve_time
     elif shortId == 3 :
@@ -509,11 +512,11 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         BYPASSTIMEbytes = f.read(4)
         if len(BYPASSTIMEbytes) != 4 :
             print("err:BYPASSTIMEbytes")
-            return "err:BYPASSTIMEbytes\r\n";
+            return "";
         timestamp = 0
         bypass_time = 0
         try :
@@ -523,7 +526,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKBYPASSTIME")
-            return "err:UNPACKBYPASSTIME\r\n"
+            return "";
         format = str(timestamp) + ":[BYPASS,0035]bypass opening %dms\r\n"
         return format % bypass_time
     elif shortId == 4 :
@@ -531,19 +534,19 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         PUMPVOLTbytes = f.read(4)
         if len(PUMPVOLTbytes) != 4 :
             print("err:PUMPVOLTbytes")
-            return "err:PUMPVOLTbytes\r\n";
+            return "";
         PUMPCURRENTbytes = f.read(4)
         if len(PUMPCURRENTbytes) != 4 :
             print("err:PUMPCURRENTbytes")
-            return "err:PUMPCURRENTbytes\r\n";
+            return "";
         PUMPPRESSbytes = f.read(4)
         if len(PUMPPRESSbytes) != 4 :
             print("err:PUMPPRESSbytes")
-            return "err:PUMPPRESSbytes\r\n";
+            return "";
         timestamp = 0
         pump_volt = 0
         pump_current = 0
@@ -557,7 +560,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKPUMPPOWER")
-            return "err:UNPACKPUMPPOWER\r\n"
+            return "";
         format = str(timestamp) + ":[PUMP  ,0212]battery %5dmV, %7duA (steady state), P%+7dmbar\r\n"
         return format % (pump_volt,pump_current,pump_press)
     elif shortId == 5 :
@@ -565,19 +568,19 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         VALVEVOLTbytes = f.read(4)
         if len(VALVEVOLTbytes) != 4 :
             print("err:VALVEVOLTbytes")
-            return "err:VALVEVOLTbytes\r\n";
+            return "";
         VALVECURRENTbytes = f.read(4)
         if len(VALVECURRENTbytes) != 4 :
             print("err:VALVECURRENTbytes")
-            return "err:VALVECURRENTbytes\r\n";
+            return "";
         VALVEPRESSbytes = f.read(4)
         if len(VALVEPRESSbytes) != 4 :
             print("err:VALVEPRESSbytes")
-            return "err:VALVEPRESSbytes\r\n";
+            return "";
         timestamp = 0
         valve_volt = 0
         valve_current = 0
@@ -591,7 +594,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKVALVEPOWER")
-            return "err:UNPACKVALVEPOWER\r\n"
+            return "";
         format = str(timestamp) + ":[VALVE ,0234]battery %5dmV, %7duA, P%+7dmbar\r\n"
         return format % (valve_volt,valve_current,valve_press)
     elif shortId == 6 :
@@ -599,19 +602,19 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         BPOPENVOLTbytes = f.read(4)
         if len(BPOPENVOLTbytes) != 4 :
             print("err:BPOPENVOLTbytes")
-            return "err:BPOPENVOLTbytes\r\n";
+            return "";
         BPOPENCURRENTbytes = f.read(4)
         if len(BPOPENCURRENTbytes) != 4 :
             print("err:BPOPENCURRENTbytes")
-            return "err:BPOPENCURRENTbytes\r\n";
+            return "";
         BPOPENPRESSbytes = f.read(4)
         if len(BPOPENPRESSbytes) != 4 :
             print("err:BPOPENPRESSbytes")
-            return "err:BPOPENPRESSbytes\r\n";
+            return "";
         timestamp = 0
         bpopen_volt = 0
         bpopen_current = 0
@@ -625,7 +628,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKVALVEPOWER")
-            return "err:UNPACKVALVEPOWER\r\n"
+            return "";
         format = str(timestamp) + ":[BYPASS,0104]battery %5dmV, %7duA (bypass opening), P%+7dmbar\r\n"
         return format % (bpopen_volt,bpopen_current,bpopen_press)
     elif shortId == 7 :
@@ -633,19 +636,19 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         BPCLOSEVOLTbytes = f.read(4)
         if len(BPCLOSEVOLTbytes) != 4 :
             print("err:BPCLOSEVOLTbytes")
-            return "err:BPCLOSEVOLTbytes\r\n";
+            return "";
         BPCLOSECURRENTbytes = f.read(4)
         if len(BPCLOSECURRENTbytes) != 4 :
             print("err:BPCLOSECURRENTbytes")
-            return "err:BPCLOSECURRENTbytes\r\n";
+            return "";
         BPCLOSEPRESSbytes = f.read(4)
         if len(BPCLOSEPRESSbytes) != 4 :
             print("err:BPCLOSEPRESSbytes")
-            return "err:BPCLOSEPRESSbytes\r\n";
+            return "";
         timestamp = 0
         bpclose_volt = 0
         bpclose_current = 0
@@ -659,7 +662,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKVALVEPOWER")
-            return "err:UNPACKVALVEPOWER\r\n"
+            return "";
         format = str(timestamp) + ":[BYPASS,0106]battery %5dmV, %7duA (bypass closing), P%+7dmbar\r\n"
         return format % (bpclose_volt,bpclose_current,bpclose_press)
     elif shortId == 8 :
@@ -667,7 +670,7 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         timestamp = 0
         try :
             # Unpack Integer of 4 bytes
@@ -675,7 +678,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKMERMAIDDETECT")
-            return "err:UNPACKMERMAIDDETECT\r\n"
+            return "";
         format = str(timestamp) + ":[MRMAID,0027]0dbar, 0degC\r\n"
         return format
     elif shortId == 9 :
@@ -683,19 +686,19 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         SBEPRESSUREbytes = f.read(4)
         if len(SBEPRESSUREbytes) != 4 :
             print("err:SBEPRESSUREbytes")
-            return "err:SBEPRESSUREbytes\r\n";
+            return "";
         SBETEMPbytes = f.read(4)
         if len(SBETEMPbytes) != 4 :
             print("err:SBETEMPbytes")
-            return "err:SBETEMPbytes\r\n";
+            return "";
         SBESALbytes = f.read(4)
         if len(SBESALbytes) != 4 :
             print("err:SBESALbytes")
-            return "err:SBESALbytes\r\n";
+            return "";
         timestamp = 0
         sbe_press = 0
         sbe_temp = 0
@@ -709,7 +712,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKSBE")
-            return "err:UNPACKSBE\r\n"
+            return "";
         format = str(timestamp) + ":[SBE61 ,0396]P%+7d,T%+7d,S+7%d\r\n"
         return format % (sbe_press,sbe_temp,sbe_sal)
     elif shortId == 10 :
@@ -717,7 +720,7 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         timestamp = 0
         try :
             # Unpack Integer of 4 bytes
@@ -725,7 +728,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKMERMAIDSTART")
-            return "err:UNPACKMERMAIDSTART\r\n"
+            return "";
         format = str(timestamp) + ":[MRMAID,0002]acq started\r\n"
         return format
     elif shortId == 11 :
@@ -733,7 +736,7 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         timestamp = 0
         try :
             # Unpack Integer of 4 bytes
@@ -741,7 +744,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKMERMAIDSTOP")
-            return "err:UNPACKMERMAIDSTOP\r\n"
+            return "";
         format = str(timestamp) + ":[MRMAID,0003]acq stopped\r\n"
         return format
     elif shortId == 12 :
@@ -749,40 +752,40 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         LATHEMIbytes = f.read(1)
         if len(LATHEMIbytes) != 1 :
             print("err:LATHEMIbytes")
-            return "err:LATHEMIbytes\r\n";
+            return "";
         LATDEGbytes = f.read(1)
         if len(LATDEGbytes) != 1 :
             print("err:LATDEGbytes")
-            return "err:LATDEGbytes\r\n";
+            return "";
         LATMINbytes = f.read(1)
         if len(LATMINbytes) != 1 :
             print("err:LATMINbytes")
-            return "err:LATMINbytes\r\n";
+            return "";
         LATMMbytes = f.read(2)
         if len(LATMMbytes) != 2 :
             print("err:LATMMbytes")
-            return "err:LATMMbytes\r\n";
+            return "";
 
         LONGHEMIbytes = f.read(1)
         if len(LONGHEMIbytes) != 1 :
             print("err:LONGHEMIbytes")
-            return "err:LONGHEMIbytes\r\n";
+            return "";
         LONGDEGbytes = f.read(1)
         if len(LONGDEGbytes) != 1 :
             print("err:LONGDEGbytes")
-            return "err:LONGDEGbytes\r\n";
+            return "";
         LONGMINbytes = f.read(1)
         if len(LONGMINbytes) != 1 :
             print("err:LONGMINbytes")
-            return "err:LONGMINbytes\r\n";
+            return "";
         LONGMMbytes = f.read(2)
         if len(LONGMMbytes) != 2 :
             print("err:LONGMMbytes")
-            return "err:LONGMMbytes\r\n";
+            return "";
 
         timestamp = 0
         lat_hemi = '?'
@@ -809,7 +812,7 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKGPSPOS")
-            return "err:UNPACKGPSPOS\r\n"
+            return "";
         format = str(timestamp) + ":[SURF  ,0082]%c%02ddeg%02d.%03dmn, %c%03ddeg%02d.%03dmn\r\n"
         return format % (lat_hemi,lat_deg,lat_min,lat_mm,long_hemi,long_deg,long_min,long_mm)
     elif shortId == 13 :
@@ -817,23 +820,23 @@ def decrypt_short(f) :
         TIMESTAMPbytes = f.read(4)
         if len(TIMESTAMPbytes) != 4 :
             print("err:TIMESTAMPbytes")
-            return "err:TIMESTAMPbytes\r\n";
+            return "";
         HDOPbytes = f.read(1)
         if len(HDOPbytes) != 1 :
             print("err:HDOPbytes")
-            return "err:HDOPbytes\r\n";
+            return "";
         mHDOPbytes = f.read(2)
         if len(mHDOPbytes) != 2 :
             print("err:mHDOPbytes")
-            return "err:mHDOPbytes\r\n";
+            return "";
         VDOPbytes = f.read(1)
         if len(VDOPbytes) != 1 :
             print("err:VDOPbytes")
-            return "err:VDOPbytes\r\n";
+            return "";
         mVDOPbytes = f.read(2)
         if len(mVDOPbytes) != 2 :
             print("err:mVDOPbytes")
-            return "err:mVDOPbytes\r\n";
+            return "";
         timestamp = 0
         hdop = 0
         mhdop = 0
@@ -849,28 +852,27 @@ def decrypt_short(f) :
         except :
             traceback.print_exc()
             print("err:UNPACKGPSDOP")
-            return "err:UNPACKGPSDOP\r\n"
+            return "";
         format = str(timestamp) + ":[SURF  ,0084]hdop %d.%03d, vdop %d.%03d\r\n"
         return format % (hdop,mhdop,vdop,mvdop)
 
     return ""
 
 
-'''
-
-Read a file byte by byte and wait for header characters.
-Depending on the header, we decrypt an explicit (decrypt_explicit) or implicit log (decrypt_short).
-
-Keyword arguments:
-f -- file reader
-LOG_card -- Object for LOG decryption (database)
-WARN_card -- Object for WARNING decryption (database)
-ERR_card -- Object for ERROR decryption (database)
-
-'''
-
 # Decrypt one file with LOG, WARN,and ERR cards give in arguments
 def decrypt_one(path,LOG_card,WARN_card,ERR_card):
+    '''
+
+    Read a file byte by byte and wait for header characters.
+    Depending on the header, we decrypt an explicit (decrypt_explicit) or implicit log (decrypt_short).
+
+    Keyword arguments:
+    f -- file reader
+    LOG_card -- Object for LOG decryption (database)
+    WARN_card -- Object for WARNING decryption (database)
+    ERR_card -- Object for ERROR decryption (database)
+
+    '''
     #parse data
     string =""
     with open(path, "rb") as f:
@@ -891,19 +893,19 @@ def decrypt_one(path,LOG_card,WARN_card,ERR_card):
     return string
 
 
-'''
-Decrypt all Binary file within a folder.
-1/ Read profiler software version and model number
-2/ Get database file
-3/ Read byte by byte file and decrypt it into .LOG file
-4/ Delete binary file
-
-Keyword arguments:
-path -- folder path
-
-'''
 # Decrypt all BIN files in a path
 def decrypt_all(path):
+    '''
+    Decrypt all Binary file within a folder.
+    1/ Read profiler software version and model number
+    2/ Get database file
+    3/ Read byte by byte file and decrypt it into .LOG file
+    4/ Delete binary file
+
+    Keyword arguments:
+    path -- folder path
+
+    '''
     # Generate List of BINS file
     files_to_decrypt = glob.glob(path + "*.BIN")
     files_decrypted = list()
@@ -967,32 +969,31 @@ def decrypt_all(path):
     return files_decrypted
 
 
-
-'''
-Get start date of a file with filepath (hexa format : <NUMB>_<HEXADATE>.<EXT>)
-<NUMB> : Buoy number (2 or 4 digits)
-<HEXADATE> : Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
-<EXT> : File extension
-
-Keyword arguments:
-filepath -- path of a .LOG .MER .BIN file
-
-'''
-
 def get_hexa_date(filepath) :
+    '''
+    Get start date of a file with filepath (hexa format : <NUMB>_<HEXADATE>.<EXT>)
+    <NUMB> : Buoy number (2 or 4 digits)
+    <HEXADATE> : Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
+    <EXT> : File extension
+
+    Keyword arguments:
+    filepath -- path of a .LOG .MER .BIN file
+
+    '''
     return os.path.splitext(os.path.basename(filepath))[0].split("_")[1]
 
-'''
-Sort a list of file in function of buoy_nb and start date (hexa format : <NUMB>_<HEXADATE>.<EXT>)
-<NUMB> : Buoy number (2 or 4 digits)
-<HEXADATE> : Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
-<EXT> : File extension
 
-Keyword arguments:
-a -- First file path to compare
-b -- Second file path to compare
-'''
 def sort_log_files(a,b):
+    '''
+    Sort a list of file in function of buoy_nb and start date (hexa format : <NUMB>_<HEXADATE>.<EXT>)
+    <NUMB> : Buoy number (2 or 4 digits)
+    <HEXADATE> : Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
+    <EXT> : File extension
+
+    Keyword arguments:
+    a -- First file path to compare
+    b -- Second file path to compare
+    '''
     buoy_nbA = os.path.splitext(os.path.basename(a))[0].split("_")[0]
     buoy_nbB = os.path.splitext(os.path.basename(b))[0].split("_")[0]
     nbA = int(buoy_nbA,10)
@@ -1007,22 +1008,28 @@ def sort_log_files(a,b):
         return timestampA - timestampB
 
 
-'''
-Convert all *.LOG files into .CYCLE
-1/ Merge all initialization files before first complete dive (cycle 0)
-2/ Fixes potential datation errors (e.g., 25_643FB6EF.LOG)
-3/ A complete cycle includes :
-    - A complete log with one dive and one ascent
-    - The list of GPS fixes following the dive
-    - The list of log files in the CYCLE file
-4/ A cycle file will be named :
-    <CYCLE_NB>_<HEXADATE>.CYCLE
 
-<CYCLE_NB> : CYCLE NUMBER (0:initialization 1:First dive...)
-<HEXADATE> : Date of file start / Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
+def convert_in_cycle(path,begin,end):
+    '''
+    Convert all *.LOG files into .CYCLE (LOG >= begin and LOG < end)
+    1/ Merge all initialization files before first complete dive (cycle 0)
+    2/ Fixes potential datation errors (e.g., 25_643FB6EF.LOG)
+    3/ A complete cycle includes :
+        - A complete log with one dive and one ascent
+        - The list of GPS fixes following the dive
+        - The list of log files in the CYCLE file
+    4/ A cycle file will be named :
+        <CYCLE_NB>_<HEXADATE>.CYCLE
 
-'''
-def convert_in_cycle(path):
+    <CYCLE_NB> : CYCLE NUMBER (0:initialization 1:First dive...)
+    <HEXADATE> : Date of file start / Number of seconds from epoch date (January 1st, 1970 at UTC) in hexadecimal format
+
+    Keyword arguments:
+    path -- process path
+    begin -- UTCDateTime() object
+    end -- UTCDateTime() object
+
+    '''
     # Init cycle nb
     cycle_nb = 0
     # List all LOG files
@@ -1033,99 +1040,109 @@ def convert_in_cycle(path):
     iLog = 0
     # Init Content of cycle file
     content = ""
-    # First cycle file name
-    cycle_file_name = ""
-    cycle_file_path = ""
+    # Init file name and path variables
+    cycle_file_name = None
+    cycle_file_path = None
     # Split the path
-    if len(logFiles) > 0 :
-        cycle_file_name = "{:04d}".format(0) + "_" + get_hexa_date(logFiles[0])
-        cycle_file_path = os.path.join(path,cycle_file_name)
     # Set default delimiter
     delim = "\r\n"
 
     while iLog < len(logFiles):
+        # Get filepath
         logFile = logFiles[iLog]
         # Get file start date
         start_date = utils.get_date_from_file_name(os.path.basename(logFile))
-        last_date = start_date
-        with open(logFile, "rb") as f:
-            # Read the content of the LOG
-            fileRead = f.read().decode("utf-8","replace")
-            fileFixed = ""
-            # Get current delimiter char
-            if fileRead :
-                delim = utils.get_log_delimiter(fileRead)
-            # Split file by line
-            is_dive = False
-            is_finish = False
-            is_gps_fix = False
-            lines = utils.split_log_lines(fileRead)
-            for line in lines:
-                # Is diving ?
-                if not is_dive and re.findall("\[DIVING, *\d+\] *(\d+)mbar reached", line) :
-                    is_dive = True
-                # File is switched ?
-                if not is_finish and re.findall("\*\*\* switching to.*", line) :
-                    is_finish = True
-                # Gps fix ?
-                if not is_gps_fix and re.findall("GPS fix...", line) :
-                    is_gps_fix = True
-                # GPS line without gps fix date ?
-                gps_line = re.findall("(\d+):\[SURF *, *\d+\]([S,N])(\d+)deg(\d+.\d+)mn", line)
-                if gps_line :
-                    if not is_gps_fix :
-                        fileFixed += gps_line[0][0] + ":[SURF  ,422]GPS fix..." + delim
-                    is_gps_fix = False
-
-                # Split line and test
-                catch = re.findall("(\d+):", line)
-                if len(catch) > 0:
-                    datetime = UTCDateTime(int(catch[0]))
-                    if datetime < start_date :
-                        # line timestamp is before the start date ?
-                        # Replace timestamp by last line timestamp or start date by default
-                        # e.g., 25_643FB6EF.LOG
-                        last_datetime = str(int(last_date.timestamp))
-                        line.replace(catch[0],last_datetime)
-                    last_date = datetime
-                # Append line into a string with time fixed
-                fileFixed += line + delim
-            # Complete dive ?
-            is_complete_dive = False
-            if is_dive and is_finish :
-                is_complete_dive = True
-            if is_complete_dive :
-                # Split content to get before diving (First internal pressure mesurement)
-                content += str(int(get_hexa_date(logFile),16)) + ":[PREPROCESS]Create " + os.path.basename(logFile) + delim
-                lines = utils.split_log_lines(fileFixed)
-                for line in lines:
-                    value_catch = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
-                    if value_catch :
-                        # exit the loop
-                        content += value_catch[0][0] + ":[PREPROCESS]End of cycle" + delim
-                        break
-                    content += line + delim
-                # Write all content saved before
-                if content :
-                    # Write a complete cycle
-                    with open(cycle_file_path + ".CYCLE", "w") as fcycle:
-                        fcycle.write(content)
-                # Increment cycle nb and change file name
-                cycle_nb = cycle_nb + 1
-                cycle_file_name = "{:04d}".format(cycle_nb) + "_" + get_hexa_date(logFile)
+        # File has been done during buoy lifetime ?
+        if start_date >= begin and start_date < end :
+            # Init cycle path and cycle name with first file created during lifetime
+            if not cycle_file_name :
+                cycle_file_name = "{:04d}".format(0) + "_" + get_hexa_date(logFile)
                 cycle_file_path = os.path.join(path,cycle_file_name)
-                # Reset content
-                content = ""
+            # Init last date
+            last_date = start_date
+            with open(logFile, "rb") as f:
+                # Read the content of the LOG
+                fileRead = f.read().decode("utf-8","replace")
+                fileFixed = ""
+                # Get current delimiter char
+                if fileRead :
+                    delim = utils.get_log_delimiter(fileRead)
+                # Split file by line
+                is_dive = False
+                is_finish = False
+                is_gps_fix = False
+                is_emergency = False
+                is_reboot_in_dive = False
+                lines = utils.split_log_lines(fileRead)
+                for line in lines:
+                    # Is diving ?
+                    if not is_dive and re.findall("\[DIVING, *\d+\] *(\d+)mbar reached", line) :
+                        is_dive = True
+                    # File is switched ?
+                    if not is_finish and re.findall("\*\*\* switching to.*", line) :
+                        is_finish = True
+                    # Gps fix ?
+                    if not is_gps_fix and re.findall("GPS fix...", line) :
+                        is_gps_fix = True
+                    # GPS line without gps fix date ?
+                    gps_line = re.findall("(\d+):\[SURF *, *\d+\]([S,N])(\d+)deg(\d+.\d+)mn", line)
+                    if gps_line :
+                        if not is_gps_fix :
+                            fileFixed += gps_line[0][0] + ":[SURF  ,422]GPS fix..." + delim
+                        is_gps_fix = False
+                    # Split line and test
+                    catch = re.findall("(\d+):", line)
+                    if len(catch) > 0:
+                        datetime = UTCDateTime(int(catch[0]))
+                        if datetime < start_date :
+                            # line timestamp is before the start date ?
+                            # Replace timestamp by last line timestamp or start date by default
+                            # e.g., 25_643FB6EF.LOG
+                            last_datetime = str(int(last_date.timestamp))
+                            line.replace(catch[0],last_datetime)
+                        last_date = datetime
+                    # Append line into a string with time fixed
+                    fileFixed += line + delim
+                # Complete dive ?
+                is_complete_dive = False
+                if is_dive and is_finish :
+                    is_complete_dive = True
+                elif is_dive :
+                    is_reboot_in_dive = True
+                    print("{} reboot !!!!!!".format(os.path.basename(logFile)))
 
-            # Append filename
-            content += str(int(get_hexa_date(logFile),16)) + ":[PREPROCESS]Create " + os.path.basename(logFile) + delim
-            # Append file content
-            content += fileFixed
+                # Test if the buoy has dived and surfaced or If the ascent is in the following files
+                if is_complete_dive or is_reboot_in_dive :
+                    # Split content to get before diving (First internal pressure mesurement)
+                    content += str(int(get_hexa_date(logFile),16)) + ":[PREPROCESS]Create " + os.path.basename(logFile) + delim
+                    lines = utils.split_log_lines(fileFixed)
+                    before_dive = None
+                    for line in lines:
+                        before_dive = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
+                        # Wait start of next dive
+                        if before_dive :
+                            # exit the loop
+                            content += before_dive[0][0] + ":[PREPROCESS]End of cycle" + delim
+                            # Write a complete cycle
+                            with open(cycle_file_path + ".CYCLE", "w") as fcycle:
+                                fcycle.write(content)
+                            # Increment cycle nb and change file name
+                            cycle_nb = cycle_nb + 1
+                            cycle_file_name = "{:04d}".format(cycle_nb) + "_" + get_hexa_date(logFile)
+                            cycle_file_path = os.path.join(path,cycle_file_name)
+                            # Reset content with current file (for next cycle)
+                            content = ""
+                            break
+                        content += line + delim
+                # Append filename
+                content += str(int(get_hexa_date(logFile),16)) + ":[PREPROCESS]Create " + os.path.basename(logFile) + delim
+                # Append file content
+                content += fileFixed
         # Next File
         iLog = iLog +1
-        os.remove(logFile)
+        #os.remove(logFile)
 
+    # Write last incomplete cycle
     if content :
-        # Write a incomplete cycle
         with open(cycle_file_path + ".CYCLE", "w") as fcycle:
             fcycle.write(content)

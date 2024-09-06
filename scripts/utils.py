@@ -83,7 +83,7 @@ def format_log(log):
 
 # Get date from a .LOG or a .MER file name
 def get_date_from_file_name(filename):
-    hexdate = re.findall("(.+\d+_)?([A-Z0-9]+)\.(LOG|MER|\d{3})", filename)[0][1]
+    hexdate = re.findall("(.+\d+_)?([A-Z0-9]+)\.(S41|S61|LOG|MER|\d{3})", filename)[0][1]
     timestamp = int(hexdate, 16)
     return UTCDateTime(timestamp)
 
@@ -92,7 +92,7 @@ def get_date_from_file_name(filename):
 #
 
 # Plot vertical lines with plotly
-def plotly_vertical_shape(position, ymin=0, ymax=1, name='name', color='blue'):
+def plotly_vertical_shape(position, ymin=0, ymax=1, name='name', color='blue', width=1.5):
     xval = []
     yval = []
     for ps in position:
@@ -107,7 +107,7 @@ def plotly_vertical_shape(position, ymin=0, ymax=1, name='name', color='blue'):
                           y=yval,
                           name=name,
                           line=dict(color=color,
-                                    width=1.5),
+                                    width=width),
                           hoverinfo='x',
                           mode='lines'
                           )

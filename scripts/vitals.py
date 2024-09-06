@@ -198,7 +198,7 @@ def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
 
 def plot_corrected_pressure_offset(vital_file_path, cycles, begin, end):
     date  = [cycle.end_date for cycle in cycles]
-    corrected_pressure_offset = [cycle.p2t_offset_corrected for cycle in cycles]
+    corrected_pressure_offset = [cycle.last_p2t_offset_corrected for cycle in cycles]
 
     # Dead-float adjustment
     if len(date) < 1:
