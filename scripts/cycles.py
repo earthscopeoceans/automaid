@@ -1018,6 +1018,51 @@ class Cycle:
         print(len_str)
         return len_str + "\n"
 
+    def print_errors(self):
+        # Print emergency triggers
+        errors_str = ""
+        if self.emergency_triggers:
+            causes = "!!!WARNING !!! Emergency : "
+            for trig in self.emergency_triggers:
+                causes += "{} ".format(trig[0])
+            print(causes)
+            errors_str += causes + "\n"
+        # Print mermaid reboot events
+        if self.mermaid_reboots:
+            dates = "!!!WARNING !!! Mermaid reboot : "
+            for reboot in self.mermaid_reboots:
+                dates += "{} ".format(reboot[1])
+            print(dates)
+            errors_str += dates + "\n"
+        return errors_str
+
+    def print_dates(self):
+        dates_str = ""
+        leave_surface_str = ""
+        if self.descent_leave_surface_date:
+            leave_surface_str += "   Leave surface : {:s}".format(str(self.descent_leave_surface_date)[0:19])
+        else :
+            leave_surface_str += "   Leave surface : <none>"
+        print(leave_surface_str)
+        dates_str += leave_surface_str + "\n"
+
+        ascent_start_str = ""
+        if self.ascent_start_date:
+            ascent_start_str += "   Ascent start  : {:s}".format(str(self.ascent_start_date)[0:19])
+        else :
+            ascent_start_str += "   Ascent start  : <none>"
+        print(ascent_start_str)
+        dates_str += ascent_start_str + "\n"
+
+        ascent_reach_surface_str = ""
+        if self.ascent_reach_surface_date:
+            ascent_reach_surface_str += "   Reach surface : {:s}".format(str(self.ascent_reach_surface_date)[0:19])
+        else :
+            ascent_reach_surface_str += "   Reach surface : <none>"
+        print(ascent_reach_surface_str)
+        dates_str += ascent_reach_surface_str + "\n"
+        return dates_str
+
     def print_logs(self):
         log_mer_str = ""
         for i,_ in enumerate(self.logs):
@@ -1107,22 +1152,10 @@ def write_cycles_txt(cycles, creation_datestr, processed_path, mfloat_path, mflo
         for cycle in sorted(cycles, key=lambda x: x.start_date):
             print("Cycle {}\n".format(cycle.cycle_nb))
             f.write("Cycle {}\n".format(cycle.cycle_nb))
-            # Print emergency triggers
-            if cycle.emergency_triggers:
-                causes = ""
-                for trig in cycle.emergency_triggers:
-                    causes += "{} ".format(trig[0])
-                print("Emergency : ({})\n".format(causes))
-                f.write("Emergency : ({})\n".format(causes))
-            # Print mermaid reboot events
-            if cycle.mermaid_reboots:
-                dates = ""
-                for reboot in cycle.mermaid_reboots:
-                    dates += "{} ".format(reboot[1])
-                print("Mermaid reboot : ({})\n".format(dates))
-                f.write("Mermaid reboot : ({})\n".format(dates))
             # These methods both return, and print to stdout, the same formatted string
+            f.write(cycle.print_errors())
             f.write(cycle.print_len())
+            f.write(cycle.print_dates())
             f.write(cycle.print_logs())
             f.write(cycle.print_events())
             print("")
