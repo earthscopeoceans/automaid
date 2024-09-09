@@ -108,6 +108,15 @@ write_sac = True
 write_mseed = True
 write_mhpsd = True
 
+# Use WebGL implementation of graph to
+# increase speed, improve interactivity, and the ability to plot even more data
+optimized_html = False
+
+# Integrate the plotly library into every html file
+# If false user must have internet connection to access graph
+# but the file size will be reduced considerably
+local_html = True
+
 # Dictionary to write last-cycle vital data to output files
 lastcycle = {}
 
@@ -121,6 +130,14 @@ def sort_events(eventA,eventB) :
         return eventA.uncorrected_starttime - eventB.corrected_starttime
     else :
         return eventA.uncorrected_starttime - eventB.uncorrected_starttime
+
+
+def sort_mfloats(a,b):
+    buoy_nbA = a.split("-")[-1]
+    buoy_nbB = b.split("-")[-1]
+    nbA = int(buoy_nbA,10)
+    nbB = int(buoy_nbB,10)
+    return nbA - nbB
 
 def main():
     # Set working directory in "scripts"
@@ -141,8 +158,11 @@ def main():
     # Update Database
     preprocess.database_update(database_path)
 
+    # Sort *.vit path
+    mfloats_sorted = sorted(mfloats, key=functools.cmp_to_key(sort_mfloats))
+
     # For each MERMAID float
-    for mfloat in sorted(mfloats):
+    for mfloat in mfloats_sorted:
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
         # Set the path for the float
@@ -234,7 +254,8 @@ def main():
             cycle_log.write_s61_environment_file();
 
             # Generate dive plot
-            cycle_log.write_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
+            cycle_log.write_cycle_html(csv_file,optimize=optimized_html,include_plotly=local_html)
+            # <-- timestamps not corrected for clockdrift
 
             # The GPS list is None outside of requested begin/end dates, within
             # which it defaults to an empty list if it is truly empty
@@ -260,14 +281,18 @@ def main():
             cycle_log.set_events_obspy_trace_stats()
 
             # Write profiles html
-            cycle_log.write_profile_html(csv_file)
+            cycle_log.write_profile_html(optimize=optimized_html,include_plotly=local_html)
+
+            # Write profiles data on CSV
+            if csv_file :
+                cycle_log.write_profile_csv();
 
             # Write requested output files
             if write_png:
                 cycle_log.write_events_png()
 
             if write_html:
-                cycle_log.write_events_html()
+                cycle_log.write_events_html(optimize=optimized_html,include_plotly=local_html)
 
             if write_sac:
                 cycle_log.write_events_sac()

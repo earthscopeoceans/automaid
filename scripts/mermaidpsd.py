@@ -112,7 +112,7 @@ def write(filename, event, psd_data, psd_desc, hdr_date=None):
         stat = utils.ndarray_stat(psd_data)
         dbline = "#Datablock [{}] -> {} {} {}\n" \
                  .format(psd_desc, stat["size"], stat["precision"], stat["byteorder"])
-        return dbline
+        return dbline.encode("utf-8")
 
     if event.processed_file_name not in filename:
         raise ValueError("event filename does not match instance filename")
@@ -155,16 +155,16 @@ def write(filename, event, psd_data, psd_desc, hdr_date=None):
     for desc, data in zip(psd_desc, psd_data):
         psd[desc] = data
 
-    hdr_lines = ["{}: {}\n".format(key, val) for key, val in hdr.items()]
+    hdr_lines = ["{}: {}\n".format(key, val).encode("utf-8") for key, val in hdr.items()]
     with open(filename, "wb") as f:
         f.writelines(hdr_lines)
 
         for desc in sorted(psd):
             f.write(_format_datablock_line(desc, psd[desc]))
             f.write(psd[desc])
-            f.write("\n")
+            f.write("\n".encode("utf-8"))
 
-        f.write("<<EOF>>\n")
+        f.write("<<EOF>>\n".encode("utf-8"))
 
     print("Wrote " + filename)
 

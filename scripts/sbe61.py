@@ -31,8 +31,6 @@ if os.environ.get('DISPLAY', '') == '':
 
 import matplotlib.pyplot as plt
 
-Scatter = graph.Scattergl
-
 class Profiles:
     profiles = None
     params = None
@@ -195,26 +193,36 @@ class Profile:
         header += " <speed_control_mbar_per_s>"+str(self.speed_control_mbar_per_s)+"</speed_control_mbar_per_s>\r\n"
         return header
 
-    def plot_temperature_html(self, export_path, csv_file):
+
+    def write_csv(self, export_path) :
+        if list(self.data):
+            export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
+                "." + self.file_name + ".csv"
+            export_path = export_path + export_name
+            rows = list(zip(self.data_pressure, self.data_temperature, self.data_salinity))
+            with open(export_path, mode='w') as csv_file:
+                csv_file = csv.writer(
+                    csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                for row in rows:
+                    csv_file.writerow(row)
+        else:
+            print((export_path + " can't be exploited for csv data"))
+
+    def write_temperature_html(self, export_path, optimize=False, include_plotly=True):
         if list(self.data):
             # Check if file exist
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
                 "." + self.file_name + ".TEMP" + ".html"
             export_path = export_path + export_name
-            if csv_file:
-                csv_path = export_path.replace(".TEMP.html", ".csv")
-                rows = list(
-                    zip(self.data_pressure, self.data_temperature, self.data_salinity))
-                with open(csv_path, mode='w') as csv_file:
-                    csv_file = csv.writer(
-                        csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                    for row in rows:
-                        csv_file.writerow(row)
             if os.path.exists(export_path):
                 print((export_path + "already exist"))
                 return
             print(export_name)
-            # Add acoustic values to the graph
+            # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+            # for increased speed, improved interactivity, and the ability to plot even more data.
+            Scatter = graph.Scatter
+            if optimize :
+                Scatter = graph.Scattergl
             data_line = Scatter(x=self.data_temperature,
                                 y=self.data_pressure,
                                 marker=dict(size=6,
@@ -237,11 +245,17 @@ class Profile:
                                   )
 
             figure = graph.Figure(data=data, layout=layout)
-            figure.write_html(file=export_path, include_plotlyjs=True)
+            # Include plotly into any html files ?
+            # If false user need connexion to open html files
+            if include_plotly :
+                figure.write_html(file=export_path, include_plotlyjs=True)
+            else :
+                figure.write_html(file=export_path,
+                                  include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for temperature profile"))
 
-    def plot_salinity_html(self, export_path):
+    def write_salinity_html(self, export_path, optimize=False, include_plotly=True):
         if list(self.data):
             # Check if file exist
             export_path = export_path + \
@@ -250,7 +264,11 @@ class Profile:
             if os.path.exists(export_path):
                 print((export_path + "already exist"))
                 return
-            # Add acoustic values to the graph
+            # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+            # for increased speed, improved interactivity, and the ability to plot even more data.
+            Scatter = graph.Scatter
+            if optimize :
+                Scatter = graph.Scattergl
             data_line = Scatter(x=self.data_salinity,
                                 y=self.data_pressure,
                                 marker=dict(size=9,
@@ -273,6 +291,12 @@ class Profile:
                                   hovermode='closest'
                                   )
             figure = graph.Figure(data=data, layout=layout)
-            figure.write_html(file=export_path, include_plotlyjs=True)
+            # Include plotly into any html files ?
+            # If false user need connexion to open html files
+            if include_plotly :
+                figure.write_html(file=export_path, include_plotlyjs=True)
+            else :
+                figure.write_html(file=export_path,
+                                  include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for salinity profile"))

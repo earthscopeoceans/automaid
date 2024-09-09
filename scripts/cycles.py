@@ -276,9 +276,9 @@ class Cycle:
         self.cycle_name = cycle_name
         print("{}".format(self.cycle_name))
 
-        # Get the date from the file name -- the hexadecimal component of the
+        # Get the date and cycle number from the file name -- the hexadecimal component of the
         # .CYCLE file name is the same Unix Epoch time as the first line of the
-        # file (there in int seconds); i.e., .LOG files are named for the
+        # file (there in int seconds); i.e., .CYCLE files are named for the
         # time that their first line is written
         filename_split = re.findall("(\d+)_([A-Z0-9]+)\.CYCLE", cycle_name)[0]
         self.cycle_nb = int(filename_split[0], 10)
@@ -511,7 +511,7 @@ class Cycle:
         with open(processed_path, "w") as f:
             f.write(environment)
 
-    def write_dive_html(self, csv_file):
+    def write_cycle_html(self, csv_file, optimize=False, include_plotly=True):
         '''
             Generates a dive plot for a complete cycle
         '''
@@ -541,6 +541,13 @@ class Cycle:
         # Add pressure values to the graph
         p_val = [-int(p[0])/100. for p in pressure]
         p_date = [p[1] for p in pressure]
+
+        # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+        # for increased speed, improved interactivity, and the ability to plot even more data.
+        Scatter = graph.Scatter
+        if optimize :
+            Scatter = graph.Scattergl
+
         depth_line = graph.Scatter(x=p_date,
                                    y=p_val,
                                    name="depth",
@@ -616,10 +623,15 @@ class Cycle:
                               yaxis=dict(title='Depth (meters)', titlefont=dict(size=18)),
                               hovermode='closest'
                               )
+        figure = graph.Figure(data=data, layout=layout)
 
-        plotly.plot({'data': data, 'layout': layout},
-                    filename=processed_path,
-                    auto_open=False)
+        # Include plotly into any html files ?
+        # If false user need connexion to open html files
+        if include_plotly :
+            figure.write_html(file=processed_path, include_plotlyjs=True)
+        else :
+            figure.write_html(file=processed_path,
+                              include_plotlyjs='cdn', full_html=False)
 
     def set_kstnm_kinst(self):
         '''Sets attrs for five-character station name (KSTNM), zero-padded between the
@@ -977,12 +989,12 @@ class Cycle:
             if event.station_loc is not None:
                 event.set_obspy_trace_stats()
 
-    def write_events_html(self):
+    def write_events_html(self, optimize=False, include_plotly=True):
         for event in self.events:
             if not event.is_stanford_event:
-                event.plot_html(self.processed_path)
+                event.plot_html(self.processed_path,optimize,include_plotly)
             else:
-                event.plot_html_stanford(self.processed_path)
+                event.plot_html_stanford(self.processed_path,optimize,include_plotly)
 
     def write_events_png(self):
         for event in self.events:
@@ -991,13 +1003,19 @@ class Cycle:
             else:
                 event.plot_png_stanford(self.processed_path)
 
-    def write_profile_html(self, csv_file):
+    def write_profile_html(self, optimize=False, include_plotly=True):
         for profile in self.profilesS41:
-            profile.plot_temperature_html(self.processed_path,csv_file)
-            profile.plot_salinity_html(self.processed_path)
+            profile.write_temperature_html(self.processed_path,optimize,include_plotly)
+            profile.write_salinity_html(self.processed_path,optimize,include_plotly)
         for profile in self.profilesS61:
-            profile.plot_temperature_html(self.processed_path,csv_file)
-            profile.plot_salinity_html(self.processed_path)
+            profile.write_temperature_html(self.processed_path,optimize,include_plotly)
+            profile.write_salinity_html(self.processed_path,optimize,include_plotly)
+
+    def write_profile_csv(self):
+        for profile in self.profilesS41:
+            profile.write_csv(self.processed_path)
+        for profile in self.profilesS61:
+            profile.write_csv(self.processed_path)
 
     def write_events_sac(self):
         for event in self.events:

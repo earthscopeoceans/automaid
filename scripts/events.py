@@ -219,7 +219,7 @@ class Event:
             self.is_stanford_event = True
             self.stanford_rounds = re.findall(b" ROUNDS=(-?\d+)", self.mer_binary_header)[0]
             date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
-            self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
+            self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S.%f")
             self.is_requested = False
             #if len(re.findall("FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.\d{6})", self.header))  0 :
             #self.requested = True
@@ -638,24 +638,27 @@ class Event:
                 + "     dB_OFFSET = " + str(self.stanford_db_offset) + "db"
         return title
 
-    def plot_html(self, processed_path, force_redo=False):
+    def plot_html(self, processed_path, optimize=False, include_plotly=True):
         if self.processed_file_name is None:
             return
 
         # Check if file exist
         processed_path_html = processed_path + self.processed_file_name + ".html"
-        if not force_redo and os.path.exists(processed_path_html):
+        if os.path.exists(processed_path_html):
             return
 
         if self.station_loc is None:
             return
-
+        # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+        # for increased speed, improved interactivity, and the ability to plot even more data.
+        Scatter = graph.Scatter
+        if optimize :
+            Scatter = graph.Scattergl
         # Add acoustic values to the graph
-        data_line = graph.Scatter(x=utils.get_date_array(self.corrected_starttime, len(self.processed_data), 1./self.decimated_fs),
+        data_line = Scatter(x=utils.get_date_array(self.corrected_starttime, len(self.processed_data), 1./self.decimated_fs),
                                   y=self.processed_data,
                                   name="counts",
-                                  line=dict(color='blue',
-                                            width=2),
+                                  line=dict(color='blue',width=2),
                                   mode='lines')
 
         data = [data_line]
@@ -664,12 +667,17 @@ class Event:
                               xaxis=dict(title='Coordinated Universal Time (UTC)', titlefont=dict(size=18)),
                               yaxis=dict(title='Counts', titlefont=dict(size=18)),
                               hovermode='closest')
+        figure = graph.Figure(data=data, layout=layout)
 
-        plotly.plot({'data': data, 'layout': layout},
-                    filename=processed_path_html,
-                    auto_open=False)
+        # Include plotly into any html files ?
+        # If false user need connexion to open html files
+        if include_plotly :
+            figure.write_html(file=export_path, include_plotlyjs=True)
+        else :
+            figure.write_html(file=export_path,
+                              include_plotlyjs='cdn', full_html=False)
 
-    def plot_html_stanford(self, processed_path):
+    def plot_html_stanford(self, processed_path, optimize=False, include_plotly=True):
         # Check if file exist
         processed_path_html = processed_path + self.processed_file_name+ ".html"
         print(processed_path_html)
@@ -682,14 +690,22 @@ class Event:
         x1=x_split[1]
         freq_max=(float)((x0.size*40)/int(win_sz[0]))
         freq = np.arange(0.,freq_max,freq_max/x0.size)
+
+
+        # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+        # for increased speed, improved interactivity, and the ability to plot even more data.
+        Scatter = graph.Scatter
+        if optimize :
+            Scatter = graph.Scattergl
+
         # Add acoustic values to the graph
-        x0_line = graph.Scatter(x=freq,
+        x0_line = Scatter(x=freq,
                                   y=x0,
                                   name="Percentile 50",
                                   line=dict(color='blue',
                                             width=2),
                                   mode='lines')
-        x1_line = graph.Scatter(x=freq,
+        x1_line = Scatter(x=freq,
                                   y=x1,
                                   name="Percentile 95",
                                   line=dict(color='red',
@@ -697,16 +713,20 @@ class Event:
                                   mode='lines')
 
         data = [x0_line,x1_line]
-
         layout = graph.Layout(title=self.__get_figure_title_stanford_html(),
                               xaxis=dict(title='Freq (Hz)', titlefont=dict(size=18), type='log'),
                               yaxis=dict(title='dBfs^2/Hz', titlefont=dict(size=18)),
                               hovermode='closest'
                               )
+        figure = graph.Figure(data=data, layout=layout)
 
-        plotly.plot({'data': data, 'layout': layout},
-                    filename=processed_path_html,
-                    auto_open=False)
+        # Include plotly into any html files ?
+        # If false user need connexion to open html files
+        if include_plotly :
+            figure.write_html(file=export_path, include_plotlyjs=True)
+        else :
+            figure.write_html(file=export_path,
+                              include_plotlyjs='cdn', full_html=False)
 
     def plot_png(self, processed_path, force_redo=False):
         if self.processed_file_name is None:
