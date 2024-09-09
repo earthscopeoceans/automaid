@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v2.7)
+# pymaid environment (Python v3.10)
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified by JDS: 01-Nov-2023
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
 
 # Todo:
 #
@@ -21,15 +21,16 @@ import pytz
 import datetime
 import numpy as np
 
-import dives
+import cycles
 import setup
 import utils
+from collections import Counter
 
 class GeoCSV:
     """Organize MERMAID metadata and write them to GeoCSV format
 
     Args:
-        complete_dives (list): List of dives.Complete_Dive instances
+        cycles (list): List of cycles.Cycle instances
         creation_datestr (str): File-creation datestr as "YYYY-MM-DDTHH:MM:SS.sssZ"
         mixed_layer_depth_m (float): Depth to thermocline in meters positive down (def: np.float32('nan'))
         version (str): GeoCSV version (def: 'v2.2.0-2')
@@ -39,17 +40,17 @@ class GeoCSV:
     """
 
     def __init__(self,
-                 complete_dives,
+                 cycle_list,
                  creation_datestr = datetime.datetime.now(pytz.UTC).isoformat()[:23] + "Z",
                  mixed_layer_depth_m = np.float32('nan'),
                  version='v2.2.0-1',  # Semantic versioning: v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
                  delimiter=',',
                  lineterminator='\n'):
 
-        if not all(isinstance(complete_dive, dives.Complete_Dive) for complete_dive in complete_dives):
-            raise ValueError('Input `complete_dives` must be list of `dives.Complete_Dives` instances')
+        if not all(isinstance(cycle, cycles.Cycle) for cycle in cycle_list):
+            raise ValueError('Input `cycle_list` must be list of `cycles.Cycle` instances')
 
-        self.complete_dives = complete_dives
+        self.cycles = cycle_list
         self.creation_datestr = creation_datestr
         self.mixed_layer_depth_m = mixed_layer_depth_m
         self.version = version
@@ -162,31 +163,31 @@ class GeoCSV:
         d6 = lambda x: format(np.float32(x), '.6f')
         nan = np.float32('nan')
 
-        def format_gps_rows(complete_dive):
+        def format_gps_rows(cycle):
             """Format GeoCSV rows of GPS measurements
 
             GPS metadata == 'Measurement'
 
             Args:
-                complete_dive (dives.Complete_Dive instance):
+                cycle (cycles.Cycle instance):
 
             """
 
             # Loop over all GPS instances and write single line for each
             gps_rows = []
-            for gps in sorted(complete_dive.gps_list, key=lambda x: x.date):
+            for gps in sorted(cycle.gps_list, key=lambda x: x.date):
                 gps_rows.append([
                     self.MethodIdentifier_GPS,
                     str(gps.date)[:23]+'Z',
-                    complete_dive.network,
-                    complete_dive.kstnm,
+                    cycle.network,
+                    cycle.kstnm,
                     nan,
                     nan,
                     d6(gps.latitude),
                     d6(gps.longitude),
                     nan,
                     nan,
-                    'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
+                    'MERMAIDHydrophone({:s})'.format(cycle.kinst),
                     nan,
                     d6(gps.mseed_time_delay),
                     nan
@@ -194,13 +195,13 @@ class GeoCSV:
 
             return gps_rows
 
-        def format_press_rows(complete_dive):
+        def format_press_rows(cycle):
             """Format GeoCSV rows of mbar absolute pressure measurements
 
             pressure metadata == 'Measurement'
 
             Args:
-                complete_dive (dives.Complete_Dive instance):
+                cycle (cycles.Cycle instance):
 
             """
 
@@ -209,19 +210,19 @@ class GeoCSV:
             # (07_5B773AF5.LOG, lines 916 and 917)
             press_rows = []
             prev_pressure_row = []
-            for pressure in sorted(complete_dive.pressure_mbar, key=lambda x:x[1]):
+            for pressure in sorted(cycle.pressure_mbar, key=lambda x:x[1]):
                 pressure_row = [
                     self.MethodIdentifier_Pressure,
                     str(pressure[1])[:23]+'Z',
-                    complete_dive.network,
-                    complete_dive.kstnm,
+                    cycle.network,
+                    cycle.kstnm,
                     nan,
                     nan,
                     nan,
                     nan,
                     nan,
                     d0(pressure[0]),
-                    'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
+                    'MERMAIDHydrophone({:s})'.format(cycle.kinst),
                     nan,
                     nan,
                     nan
@@ -234,19 +235,19 @@ class GeoCSV:
 
             return press_rows
 
-        def format_algo_event_rows(complete_dive):
+        def format_algo_event_rows(cycle):
             """Format GeoCSV rows of event metadata (e.g., starttime and MERMAID location)
 
             Event metadata == 'Algorithm'
 
             Args:
-                complete_dive (dives.Complete_Dive instance)
+                cycle (cycles.Cycle instance)
 
             """
 
             # Only keep events with an interpolated station location (STLA/STLO)
             ## !! Is this condition good enough / algorithm rows match DET SAC? !!
-            event_list = [event for event in complete_dive.events if event.obspy_trace_stats]
+            event_list = [event for log in cycle.logs for event in log.events if event.obspy_trace_stats]
 
             # Initialize a "previous" row to check for redundancies
             # This can occur when, e.g., a REQ file is multiply requested
@@ -260,15 +261,15 @@ class GeoCSV:
                 algorithm_row = [
                     self.MethodIdentifier_Algorithm_Event,
                     str(event.obspy_trace_stats["starttime"])[:23]+'Z',
-                    complete_dive.network,
-                    complete_dive.kstnm,
+                    cycle.network,
+                    cycle.kstnm,
                     event.obspy_trace_stats["location"],
                     event.obspy_trace_stats["channel"],
                     d6(event.obspy_trace_stats.sac["stla"]),
                     d6(event.obspy_trace_stats.sac["stlo"]),
                     nan,
                     d0(event.pressure_mbar),
-                    'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
+                    'MERMAIDHydrophone({:s})'.format(cycle.kinst),
                     d1(event.obspy_trace_stats["sampling_rate"]),
                     nan,
                     d6(event.mseed_time_correction)
@@ -294,19 +295,19 @@ class GeoCSV:
 
             return (det_algo_rows, req_algo_rows)
 
-        def format_algo_thermo_rows(complete_dive):
+        def format_algo_thermo_rows(cycle):
             """Format GeoCSV rows of interpolated dates and lat/lons of des(as)cending into(out of) the thermocline
 
             Passage into/out of thermocline == 'Algorithm' (interpolated)
 
             Args:
-                complete_dive (dives.Complete_Dive instance):
+                cycle (cycles.Cycle instance):
 
             """
 
             thermo_algo_rows = []
-            descent = complete_dive.descent_leave_surface_layer_loc
-            ascent =  complete_dive.ascent_reach_surface_layer_loc
+            descent = cycle.descent_leave_surface_layer_loc
+            ascent =  cycle.ascent_reach_surface_layer_loc
             for thermo in [descent, ascent]:
                 if thermo is None:
                     continue
@@ -314,15 +315,15 @@ class GeoCSV:
                 thermo_algo_rows.append([
                     self.MethodIdentifier_Algorithm_Thermocline,
                     str(thermo.date)[:23]+'Z',
-                    complete_dive.network,
-                    complete_dive.kstnm,
+                    cycle.network,
+                    cycle.kstnm,
                     nan,
                     nan,
                     d6(thermo.latitude),
                     d6(thermo.longitude),
                     nan,
                     self.mixed_layer_depth_m * 100,
-                    'MERMAIDHydrophone({:s})'.format(complete_dive.kinst),
+                    'MERMAIDHydrophone({:s})'.format(cycle.kinst),
                     nan,
                     nan,
                     nan
@@ -339,21 +340,22 @@ class GeoCSV:
         req_algo_rows = []
         thermo_algo_rows = []
         press_rows = []
-        for complete_dive in self.complete_dives:
+        for cycle in self.cycles:
             # Get and extend lists of formatted "Measurement" rows
-            gps_rows.extend(format_gps_rows(complete_dive))
-            press_rows.extend(format_press_rows(complete_dive))
+            gps_rows.extend(format_gps_rows(cycle))
+            press_rows.extend(format_press_rows(cycle))
 
             # "Algorithm"-event formatted lists returned as (DET, REQ) tuple
-            algo_rows_tup = format_algo_event_rows(complete_dive)
+            algo_rows_tup = format_algo_event_rows(cycle)
             det_algo_rows.extend(algo_rows_tup[0])
             req_algo_rows.extend(algo_rows_tup[1])
 
             # "Algorithm"-thermocline formatted rows
-            thermo_algo_rows.extend(format_algo_thermo_rows(complete_dive))
+            thermo_algo_rows.extend(format_algo_thermo_rows(cycle))
 
         # Remove pressure measurements taken before(after) first(last) GPS measurements
         # (currently: GPS dates, but not pressure dates, affected by `filterDate` in main.py)
+        print(gps_rows)
         gps_dates = [x[1] for x in sorted(gps_rows, key=lambda x: x[1])]
         press_rows = [x for x in press_rows if x[1] > gps_dates[0] and x[1] < gps_dates[-1]]
 
@@ -424,4 +426,6 @@ class GeoCSV:
                     print("Verified: {} rows unique\n".format(csvfile.name))
 
                 else:
+                    nunique = [k for (k,v) in Counter(str_rows).items() if v > 1]
+                    print(nunique)
                     raise ValueError("{} rows not unique\n".format(csvfile.name))

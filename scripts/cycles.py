@@ -3,6 +3,11 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v3.10)
 #
+# Developer: Frédéric rocca <FRO>
+# Contact:  frederic.rocca@osean.fr
+# Last modified by FRO: 09-Sep-2024
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
+
 
 import os
 import re
@@ -15,7 +20,7 @@ from obspy import UTCDateTime
 import plotly.offline as plotly
 import plotly.graph_objs as graph
 
-import gps_cycle as gps
+import gps
 import utils
 import setup
 
@@ -374,10 +379,14 @@ class Cycle:
             if stage_begin :
                 self.ascent_start_date = stage_begin[0][1]
         # By default surfacing is triggered when all stage are finished
-        if not self.ascent_start_date :
+        if self.descent_leave_surface_date and not self.ascent_start_date :
             surfacing = utils.find_timestamped_values("\[MAIN *, *\d+\]surfacing", self.cycle_content)
             if surfacing :
-                self.ascent_start_date = surfacing[-1][1]
+                # Get first surfacing after leave surface
+                for surfin in surfacing :
+                    if surfin[1] > self.descent_leave_surface_date :
+                        self.ascent_start_date = surfin[1]
+                        break
 
         # Find Reach surface date
         # It's possible that MERMAID physically dive and returned to the surface but there was
@@ -906,7 +915,6 @@ class Cycle:
             descent_dist_to_mixed_layer = mixed_layer_depth_m - descent_depth_in_surface_layer
             descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
             self.descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
-
             self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, \
                                                                             self.descent_leave_surface_layer_date)
 
@@ -941,7 +949,6 @@ class Cycle:
             ascent_dist_to_mixed_layer = ascent_depth_in_mixed_layer - mixed_layer_depth_m
             ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
             self.ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
-
             self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive, \
                                                                            self.ascent_reach_surface_layer_date)
 
@@ -1011,39 +1018,35 @@ class Cycle:
         print(len_str)
         return len_str + "\n"
 
-    def print_log_mer_profile(self):
+    def print_logs(self):
         log_mer_str = ""
         for i,_ in enumerate(self.logs):
-            if self.logs[i].dive_id is None:
-                id_str = "     ID: <none>"
-            else:
-                id_str = "     ID: #{:>5d}".format(self.logs[i].dive_id)
+            start_date = str(self.logs[i].start_date)[0:19]
+            end_date = str(self.logs[i].end_date)[0:19]
+            if self.logs[i].is_partial :
+                log_name = self.logs[i].log_name + "<partial>"
+            else :
+                log_name = self.logs[i].log_name + "<complete>"
+
+            log_str  = "     #{:d}/ {:s} Date: {:s} -> {:s} ({:.2f} days)" \
+                       .format(i+1,log_name,start_date,end_date,self.logs[i].len_days)
+
+            if self.logs[i].mer_environment_name :
+                mermaid_str = "{:s}.".format(self.logs[i].mer_environment_name)
+            else :
+                mermaid_str = ""
 
             if self.logs[i].s41_file_name :
                 profile_str = "{:s}.".format(self.logs[i].s41_file_name)
             elif self.logs[i].s61_file_name :
                 profile_str = "{:s}.".format(self.logs[i].s61_file_name)
             else :
-                profile_str = "<none>"
+                profile_str = ""
 
-            if self.logs[i].log_name and self.logs[i].mer_environment_name:
-                if self.logs[i].is_partial :
-                    tmp_str = "{:s} ({:s},<partial>) ({:s}) ({:s})".format(id_str, self.logs[i].log_name, self.logs[i].mer_environment_name,profile_str)
-                else :
-                    tmp_str = "{:s} ({:s},<complet>) ({:s}) ({:s})".format(id_str, self.logs[i].log_name, self.logs[i].mer_environment_name,profile_str)
-            elif self.logs[i].log_name and not self.logs[i].mer_environment_name:
-                # For example, 16_5F9C20FC.MER, which would have been P-16 Dive
-                # #120, and which was supposedly uploaded associated with
-                # 16_5F92A09C.LOG, does not/never existed on the server (no idea
-                # what happened)
-                if self.logs[i].is_partial :
-                    tmp_str = "{:s} ({:s},<partial>) (<none>) ({:s})".format(id_str, self.logs[i].log_name,profile_str)
-                else :
-                    tmp_str = "{:s} ({:s},<complet>) (<none>) ({:s})".format(id_str, self.logs[i].log_name,profile_str)
-            elif self.logs[i].mer_environment_name and not self.logs[i].log_name:
-                tmp_str = "{:s} (<none>, <none>) ({:s}) ({:s})".format(id_str, self.logs[i].mer_environment_name,profile_str)
-            else:
-                tmp_str = "(<none>, <none>) (<none>) ({:s})".format(profile_str)
+            if mermaid_str or profile_str :
+                tmp_str = "{:s} Data files : {:s} {:s}".format(log_str,mermaid_str,profile_str)
+            else :
+                tmp_str = "{:s} Data files : <none>".format(log_str,mermaid_str,profile_str)
             print(tmp_str)
             log_mer_str += tmp_str + "\n"
 
@@ -1120,7 +1123,7 @@ def write_cycles_txt(cycles, creation_datestr, processed_path, mfloat_path, mflo
                 f.write("Mermaid reboot : ({})\n".format(dates))
             # These methods both return, and print to stdout, the same formatted string
             f.write(cycle.print_len())
-            f.write(cycle.print_log_mer_profile())
+            f.write(cycle.print_logs())
             f.write(cycle.print_events())
             print("")
             f.write("\n")

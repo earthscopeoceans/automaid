@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v2.7)
+# pymaid environment (Python v3.10)
 #
-# Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux (SB)
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 12-Jan-2024
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Developer: Frédéric rocca <FRO>
+# Contact:  frederic.rocca@osean.fr
+# Last modified by FRO: 09-Sep-2024
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
+
+
 
 import os
 import re
@@ -16,11 +17,12 @@ import pytz
 import shutil
 import argparse
 import datetime
+import functools
 
 import kml
 import gps
 import setup
-import dives
+import cycles
 import utils
 import events
 import vitals
@@ -106,8 +108,19 @@ write_sac = True
 write_mseed = True
 write_mhpsd = True
 
-# Dictionary to write last-dive vital data to output files
-lastdive = {}
+# Dictionary to write last-cycle vital data to output files
+lastcycle = {}
+
+
+def sort_events(eventA,eventB) :
+    if eventA.corrected_starttime and eventB.corrected_starttime :
+        return eventA.corrected_starttime - eventB.corrected_starttime
+    elif eventA.corrected_starttime and not eventB.corrected_starttime :
+        return eventA.corrected_starttime - eventB.uncorrected_starttime
+    elif not eventA.corrected_starttime and eventB.corrected_starttime :
+        return eventA.uncorrected_starttime - eventB.corrected_starttime
+    else :
+        return eventA.uncorrected_starttime - eventB.uncorrected_starttime
 
 def main():
     # Set working directory in "scripts"
@@ -171,8 +184,16 @@ def main():
         # Decrypt all files for this float
         preprocess.decrypt_all(mfloat_path);
 
+        # Determine the time range of analysis (generally; birth to death of a MERMAID)
+        if mfloat in filterDate.keys():
+            begin = filterDate[mfloat][0]
+            end = filterDate[mfloat][1]
+        else:
+            begin = datetime.datetime(1000, 1, 1)
+            end = datetime.datetime(3000, 1, 1)
+
         # Convert in cycle files
-        preprocess.convert_in_cycle(mfloat_path);
+        preprocess.convert_in_cycle(mfloat_path,begin,end);
 
         # Really: collect all the .MER files (next we correlate their environments to .LOG files)
         print(" ...compiling a list of events from {:s} .MER files (GPS & seismic data)..." \
@@ -183,189 +204,144 @@ def main():
         # Build list of all S61 profiles recorded
         ms61s = sbe61.Profiles(mfloat_path)
 
-        # Determine the time range of analysis (generally; birth to death of a MERMAID)
-        if mfloat in filterDate.keys():
-            begin = filterDate[mfloat][0]
-            end = filterDate[mfloat][1]
-        else:
-            begin = datetime.datetime(1000, 1, 1)
-            end = datetime.datetime(3000, 1, 1)
-
-        # Collect all the .LOG files in order (generally 1 .LOG == 1 Dive)
-        # Later we will combine multiple .LOG files in cases when they are fragmented
-        # .LOG files can fragment due to ERR, EMERGENCY, REBOOT etc.
-        # A fragmented .LOG is one that does not include a complete dive
-        # A single-.LOG complete dive starts with '[DIVING]' and ends with '[SURFIN]'
-        # A multiple-.LOG complete dive is a concatenation of fragmented dives
-        # (i.e., a multi-.LOG complete dive may not actually contain a dive at all)
-        # Therefore, concatenate all fragmented .LOG in-between single-LOG complete dives
+        # Collect all the .CYCLE files
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat))
-        dive_logs = dives.get_dives(mfloat_path, mevents, ms41s, ms61s, begin, end)
+        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s)
+
+        kml.generate(mfloat_path, mfloat, cycle_logs)
+
 
         # Verify dive logs are sorted as expected
-        if dive_logs!= sorted(dive_logs, key=lambda x: x.start_date):
-            raise ValueError('`dive_logs` (single .LOG files) improperly sorted')
+        if cycle_logs!= sorted(cycle_logs, key=lambda x: x.start_date):
+            raise ValueError('`cycle_logs` improperly sorted')
 
-        # Verify events sublists are sorted as expected
-        events_list = [e for d in dive_logs for e in d.events]
-        if events_list != sorted(events_list, key=lambda x: x.corrected_starttime):
-            raise ValueError('`dive_logs[*].events` improperly sorted')
-
-        fragmented_dive = []
-        complete_dives = []
-        for i, dive_log in enumerate(dive_logs):
-
-            # Attach reference to previous / next .LOG and .MER files
-            prev_dive = dive_logs[i-1] if i > 0 else None
-            next_dive = dive_logs[i+1] if i < len(dive_logs)-1 else None
-            dive_log.set_prev_next_dive(prev_dive, next_dive)
-
+        for i, cycle_log in enumerate(cycle_logs):
             # Create the directory
-            if not os.path.exists(dive_log.processed_path):
-                os.mkdir(dive_log.processed_path)
+            if not os.path.exists(cycle_log.processed_path):
+                os.mkdir(cycle_log.processed_path)
 
             # Reformat and write .LOG in individual dive directory
-            dive_log.write_datetime_log()
+            cycle_log.write_datetime_cycle()
 
             # Write .MER environment in individual directories
-            dive_log.write_mermaid_environment_file()
+            cycle_log.write_mermaid_environment_files()
 
             # Write .S41 environment in individual directories
-            dive_log.write_s41_environment_file();
+            cycle_log.write_s41_environment_file();
+
             # Write .S61 environment in individual directories
-            dive_log.write_s61_environment_file();
+            cycle_log.write_s61_environment_file();
 
             # Generate dive plot
-            dive_log.write_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
+            cycle_log.write_dive_html(csv_file) # <-- timestamps not corrected for clockdrift
 
             # The GPS list is None outside of requested begin/end dates, within
             # which it defaults to an empty list if it is truly empty
-            if dive_log.gps_list is None:
+            if cycle_log.gps_list is None:
                 continue
-
-            # Often a single .LOG defines a complete dive: '[DIVING]' --> '[SURFIN]'
-            # Use those "known" complete dives to compile list of in-between fragmented dives
-            if dive_log.is_complete_dive:
-                complete_dives.append(dives.Complete_Dive([dive_log]))
-            else:
-                fragmented_dive.append(dive_log)
-
-                # If the next .LOG is a complete dive then this log is the last
-                # fragmented/filler .LOG file in-between complete dives
-                # Define the concatenation of all fragmented dives to be one complete dive
-                # Note that this type of complete dive may not define a dive at all
-                # However, we want to group these data so their (possibly legit)
-                # GPS may be used to interpolate previous/succeeding dives
-                if i < len(dive_logs)-1 and dive_logs[i+1].is_complete_dive:
-                    complete_dives.append(dives.Complete_Dive(fragmented_dive))
-                    fragmented_dive = []
-
-        # Verify complete dives are sorted as expected
-        if complete_dives != sorted(complete_dives, key=lambda x: x.start_date) \
-           or complete_dives != sorted(complete_dives, key=lambda x: x.end_date):
-            raise ValueError('`complete_dives` (potentially concatenated .LOG files) improperly sorted')
-
-        # Plot vital data
-        kml.generate(mfloat_path, mfloat, complete_dives)
-        vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
-        vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
-        vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
-        if len(dive_logs) > 1:
-            vitals.plot_corrected_pressure_offset(mfloat_path, complete_dives, begin, end)
-
-        # Use completed (stitched together) dives to generate event metadata and
-        # output data files etc.
-        for i, complete_dive in enumerate(complete_dives):
-
-            # Extend dive's GPS list by searching previous/next dive's GPS list
-            prev_dive = complete_dives[i-1] if i > 0 else None
-            next_dive = complete_dives[i+1] if i < len(complete_dives)-1 else None
-            complete_dive.set_incl_prev_next_dive_gps(prev_dive, next_dive)
 
             # Validate that the GPS may be used to correct various MERMAID
             # timestamps, including diving/surfacing and event starttimes
-            complete_dive.validate_gps(min_gps_fix, max_gps_time)
+            cycle_log.validate_gps(min_gps_fix, max_gps_time)
 
             # Apply clock corrections to the events associated with this
             # completed dive
-            complete_dive.correct_clockdrifts()
+            cycle_log.correct_clockdrifts()
 
             # Set output (.sac, .mseed) file names of the events associated with
-            # this complete dive using the adjusted and corrected event dates
-            complete_dive.set_processed_file_names()
+            # this cycle using the adjusted and corrected event dates
+            cycle_log.set_processed_file_names()
 
             # Interpolate station locations at various points in the dive
-            complete_dive.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
+            cycle_log.compute_station_locations(mixed_layer_depth_m, preliminary_location_ok)
 
             # Format station-location metadata for ObsPy and attach to complete dive object
-            complete_dive.set_events_obspy_trace_stats()
+            cycle_log.set_events_obspy_trace_stats()
+
+            # Write profiles html
+            cycle_log.write_profile_html(csv_file)
 
             # Write requested output files
-            if not os.path.exists(complete_dive.processed_path):
-                os.mkdir(complete_dive.processed_path)
-
             if write_png:
-                complete_dive.write_events_png()
+                cycle_log.write_events_png()
 
             if write_html:
-                complete_dive.write_events_html()
+                cycle_log.write_events_html()
 
             if write_sac:
-                complete_dive.write_events_sac()
+                cycle_log.write_events_sac()
 
             if write_mseed:
-                complete_dive.write_events_mseed()
+                cycle_log.write_events_mseed()
 
             if write_mhpsd:
-                complete_dive.write_events_mhpsd(creation_datestr)
+                cycle_log.write_events_mhpsd(creation_datestr)
+
+        # Verify events sublists are sorted as expected
+        events_list = [event for cycle in cycle_logs for event in cycle.events]
+        # Sort event lists by corrected starttime is exist => use uncorrected_starttime elsewhere
+        if events_list != sorted(events_list, key=functools.cmp_to_key(sort_events)):
+            raise ValueError('`cycle_logs[*].events` improperly sorted')
+        # Plot vital data
+        kml.generate(mfloat_path, mfloat, cycle_logs)
+        vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
+        vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
+        vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
+        if len(cycle_logs) > 1:
+            vitals.plot_corrected_pressure_offset(mfloat_path, cycle_logs, begin, end)
 
         # NB, at this point, the total event lists associated with `dive_logs`
-        # and `complete_dives` may differ because the former collects all events
+        # and `cycle_logs` may differ because the former collects all events
         # and the latter winnows that list to only include unique events (via
         # `dives.set_processed_file_names`, which removes redundant events from
-        # individual `complete_dives.events` lists); ergo, one may use the
+        # individual `cycle_logs.events` lists); ergo, one may use the
         # existence of `event.station_loc` to determine what events in
-        # `dive_logs` were actually retained in `complete_dives` (see e.g.,
+        # `dive_logs` were actually retained in `cycle_logs` (see e.g.,
         # `events.write_traces_txt`)
 
         # Write csv and txt files containing all GPS fixes from .LOG and .MER
-        gps.write_gps(dive_logs, creation_datestr, processed_path, mfloat_path)
+        gps.write_gps(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write text file detailing event-station location interpolation parameters
-        gps.write_gps_interpolation_txt(complete_dives,creation_datestr, processed_path, mfloat_path)
+        gps.write_gps_interpolation_txt(cycle_logs,creation_datestr, processed_path, mfloat_path)
 
         # Write text file detailing which SINGLE .LOG and .MER files define
         # (possibly incomplete) dives
-        dives.write_dives_txt(dive_logs, creation_datestr,  processed_path, mfloat_path)
+        cycles.write_logs_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path)
 
-        # Write text file and printout detailing which (and potentially
-        # MULTIPLE) .LOG and .MER files define complete dives
-        dives.write_complete_dives_txt(complete_dives, creation_datestr, processed_path, mfloat_path, mfloat)
+        # Write text file detailing .CYCLE files (init,complete dives, last dive)
+        cycles.write_cycles_txt(cycle_logs, creation_datestr,  processed_path, mfloat_path,mfloat)
 
         # Write a text file relating all SAC and mSEED to their associated .LOG
         # and .MER files
-        events.write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path)
+        events.write_traces_txt(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write a text file with our best-guess at the location of MERMAID at
         # the time of recording
-        events.write_loc_txt(dive_logs, creation_datestr, processed_path, mfloat_path)
+        events.write_loc_txt(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write mseed2sac and automaid metadata csv and text files
-        events.write_obspy_trace_stats(complete_dives, creation_datestr, processed_path, mfloat_path)
+        events.write_obspy_trace_stats(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write GeoCSV files
-        geocsv_meta = geocsv.GeoCSV(complete_dives, creation_datestr, mixed_layer_depth_m)
+        geocsv_meta = geocsv.GeoCSV(cycle_logs, creation_datestr, mixed_layer_depth_m)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories
-        for f in glob.glob(mfloat_path + "/" + mfloat_nb + "_*"):
+        files_to_delete = list()
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S41")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S61")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.BIN")
+        files_to_delete += glob.glob(mfloat_path + "/" + "*.CYCLE")
+        for f in files_to_delete:
             os.remove(f)
-
         # Save the last complete dive of this float to later write output list
         # of external pressure measurements for the entire array
-        if complete_dives:
-            lastdive[mfloat] = complete_dives[-1]
+        if cycle_logs:
+            lastcycle[mfloat] = cycle_logs[-1]
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
@@ -373,7 +349,7 @@ def main():
     # Print a text file of corrected external pressures measured on the final
     # dive, and warn if any are approaching the limit of 300 mbar (at which
     # point adjustment is required)
-    vitals.write_corrected_pressure_offset(lastdive, processed_path)
+    vitals.write_corrected_pressure_offset(lastcycle, processed_path)
 
 if __name__ == "__main__":
     main()

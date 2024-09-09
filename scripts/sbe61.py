@@ -1,11 +1,14 @@
-# @Author: Frédéric Rocca <fro>
-# @Date:   2023-06-09T09:36:17+02:00
-# @Email:  frederic.rocca@osean.fr
-# @Filename: sbe61.py
-# @Last modified by:   fro
-# @Last modified time: 2023-07-06T14:59:18+02:00
-
 # -*- coding: utf-8 -*-
+#
+# Part of automaid -- a Python package to process MERMAID files
+# pymaid environment (Python v3.10)
+#
+# Developer: Frédéric rocca <FRO>
+# Contact:  frederic.rocca@osean.fr
+# Last modified by FRO: 09-Sep-2024
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
+
+
 
 import os
 import sys

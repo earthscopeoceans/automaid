@@ -12,11 +12,7 @@ decryption, CTD profiling, etc.) coded by @oseanfro.
 
 ### 1. INSTALLATION
 
-This installation procedure has been tested with Intel and Silicon Mac OS (see
-note below for Silicon users). For Linux the procedure is valid but one could
-prefer to use a package manager.  For Windows the installation of Python 2.7 is
-valid but the compilation of the wavelet inversion program with "make" could be
-problematic.
+This installation procedure has been tested with linux
 
 An easy installation procedure is described here:
 
@@ -30,46 +26,12 @@ An easy installation procedure is described here:
 * Activate the environment:
   `source activate pymaid`
 * Make sure you are in the `bash` shell!
-
-### NOTE FOR SILICON MAC USERS >>>
-
-Python 2.7 is no longer natively supported in conda on Silicon Macs (`conda
-create`) below will not work---must be run in Rosetta 2 by flagging `osx-64`
-conda subdir. Example of Option 1:
-
-`CONDA_SUBDIR=osx-64 conda create -n pymaid python=2.7 obspy plotly=2.7.0`<br>
-`conda activate pymaid`<br>
-`conda config --env --set subdir osx-64`<br>
-
-See here for more detail:
-https://stackoverflow.com/questions/67380286/anaconda-channel-for-installing-python-2-7
-
-### NOTE FOR SILICON MAC USERS <<<
-
-!! Option 1 !!
-* Crate a virtual environment called "pymaid" with required packages:<br>
-  `conda create -n pymaid python=2.7 obspy plotly=2.7.0` # WARNING<sup>1</sup><br>
-
-!! Option 1 / end !!
-
-!! Option 2 !!
-* Create a virtual environment called "pymaid":
-  `conda create -n pymaid python=2.7`
-* Install obspy:
-  `conda install obspy`
-  (or try these following if the above fails/stalls)<br>
-  `conda install -c obspy obspy`
-  `conda install --channel https://conda.anaconda.org/obspy obspy`<br>
-  `conda install obspy=1.2.2` # WARNING<sup>2</sup>
-* Install plotly 2.7.0:
-  `conda install plotly=2.7.0`
-
-!! Option 2 / end !!
-
+* Create a virtual environment called "pymaid" with required packages:<br>
+  `conda create -n pymaid python=3.10 obspy plotly`<br>
 * Quit the virtual environment:
   `source deactivate`
 
-In addition to the Python 2.7 installation it is necessary to compile,
+In addition to the Python 3.10 installation it is necessary to compile,
 using `make` the wavelet inversion programs located in
 `scripts/src/V103/` and `scripts/src/V103EC/`. The compiled binaries
 must be in the "bin" directory and must be named `icdf24_v103_test` and
@@ -84,7 +46,7 @@ overridden at execution using the `--server` and `--processed` arguments.
 To use the application:
 
 * Copy files from your MERMAID server into the "$MERMAID/server" directory:
-  `scp username@host:\{"*.LOG","*.MER","*.vit"\} server`
+  `scp username@host:\{"*.LOG","*.MER","*.S61","*.vit"\} server`
 * Activate the virtual environment:
   `source activate pymaid` or `conda activate pymaid` or (if "conda" not found)
   e.g., `source /Users/joelsimon/anaconda3/etc/profile.d/conda.sh ; conda  activate pymaid`
@@ -134,7 +96,3 @@ Consortium. (2021). earthscopeoceans/automaid: v3.5.0
 <sup>1</sup>One-liner of conda install including all packages suggested by
 Dalija Namjesnik after she and Joel Simon struggled with an install in May 2023;
 similar to note 2 below, this should also probably be validated...
-
-<sup>2</sup>Joel Simon could not get `conda install` to work in early 2023
-without specifying a version...he choose the seemingly(?) most recent Python 2.7
-version, though this needs to validated.

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v2.7)
+# pymaid environment (Python v3.10)
 #
-# Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux (SB)
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 20-Apr-2023
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Developer: Frédéric rocca <FRO>
+# Contact:  frederic.rocca@osean.fr
+# Last modified by FRO: 09-Sep-2024
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
+
 
 import sys
 import os
@@ -29,7 +29,7 @@ from obspy.core.trace import Trace
 from obspy.core.trace import Stats
 from obspy.core.stream import Stream
 
-import gps_cycle as gps
+import gps
 import sys
 import setup
 import utils
