@@ -1201,7 +1201,7 @@ def write_logs_txt(cycles, creation_datestr, processed_path, mfloat_path):
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#cycle_nb     dive_id               log_start                 log_end      len_secs     len_days             cycle_name         mer_env_name\n".format()
+    header_line = "#cycle_nb     dive_id               log_start                 log_end      len_secs     len_days             log_name         mer_env_name\n".format()
 
     with open(logs_file, "w+") as f:
         f.write(version_line)
