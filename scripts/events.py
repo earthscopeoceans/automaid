@@ -34,6 +34,7 @@ import sys
 import setup
 import utils
 import mermaidpsd
+import time
 
 # Get current version number.
 version = setup.get_version()
@@ -649,15 +650,19 @@ class Event:
 
         if self.station_loc is None:
             return
+
+        print("plot {}".format(self.processed_file_name + ".html"))
         # Plotly you can implement WebGL with Scattergl() in place of Scatter()
         # for increased speed, improved interactivity, and the ability to plot even more data.
         Scatter = graph.Scatter
         if optimize :
             Scatter = graph.Scattergl
         # Add acoustic values to the graph
-        data_line = Scatter(x=utils.get_date_array(self.corrected_starttime, len(self.processed_data), 1./self.decimated_fs),
-                                  y=self.processed_data,
-                                  name="counts",
+        pascals = [utils.counts2pascal(d) for d in self.processed_data]
+
+        data_line = Scatter(x=utils.get_date_array(self.corrected_starttime, len(pascals), 1./self.decimated_fs),
+                                  y=pascals,
+                                  name="pascals",
                                   line=dict(color='blue',width=2),
                                   mode='lines')
 
@@ -665,16 +670,16 @@ class Event:
 
         layout = graph.Layout(title=self.__get_figure_title(),
                               xaxis=dict(title='Coordinated Universal Time (UTC)', titlefont=dict(size=18)),
-                              yaxis=dict(title='Counts', titlefont=dict(size=18)),
+                              yaxis=dict(title='Pascals', titlefont=dict(size=18)),
                               hovermode='closest')
         figure = graph.Figure(data=data, layout=layout)
 
         # Include plotly into any html files ?
         # If false user need connexion to open html files
         if include_plotly :
-            figure.write_html(file=export_path, include_plotlyjs=True)
+            figure.write_html(file=processed_path_html, include_plotlyjs=True)
         else :
-            figure.write_html(file=export_path,
+            figure.write_html(file=processed_path_html,
                               include_plotlyjs='cdn', full_html=False)
 
     def plot_html_stanford(self, processed_path, optimize=False, include_plotly=True):
@@ -723,9 +728,9 @@ class Event:
         # Include plotly into any html files ?
         # If false user need connexion to open html files
         if include_plotly :
-            figure.write_html(file=export_path, include_plotlyjs=True)
+            figure.write_html(file=processed_path_html, include_plotlyjs=True)
         else :
-            figure.write_html(file=export_path,
+            figure.write_html(file=processed_path_html,
                               include_plotlyjs='cdn', full_html=False)
 
     def plot_png(self, processed_path, force_redo=False):

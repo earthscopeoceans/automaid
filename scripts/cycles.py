@@ -205,6 +205,7 @@ class Cycle:
     directory_name = None
     station_name = None
     station_number = None
+    soft_version = None
     kstnm = None
     kinst = None
     cycle_name = None
@@ -247,6 +248,10 @@ class Cycle:
     mermaid_reboots = None
     emergency_triggers = None
     pressure_mbar = None
+    vitals_vbat = None
+    vitals_pext = None
+    vitals_pint = None
+
 
     gps_valid4clockdrift_correction = None
     gps_valid4location_interp = None
@@ -299,17 +304,25 @@ class Cycle:
         self.len_days = self.len_secs / (60*60*24.)
         # Get the station name
         find_name = None
+        find_soft = None
         lines = utils.split_log_lines(self.cycle_content)
         for line in lines :
             match_board = re.findall("board (.+)", line)
             match_buoy = re.findall("buoy (.+)", line)
+            match_soft_v1 = re.findall("soft (.+)", line)
+            match_soft_v2 = re.findall("soft pilotage (.+)", line)
             if match_board :
                 find_name = match_board[0]
             if match_buoy :
                 find_name = match_buoy[0]
-            if find_name :
+            if match_soft_v1 :
+                find_soft = match_soft_v1[0]
+            if match_soft_v2 :
+                find_soft = match_soft_v2[0]
+            if find_name and find_soft:
                 self.station_name = find_name
                 self.station_number = self.station_name.split("-")[-1]
+                self.soft_version = find_soft
                 # Zero-pad the (unique part) of the station name so that it is five characters long
                 self.set_kstnm_kinst()
                 break;
@@ -403,6 +416,10 @@ class Cycle:
         self.emergency_triggers = utils.find_timestamped_values("\]<ERR>TRIGGERED BY (.*)",self.cycle_content)
         # Find if mermaid reboot occurs
         self.mermaid_reboots = utils.find_timestamped_values("\]\$BOARD",self.cycle_content)
+        # Find vitals for cycle
+        self.vitals_vbat = utils.find_timestamped_values("Vbat (\d+)mV \(min (\d+)mV\)",self.cycle_content)
+        self.vitals_pext = utils.find_timestamped_values("Pext (-?\d+)mbar \(rng (-?\d+)mbar\)",self.cycle_content)
+        self.vitals_pint = utils.find_timestamped_values("internal pressure (\d+)Pa",self.cycle_content)
         # Generate the directory name (CycleNB_Date)
         self.directory_name = filename_split[0] + "_" + self.start_date.strftime("%Y%m%d-%Hh%Mm%Ss")
         if self.is_init:
@@ -1201,7 +1218,7 @@ def write_logs_txt(cycles, creation_datestr, processed_path, mfloat_path):
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#cycle_nb     dive_id               log_start                 log_end      len_secs     len_days             log_name         mer_env_name\n".format()
+    header_line = "#cycle_nb     dive_id               log_start                 log_end      len_secs     len_days             cycle_name         mer_env_name\n".format()
 
     with open(logs_file, "w+") as f:
         f.write(version_line)
