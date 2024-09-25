@@ -31,6 +31,10 @@ An easy installation procedure is described here:
 * Quit the virtual environment:
   `source deactivate`
 
+JDS note for future cleanup: also had to install pytz<br>
+`conda create -n pymaid3.10 python=3.10 obspy plotly`<br>
+`conda install -n pymaid3.10 pytz`<br>
+
 In addition to the Python 3.10 installation it is necessary to compile,
 using `make` the wavelet inversion programs located in
 `scripts/src/V103/` and `scripts/src/V103EC/`. The compiled binaries
