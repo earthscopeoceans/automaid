@@ -5,8 +5,8 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 01-Nov-2023
-# Last tested: Python 3.10.13, 22.04.3-Ubuntu
+# Last modified by JDS: 26-Sep-2024
+# Last tested: Python 3.10.13, Darwin Kernel Version 23.6.0
 
 # Todo:
 #
@@ -123,10 +123,10 @@ class GeoCSV:
             'TimeCorrection'
         ]
 
-        self.MethodIdentifier_GPS = 'Measurement:GPS:{:s}'.format(utils.get_gps_sensor_name().replace(' ', '_')).encode('ascii')
-        self.MethodIdentifier_Pressure = 'Measurement:Pressure:{:s}'.format(utils.get_absolute_pressure_sensor_name().replace(' ', '_')).encode('ascii')
-        self.MethodIdentifier_Algorithm_Event = 'Algorithm(event):automaid:{:s}'.format(setup.get_version()).encode('ascii')
-        self.MethodIdentifier_Algorithm_Thermocline = 'Algorithm(thermocline):automaid:{:s}'.format(setup.get_version()).encode('ascii')
+        self.MethodIdentifier_GPS = 'Measurement:GPS:{:s}'.format(utils.get_gps_sensor_name().replace(' ', '_'))
+        self.MethodIdentifier_Pressure = 'Measurement:Pressure:{:s}'.format(utils.get_absolute_pressure_sensor_name().replace(' ', '_'))
+        self.MethodIdentifier_Algorithm_Event = 'Algorithm(event):automaid:{:s}'.format(setup.get_version())
+        self.MethodIdentifier_Algorithm_Thermocline = 'Algorithm(thermocline):automaid:{:s}'.format(setup.get_version())
 
     def get_comment_lines(self):
         comment_lines = [
