@@ -102,7 +102,7 @@ filterDate = utils.deploy2present()
 redo = False
 
 # Figures commented by default (take heaps of memory)
-write_png = False
+write_png = True
 write_html = False
 write_sac = True
 write_mseed = True
