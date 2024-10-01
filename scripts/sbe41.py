@@ -270,6 +270,9 @@ class Profile:
             if os.path.exists(export_path):
                 print((export_path + "already exist"))
                 return
+            Scatter = graph.Scatter
+            if optimize :
+                Scatter = graph.Scattergl
             # Add acoustic values to the graph
             data_line = Scatter(x=self.data_salinity,
                                 y=self.data_pressure,
