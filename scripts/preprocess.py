@@ -972,9 +972,10 @@ def decrypt_all(path):
                     except:
                         print(("FORMAT ERROR :" +str(binary_file)))
                     else:
-                        with open(log_file,"w") as f:
-                            f.write(result)
-                        files_decrypted.append(log_file)
+                        if result :
+                            with open(log_file,"w") as f:
+                                f.write(result)
+                            files_decrypted.append(log_file)
                         os.remove(binary_file)
                 else:
                     print(("No database : " + str(database_file_path)))
@@ -1075,10 +1076,12 @@ def convert_in_cycle(path,begin,end):
             with open(logFile, "rb") as f:
                 # Read the content of the LOG
                 fileRead = f.read().decode("utf-8","replace")
+                if not fileRead :
+                    iLog = iLog +1
+                    continue
                 fileFixed = ""
                 # Get current delimiter char
-                if fileRead :
-                    delim = utils.get_log_delimiter(fileRead)
+                delim = utils.get_log_delimiter(fileRead)
                 # Split file by line
                 is_dive = False
                 is_finish = False
