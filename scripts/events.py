@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-09-13 16:14:34
 # @Last Modified by:   fro
-# @Last Modified time: 2024-10-23 10:20:11
+# @Last Modified time: 2024-10-23 11:19:56
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
@@ -204,6 +204,7 @@ class Event:
         self.mseed_time_correction = None
         self.obspy_trace_stats = None
         self.processed_file_name = None
+        self.uncorrected_processed_file_name = None
 
         self.is_requested = None
 
@@ -604,6 +605,31 @@ class Event:
 
         self.processed_file_name = processed_file_name
 
+    def set_uncorrected_processed_file_name(self):
+        if not self.uncorrected_starttime:
+            self.uncorrected_starttime = self.info_date
+
+        processed_file_name = UTCDateTime.strftime(UTCDateTime(self.uncorrected_starttime),\
+                                                   "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
+
+        if self.is_stanford_event:
+            processed_file_name += ".STD"
+
+        else:
+            if not self.trig:
+                processed_file_name += ".REQ"
+            else:
+                processed_file_name += ".DET"
+
+            if self.scales == "-1":
+                processed_file_name += ".RAW"
+            else:
+                processed_file_name += ".WLT" + self.scales
+
+        processed_file_name += '.unloc'
+        self.uncorrected_processed_file_name = processed_file_name
+
+
     def statistics(self):
         if not self.is_stanford_event:
             stat_date = self.corrected_starttime
@@ -614,12 +640,20 @@ class Event:
         return [UTCDateTime.strftime(UTCDateTime(stat_date), "%Y%m%dT%H%M%S"),self.processed_data_max, self.processed_data_min]
 
     def __get_figure_title(self):
-        title = "" + self.corrected_starttime.isoformat() \
-                + "     Fs = " + str(self.decimated_fs) + "Hz\n" \
-                + "     Depth: " + str(self.depth) + " m\n" \
-                + "     Temperature: " + str(self.temperature) + " degC\n" \
-                + "     Criterion = " + str(self.criterion) \
-                + "     SNR = " + str(self.snr)
+        if self.corrected_starttime :
+            title = "<Unlocalized> " + self.corrected_starttime.isoformat() \
+                    + "     Fs = " + str(self.decimated_fs) + "Hz\n" \
+                    + "     Depth: " + str(self.depth) + " m\n" \
+                    + "     Temperature: " + str(self.temperature) + " degC\n" \
+                    + "     Criterion = " + str(self.criterion) \
+                    + "     SNR = " + str(self.snr)
+        else :
+            title = "" + self.uncorrected_starttime.isoformat() \
+                    + "     Fs = " + str(self.decimated_fs) + "Hz\n" \
+                    + "     Depth: " + str(self.depth) + " m\n" \
+                    + "     Temperature: " + str(self.temperature) + " degC\n" \
+                    + "     Criterion = " + str(self.criterion) \
+                    + "     SNR = " + str(self.snr)
         return title
 
     def __get_figure_title_stanford_html(self):
@@ -645,15 +679,23 @@ class Event:
         return title
 
     def plot_html(self, processed_path, optimize=False, include_plotly=True):
-        if self.processed_file_name is None:
-            return
+
+
+        processed_file_name = self.processed_file_name
+        starttime = self.corrected_starttime
+
+        if processed_file_name is None:
+            processed_file_name = self.uncorrected_processed_file_name
+            starttime = self.uncorrected_starttime
+            if processed_file_name is None:
+                return
 
         # Check if file exist
-        processed_path_html = processed_path + self.processed_file_name + ".html"
+        processed_path_html = processed_path + processed_file_name + ".html"
         if os.path.exists(processed_path_html):
             return
 
-        print("plot {}".format(self.processed_file_name + ".html"))
+        print("plot {}".format(processed_file_name + ".html"))
         # Plotly you can implement WebGL with Scattergl() in place of Scatter()
         # for increased speed, improved interactivity, and the ability to plot even more data.
         Scatter = graph.Scatter
@@ -662,7 +704,7 @@ class Event:
         # Add acoustic values to the graph
         pascals = [utils.counts2pascal(d) for d in self.processed_data]
 
-        data_line = Scatter(x=utils.get_date_array(self.corrected_starttime, len(pascals), 1./self.decimated_fs),
+        data_line = Scatter(x=utils.get_date_array(starttime, len(pascals), 1./self.decimated_fs),
                                   y=pascals,
                                   name="pascals",
                                   line=dict(color='blue',width=2),
