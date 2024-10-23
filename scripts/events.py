@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# @Author: fro
+# @Date:   2024-09-13 16:14:34
+# @Last Modified by:   fro
+# @Last Modified time: 2024-10-23 10:20:11
+# -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v3.10)
@@ -646,9 +651,6 @@ class Event:
         # Check if file exist
         processed_path_html = processed_path + self.processed_file_name + ".html"
         if os.path.exists(processed_path_html):
-            return
-
-        if self.station_loc is None:
             return
 
         print("plot {}".format(self.processed_file_name + ".html"))
