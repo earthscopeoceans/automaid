@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# @Author: fro
+# @Date:   2024-10-23 10:29:38
+# @Last Modified by:   fro
+# @Last Modified time: 2024-11-08 16:19:09
+# -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v3.10)
@@ -1132,8 +1137,14 @@ def convert_in_cycle(path,begin,end):
                     content += str(int(get_hexa_date(logFile),16)) + ":[PREPROCESS]Create " + os.path.basename(logFile) + delim
                     lines = utils.split_log_lines(fileFixed)
                     before_dive = None
-                    for line in lines:
-                        before_dive = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
+                    for index, line in enumerate(lines):
+                        # Wait an internal pressure follower by bypass configuration
+                        internal_pressure = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
+                        if internal_pressure :
+                            next_index = index+1
+                            if next_index < len(lines) :
+                                before_dive = re.findall('(\d+):(\[.+\])? +bypass (\d+)ms (\d+)ms \((\d+)ms (\d+)ms stored\)', lines[next_index])
+
                         # Wait start of next dive
                         if before_dive :
                             # exit the loop
