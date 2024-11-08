@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# @Author: fro
+# @Date:   2024-10-23 10:29:38
+# @Last Modified by:   fro
+# @Last Modified time: 2024-11-08 14:29:27
+# -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v2.7)
@@ -16,8 +21,8 @@ import random
 # Get current version number.
 version = setup.get_version()
 
-def generate(dest_path, mfloat_name, complete_dives):
-    if len(complete_dives) < 1:
+def generate(dest_path, mfloat_name, cycles):
+    if len(cycles) < 1:
         return
 
     kml_string = str()
@@ -27,23 +32,23 @@ def generate(dest_path, mfloat_name, complete_dives):
     kml_string += markerstyle()
 
     kml_string += folderbeg("Events marker")
-    kml_string += events_marker(complete_dives)
+    kml_string += events_marker(cycles)
     kml_string += folderend()
 
     kml_string += folderbeg("GPS points")
-    kml_string += gps_point_marker(complete_dives)
+    kml_string += gps_point_marker(cycles)
     kml_string += folderend()
 
     kml_string += folderbeg("Interpolated points")
-    kml_string += interpolated_point_marker(complete_dives)
+    kml_string += interpolated_point_marker(cycles)
     kml_string += folderend()
 
     kml_string += folderbeg("Last position")
-    kml_string += last_pos_marker(complete_dives)
+    kml_string += last_pos_marker(cycles)
     kml_string += folderend()
 
     kml_string += folderbeg("Trajectory")
-    kml_string += complex_trajectory(mfloat_name, complete_dives)
+    kml_string += complex_trajectory(mfloat_name, cycles)
     kml_string += folderend()
 
     # kmlfile += look_at_auto(mermaid, 0)
@@ -225,10 +230,10 @@ def markerstyle(scale=1):
     return string
 
 
-def events_marker(complete_dives):
+def events_marker(cycles):
     string = ""
-    for dive in complete_dives[:-1]:
-        for event in dive.events:
+    for cycle in cycles[:-1]:
+        for event in cycle.events:
             if event.station_loc is None:
                 continue
             pos = str(event.station_loc.longitude) + "," + str(event.station_loc.latitude) + ",0"
@@ -238,7 +243,7 @@ def events_marker(complete_dives):
                     <description><![CDATA[
     <div style="width:910x">
     <img src=\""""
-            string += os.path.join(dive.directory_name, event.processed_file_name + ".png")
+            string += os.path.join(cycle.directory_name, event.processed_file_name + ".png")
             string += """\" style="width:675px">
           ]]>
                     </description>
@@ -250,11 +255,11 @@ def events_marker(complete_dives):
     return string
 
 
-def gps_point_marker(complete_dives):
+def gps_point_marker(cycles):
     dfmt = "%d/%m/%y %H:%M"
     string = ""
-    for dive in complete_dives:
-        for gps in dive.gps_list:
+    for cycle in cycles:
+        for gps in cycle.gps_list:
             pos = str(gps.longitude) + "," + str(gps.latitude) + ",0"
             string += """
         <Placemark>
@@ -268,13 +273,13 @@ def gps_point_marker(complete_dives):
     return string
 
 
-def interpolated_point_marker(complete_dives):
+def interpolated_point_marker(cycles):
     dfmt = "%d/%m/%y %H:%M"
     string = ""
-    for dive in complete_dives[1:]:
-        if dive.descent_leave_surface_loc:
-            pos = str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0"
-            posstr = dive.descent_leave_surface_loc.date.strftime(dfmt)
+    for cycle in cycles[1:]:
+        if cycle.descent_leave_surface_loc:
+            pos = str(cycle.descent_leave_surface_loc.longitude) + "," + str(cycle.descent_leave_surface_loc.latitude) + ",0"
+            posstr = cycle.descent_leave_surface_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -285,9 +290,9 @@ def interpolated_point_marker(complete_dives):
                 </Point>
             </Placemark>"""
 
-        if dive.descent_leave_surface_layer_loc:
-            pos = str(dive.descent_leave_surface_layer_loc.longitude) + "," + str(dive.descent_leave_surface_layer_loc.latitude) + ",0"
-            posstr = dive.descent_leave_surface_layer_loc.date.strftime(dfmt)
+        if cycle.descent_leave_surface_layer_loc:
+            pos = str(cycle.descent_leave_surface_layer_loc.longitude) + "," + str(cycle.descent_leave_surface_layer_loc.latitude) + ",0"
+            posstr = cycle.descent_leave_surface_layer_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -298,9 +303,9 @@ def interpolated_point_marker(complete_dives):
                 </Point>
             </Placemark>"""
 
-        if dive.ascent_reach_surface_layer_loc:
-            pos = str(dive.ascent_reach_surface_layer_loc.longitude) + "," + str(dive.ascent_reach_surface_layer_loc.latitude) + ",0"
-            posstr = dive.ascent_reach_surface_layer_loc.date.strftime(dfmt)
+        if cycle.ascent_reach_surface_layer_loc:
+            pos = str(cycle.ascent_reach_surface_layer_loc.longitude) + "," + str(cycle.ascent_reach_surface_layer_loc.latitude) + ",0"
+            posstr = cycle.ascent_reach_surface_layer_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -311,9 +316,9 @@ def interpolated_point_marker(complete_dives):
                 </Point>
             </Placemark>"""
 
-        if dive.ascent_reach_surface_loc:
-            pos = str(dive.ascent_reach_surface_loc.longitude) + "," + str(dive.ascent_reach_surface_loc.latitude) + ",0"
-            posstr = dive.ascent_reach_surface_loc.date.strftime(dfmt)
+        if cycle.ascent_reach_surface_loc:
+            pos = str(cycle.ascent_reach_surface_loc.longitude) + "," + str(cycle.ascent_reach_surface_loc.latitude) + ",0"
+            posstr = cycle.ascent_reach_surface_loc.date.strftime(dfmt)
             string += """
             <Placemark>
                 <name>""" + posstr + """</name>
@@ -327,16 +332,16 @@ def interpolated_point_marker(complete_dives):
     return string
 
 
-def last_pos_marker(complete_dives):
-    last_dive = complete_dives[-1]
-    if len(last_dive.gps_list) < 1 or not last_dive.station_name:
+def last_pos_marker(cycles):
+    last_cycle = cycles[-1]
+    if len(last_cycle.gps_list) < 1 or not last_cycle.station_name:
         return ""
-    last_pos = last_dive.gps_list[-1]
+    last_pos = last_cycle.gps_list[-1]
     pos = str(last_pos.longitude) + "," + str(last_pos.latitude) + ",0"
 
     string = """
-        <Placemark id=\"""" + last_dive.station_name + """_mark">
-            <name>""" + last_dive.station_name + """</name>
+        <Placemark id=\"""" + last_cycle.station_name + """_mark">
+            <name>""" + last_cycle.station_name + """</name>
             <styleUrl>#markerStyle1</styleUrl>
             <Point>
                 <gx:drawOrder>10</gx:drawOrder>
@@ -346,31 +351,21 @@ def last_pos_marker(complete_dives):
     return string
 
 
-def complex_trajectory(mfloat_name, complete_dives):
+def complex_trajectory(mfloat_name, cycles):
     string = ""
 
     # Surface line
     pos = ""
     i = 0
-    while i < len(complete_dives):
-        # Use the surface drift of the end of the precedent dive
-        if i > 1:
-            dive = complete_dives[i-1]
-            if dive.ascent_reach_surface_layer_loc is not None:
-                pos += str(dive.ascent_reach_surface_layer_loc.longitude) + ","\
-                       + str(dive.ascent_reach_surface_layer_loc.latitude) + ",0\n"
-            if dive.ascent_reach_surface_loc is not None:
-                pos += str(dive.ascent_reach_surface_loc.longitude) + "," + str(dive.ascent_reach_surface_loc.latitude) + ",0\n"
-            if len(dive.gps_list) > 0:
-                pos += str(dive.gps_list[-1].longitude) + "," + str(dive.gps_list[-1].latitude) + ",0\n"
-        # Surface drift of the beginning of the current dive
-        dive = complete_dives[i]
-        for gps in dive.gps_list[:-1]:
+    while i < len(cycles):
+        # Surface drift of the beginning of the current cycle
+        cycle = cycles[i]
+        for gps in cycle.gps_before_dive:
             pos += str(gps.longitude) + "," + str(gps.latitude) + ",0\n"
-        if complete_dives[i].descent_leave_surface_loc is not None:
-            pos += str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0\n"
-        if dive.descent_leave_surface_layer_loc is not None:
-            pos += str(dive.descent_leave_surface_layer_loc.longitude) + "," + str(dive.descent_leave_surface_layer_loc.latitude) + ",0\n"
+        if cycle.descent_leave_surface_loc is not None:
+            pos += str(cycle.descent_leave_surface_loc.longitude) + "," + str(cycle.descent_leave_surface_loc.latitude) + ",0\n"
+        if cycle.descent_leave_surface_layer_loc is not None:
+            pos += str(cycle.descent_leave_surface_layer_loc.longitude) + "," + str(cycle.descent_leave_surface_layer_loc.latitude) + ",0\n"
 
         pos = pos.strip("\n")
 
@@ -389,15 +384,15 @@ def complex_trajectory(mfloat_name, complete_dives):
         pos = pos.split("\n")[-1] + "\n"
 
         # Descent position
-        if dive.descent_leave_surface_layer_loc is not None:
-            pos += str(dive.descent_leave_surface_layer_loc.longitude) + "," + str(dive.descent_leave_surface_layer_loc.latitude) + ",0\n"
-        elif dive.descent_leave_surface_loc is not None:
-            pos += str(dive.descent_leave_surface_loc.longitude) + "," + str(dive.descent_leave_surface_loc.latitude) + ",0\n"
+        if cycle.descent_leave_surface_layer_loc is not None:
+            pos += str(cycle.descent_leave_surface_layer_loc.longitude) + "," + str(cycle.descent_leave_surface_layer_loc.latitude) + ",0\n"
+        elif cycle.descent_leave_surface_loc is not None:
+            pos += str(cycle.descent_leave_surface_loc.longitude) + "," + str(cycle.descent_leave_surface_loc.latitude) + ",0\n"
         # Ascent position
-        if dive.ascent_reach_surface_layer_loc is not None:
-            pos += str(dive.ascent_reach_surface_layer_loc.longitude) + "," + str(dive.ascent_reach_surface_layer_loc.latitude) + ",0\n"
-        elif dive.ascent_reach_surface_loc is not None:
-            pos += str(dive.ascent_reach_surface_loc.longitude) + "," + str(dive.ascent_reach_surface_loc.latitude) + ",0\n"
+        if cycle.ascent_reach_surface_layer_loc is not None:
+            pos += str(cycle.ascent_reach_surface_layer_loc.longitude) + "," + str(cycle.ascent_reach_surface_layer_loc.latitude) + ",0\n"
+        elif cycle.ascent_reach_surface_loc is not None:
+            pos += str(cycle.ascent_reach_surface_loc.longitude) + "," + str(cycle.ascent_reach_surface_loc.latitude) + ",0\n"
 
         pos = pos.strip("\n")
 
@@ -418,9 +413,9 @@ def complex_trajectory(mfloat_name, complete_dives):
         # Increment i
         i += 1
 
-    # Add last dive surface position
-    if len(complete_dives[-1].gps_list) > 0:
-        pos += str(complete_dives[-1].gps_list[-1].longitude) + "," + str(complete_dives[-1].gps_list[-1].latitude) + ",0\n"
+    # Add last cycle surface position
+    if len(cycles[-1].gps_list) > 0:
+        pos += str(cycles[-1].gps_list[-1].longitude) + "," + str(cycles[-1].gps_list[-1].latitude) + ",0\n"
 
     line_style = "#lineStyle_m" + mfloat_name[-2:]
     string += """
