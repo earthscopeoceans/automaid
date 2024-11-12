@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+# @Author: fro
+# @Date:   2024-10-23 10:29:38
+# @Last Modified by:   fro
+# @Last Modified time: 2024-11-12 10:08:21
+# -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v3.10)
@@ -1005,6 +1010,10 @@ class Cycle:
         for event in self.events:
             if event.station_loc is not None:
                 event.set_obspy_trace_stats()
+            else :
+                event.set_uncorrected_processed_file_name()
+                event.set_obspy_trace_stats(True) 
+                    
 
     def write_events_html(self, optimize=False, include_plotly=True):
         for event in self.events:
@@ -1045,6 +1054,10 @@ class Cycle:
     def write_events_mhpsd(self, creation_datestr=None):
         for event in self.events:
             event.write_mhpsd(self.processed_path, creation_datestr)
+
+    def write_events_wav(self) :
+        for event in self.events:
+            event.write_wav(self.processed_path)
 
     def print_len(self):
         len_str  = "   Date: {:s} -> {:s} ({:.2f} days; first/last line of {:s})" \

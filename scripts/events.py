@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-09-13 16:14:34
 # @Last Modified by:   fro
-# @Last Modified time: 2024-10-23 11:19:56
+# @Last Modified time: 2024-11-12 10:21:25
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
@@ -778,15 +778,13 @@ class Event:
                               include_plotlyjs='cdn', full_html=False)
 
     def plot_png(self, processed_path, force_redo=False):
-        if self.processed_file_name is None:
-            return
+        processed_file_name = self.processed_file_name
+        if processed_file_name is None:
+            processed_file_name = self.uncorrected_processed_file_name
 
         # Check if file exist
-        processed_path_png = processed_path + self.processed_file_name + ".png"
+        processed_path_png = processed_path + processed_file_name + ".png"
         if not force_redo and os.path.exists(processed_path_png):
-            return
-
-        if self.station_loc is None:
             return
 
         pascals = [utils.counts2pascal(d) for d in self.processed_data]
@@ -895,7 +893,10 @@ class Event:
         stats.station = self.kstnm
         stats.location = "00"
         stats.channel = self.kcmpnm
-        stats.starttime = self.corrected_starttime
+        if not force_without_loc:
+            stats.starttime = self.corrected_starttime
+        else :
+            stats.starttime = self.uncorrected_starttime
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.processed_data)
 
@@ -976,7 +977,10 @@ class Event:
 
         # String describing detection/request status, and number of wavelet scales transmitted
         # (e.g., 'DET.WLT5')
-        reqdet_scales = self.processed_file_name.split('.')[-2:]
+        if self.processed_file_name :
+            reqdet_scales = self.processed_file_name.split('.')[-2:]
+        else :
+            reqdet_scales = self.uncorrected_processed_file_name.split('.')[-2:]
         stats.sac['kuser1'] = '.'.join(reqdet_scales)
 
         # String detailing the type of (i)CDF24 transform: edge correction and
@@ -1052,6 +1056,26 @@ class Event:
 
         # Save stream object
         stream.write(sac_filename, format='SAC')
+
+    def write_wav(self, processed_path, force_without_loc=True, force_redo=False):
+        if self.is_stanford_event:
+            return
+
+        processed_file_name = self.processed_file_name
+        if self.station_loc is None :
+            processed_file_name = self.uncorrected_processed_file_name
+            # Format the metadata into wav 
+            if not self.obspy_trace_stats:
+                self.set_obspy_trace_stats(force_without_loc)
+        # Check if file exists
+        wav_filename = processed_path + processed_file_name + ".wav"
+        if not force_redo and os.path.exists(wav_filename):
+            return
+
+        # Get stream object
+        stream = self.get_stream(processed_path, force_without_loc)   
+        # Save stream object
+        stream.write(wav_filename, format='WAV', framerate=self.decimated_fs)                    
 
     def write_mhpsd(self, processed_path, creation_datestr, force_redo=False):
         if not self.is_stanford_event or self.station_loc is None:
