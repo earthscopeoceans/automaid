@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-10-23 10:29:38
 # @Last Modified by:   fro
-# @Last Modified time: 2024-11-08 16:19:09
+# @Last Modified time: 2024-11-21 09:17:59
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
@@ -45,6 +45,7 @@ def database_update(path):
     print("Update Databases")
     network = 1
     if path :
+        global database_path
         database_path = path
     try:
         # Get linker file (link database and profiler version)
@@ -236,7 +237,7 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
     logtype = binaryinfo[-2:]
     argformat = binaryinfo[-4:-2]
     if argformat != "00":
-        return "err:argformat\r\n";
+        return "";
 
     #print ("ID : " + str(id))
     #print ("IDString : " + str(idString))
@@ -431,7 +432,7 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
     string += "\r\n"
     return string
 
-def decrypt_short(f) :
+def decrypt_short(f,short_card) :
     '''
 
     Decrypts a log line using an short format
@@ -443,7 +444,6 @@ def decrypt_short(f) :
     f -- file reader
 
     '''
-
     string = ""
     id = f.read(1)
     format = ""
@@ -457,427 +457,103 @@ def decrypt_short(f) :
         traceback.print_exc()
         print("err:UNPACKSHORTID")
         return "";
-    if shortId == 0 :
-        # Pressure LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        # pressure measure
-        PRESSbytes = f.read(4)
-        if len(PRESSbytes) != 4 :
-            print("err:PRESSbytes")
-            return "";
-        timestamp = 0
-        pressure = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            pressure = struct.unpack('<l', PRESSbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKPRESS")
-            return "";
-        format = str(timestamp) + ":[PRESS ,0038]P%+7dmbar\r\n"
-        return format % pressure
-    elif shortId == 1 :
-        # Pump time LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        PUMPTIMEbytes = f.read(4)
-        if len(PUMPTIMEbytes) != 4 :
-            print("err:PUMPTIMEbytes")
-            return "";
-        timestamp = 0
-        pump_time = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            pump_time = struct.unpack('<l', PUMPTIMEbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKPUMPTIME")
-            return "";
-        format = str(timestamp) + ":[PUMP  ,0016]pump during %dms\r\n"
-        return format % pump_time
-    elif shortId == 2 :
-        # Valve time LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        VALVETIMEbytes = f.read(4)
-        if len(VALVETIMEbytes) != 4 :
-            print("err:VALVETIMEbytes")
-            return "";
-        timestamp = 0
-        valve_time = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            valve_time = struct.unpack('<l', VALVETIMEbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKVALVETIME")
-            return "";
-        format = str(timestamp) + ":[VALVE ,0034]valve opening %dms\r\n"
-        return format % valve_time
-    elif shortId == 3 :
-        # Bypass time LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        BYPASSTIMEbytes = f.read(4)
-        if len(BYPASSTIMEbytes) != 4 :
-            print("err:BYPASSTIMEbytes")
-            return "";
-        timestamp = 0
-        bypass_time = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            bypass_time = struct.unpack('<l', BYPASSTIMEbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKBYPASSTIME")
-            return "";
-        format = str(timestamp) + ":[BYPASS,0035]bypass opening %dms\r\n"
-        return format % bypass_time
-    elif shortId == 4 :
-        # Pump power LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        PUMPVOLTbytes = f.read(4)
-        if len(PUMPVOLTbytes) != 4 :
-            print("err:PUMPVOLTbytes")
-            return "";
-        PUMPCURRENTbytes = f.read(4)
-        if len(PUMPCURRENTbytes) != 4 :
-            print("err:PUMPCURRENTbytes")
-            return "";
-        PUMPPRESSbytes = f.read(4)
-        if len(PUMPPRESSbytes) != 4 :
-            print("err:PUMPPRESSbytes")
-            return "";
-        timestamp = 0
-        pump_volt = 0
-        pump_current = 0
-        pump_press = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            pump_volt = struct.unpack('<l', PUMPVOLTbytes)[0]
-            pump_current = struct.unpack('<l', PUMPCURRENTbytes)[0]
-            pump_press = struct.unpack('<l', PUMPPRESSbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKPUMPPOWER")
-            return "";
-        format = str(timestamp) + ":[PUMP  ,0212]battery %5dmV, %7duA (steady state), P%+7dmbar\r\n"
-        return format % (pump_volt,pump_current,pump_press)
-    elif shortId == 5 :
-        # Valve power LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        VALVEVOLTbytes = f.read(4)
-        if len(VALVEVOLTbytes) != 4 :
-            print("err:VALVEVOLTbytes")
-            return "";
-        VALVECURRENTbytes = f.read(4)
-        if len(VALVECURRENTbytes) != 4 :
-            print("err:VALVECURRENTbytes")
-            return "";
-        VALVEPRESSbytes = f.read(4)
-        if len(VALVEPRESSbytes) != 4 :
-            print("err:VALVEPRESSbytes")
-            return "";
-        timestamp = 0
-        valve_volt = 0
-        valve_current = 0
-        valve_press = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            valve_volt = struct.unpack('<l', VALVEVOLTbytes)[0]
-            valve_current = struct.unpack('<l', VALVECURRENTbytes)[0]
-            valve_press = struct.unpack('<l', VALVEPRESSbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKVALVEPOWER")
-            return "";
-        format = str(timestamp) + ":[VALVE ,0234]battery %5dmV, %7duA, P%+7dmbar\r\n"
-        return format % (valve_volt,valve_current,valve_press)
-    elif shortId == 6 :
-        # Bpopen power LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        BPOPENVOLTbytes = f.read(4)
-        if len(BPOPENVOLTbytes) != 4 :
-            print("err:BPOPENVOLTbytes")
-            return "";
-        BPOPENCURRENTbytes = f.read(4)
-        if len(BPOPENCURRENTbytes) != 4 :
-            print("err:BPOPENCURRENTbytes")
-            return "";
-        BPOPENPRESSbytes = f.read(4)
-        if len(BPOPENPRESSbytes) != 4 :
-            print("err:BPOPENPRESSbytes")
-            return "";
-        timestamp = 0
-        bpopen_volt = 0
-        bpopen_current = 0
-        bpopen_press = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            bpopen_volt = struct.unpack('<l', BPOPENVOLTbytes)[0]
-            bpopen_current = struct.unpack('<l', BPOPENCURRENTbytes)[0]
-            bpopen_press = struct.unpack('<l', BPOPENPRESSbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKVALVEPOWER")
-            return "";
-        format = str(timestamp) + ":[BYPASS,0104]battery %5dmV, %7duA (bypass opening), P%+7dmbar\r\n"
-        return format % (bpopen_volt,bpopen_current,bpopen_press)
-    elif shortId == 7 :
-        # Bpclose power LOG
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        BPCLOSEVOLTbytes = f.read(4)
-        if len(BPCLOSEVOLTbytes) != 4 :
-            print("err:BPCLOSEVOLTbytes")
-            return "";
-        BPCLOSECURRENTbytes = f.read(4)
-        if len(BPCLOSECURRENTbytes) != 4 :
-            print("err:BPCLOSECURRENTbytes")
-            return "";
-        BPCLOSEPRESSbytes = f.read(4)
-        if len(BPCLOSEPRESSbytes) != 4 :
-            print("err:BPCLOSEPRESSbytes")
-            return "";
-        timestamp = 0
-        bpclose_volt = 0
-        bpclose_current = 0
-        bpclose_press = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            bpclose_volt = struct.unpack('<l', BPCLOSEVOLTbytes)[0]
-            bpclose_current = struct.unpack('<l', BPCLOSECURRENTbytes)[0]
-            bpclose_press = struct.unpack('<l', BPCLOSEPRESSbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKVALVEPOWER")
-            return "";
-        format = str(timestamp) + ":[BYPASS,0106]battery %5dmV, %7duA (bypass closing), P%+7dmbar\r\n"
-        return format % (bpclose_volt,bpclose_current,bpclose_press)
-    elif shortId == 8 :
-        # Mermaid detect
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        timestamp = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKMERMAIDDETECT")
-            return "";
-        format = str(timestamp) + ":[MRMAID,0027]0dbar, 0degC\r\n"
-        return format
-    elif shortId == 9 :
-        # SBEx1 measures
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        SBEPRESSUREbytes = f.read(4)
-        if len(SBEPRESSUREbytes) != 4 :
-            print("err:SBEPRESSUREbytes")
-            return "";
-        SBETEMPbytes = f.read(4)
-        if len(SBETEMPbytes) != 4 :
-            print("err:SBETEMPbytes")
-            return "";
-        SBESALbytes = f.read(4)
-        if len(SBESALbytes) != 4 :
-            print("err:SBESALbytes")
-            return "";
-        timestamp = 0
-        sbe_press = 0
-        sbe_temp = 0
-        sbe_sal = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            sbe_press = struct.unpack('<l', SBEPRESSUREbytes)[0]
-            sbe_temp = struct.unpack('<l', SBETEMPbytes)[0]
-            sbe_sal = struct.unpack('<l', SBESALbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKSBE")
-            return "";
-        format = str(timestamp) + ":[SBE61 ,0396]P%+7d,T%+7d,S+7%d\r\n"
-        return format % (sbe_press,sbe_temp,sbe_sal)
-    elif shortId == 10 :
-        # Mermaid start
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        timestamp = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKMERMAIDSTART")
-            return "";
-        format = str(timestamp) + ":[MRMAID,0002]acq started\r\n"
-        return format
-    elif shortId == 11 :
-        # Mermaid stop
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        timestamp = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKMERMAIDSTOP")
-            return "";
-        format = str(timestamp) + ":[MRMAID,0003]acq stopped\r\n"
-        return format
-    elif shortId == 12 :
-        # GPS POS
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        LATHEMIbytes = f.read(1)
-        if len(LATHEMIbytes) != 1 :
-            print("err:LATHEMIbytes")
-            return "";
-        LATDEGbytes = f.read(1)
-        if len(LATDEGbytes) != 1 :
-            print("err:LATDEGbytes")
-            return "";
-        LATMINbytes = f.read(1)
-        if len(LATMINbytes) != 1 :
-            print("err:LATMINbytes")
-            return "";
-        LATMMbytes = f.read(2)
-        if len(LATMMbytes) != 2 :
-            print("err:LATMMbytes")
-            return "";
 
-        LONGHEMIbytes = f.read(1)
-        if len(LONGHEMIbytes) != 1 :
-            print("err:LONGHEMIbytes")
-            return "";
-        LONGDEGbytes = f.read(1)
-        if len(LONGDEGbytes) != 1 :
-            print("err:LONGDEGbytes")
-            return "";
-        LONGMINbytes = f.read(1)
-        if len(LONGMINbytes) != 1 :
-            print("err:LONGMINbytes")
-            return "";
-        LONGMMbytes = f.read(2)
-        if len(LONGMMbytes) != 2 :
-            print("err:LONGMMbytes")
-            return "";
+    # Search formats link to short log
+    args = []
+    if(shortId < len(short_card)) :
+        index = shortId
+    else :
+        index = len(short_card)-1
+    while index >= 0 :
+        if short_card[index]["ID"] == shortId:
+            args = short_card[index]["ARGS"]
+            break;
+        index = index - 1
+    if len(args) == 0 :
+        print("err:NoShortFormatFound")
+        return ""
 
-        timestamp = 0
-        lat_hemi = '?'
-        lat_deg = 0
-        lat_min = 0
-        lat_mm = 0
-
-        long_hemi = '?'
-        long_deg = 0
-        long_min = 0
-        long_mm = 0
+    # Get timestamp
+    timestamp_bytes = f.read(4)
+    if len(timestamp_bytes) != 4 :
+        print("err:timestamp")
+        return ""; 
+    try :
+        timestamp = struct.unpack('<I', timestamp_bytes)[0]     
+    except :
+        traceback.print_exc()    
+        print("err:unpacktimestamp")
+        return ""
+    # Init format with timestamp
+    format_str = str(timestamp) + ":"   
+    for arg in args:
+        size = arg["SIZE"]
+        value = f.read(size)
+        if len(value) != size :
+            print("err:valueSize")
+            return ""
+        unpack_arg = ""
+        # get format of value
+        if arg["SIGN"] == "signed":
+            if size == 4:
+                unpack_arg = '<i'
+            elif size == 2:
+                unpack_arg = '<h'
+            elif size == 1:
+                unpack_arg = '<b'
+            else :
+                print("err:wrongsignedformat")
+        elif arg["SIGN"] == "unsigned":
+            if size == 4:
+                unpack_arg = '<I'
+            elif size == 2:
+                unpack_arg = '<H'
+            elif size == 1:
+                unpack_arg = '<B'
+            else :
+                print("err:wrongunsignedformat")
+        else :
+            format_str = format_str + arg["FORMAT"]
+            continue
+        # unpack argument value
         try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            lat_hemi = struct.unpack('<B', LATHEMIbytes)[0]
-            lat_deg = struct.unpack('<B', LATDEGbytes)[0]
-            lat_min = struct.unpack('<B', LATMINbytes)[0]
-            lat_mm = struct.unpack('<H', LATMMbytes)[0]
-
-            long_hemi = struct.unpack('<B', LONGHEMIbytes)[0]
-            long_deg = struct.unpack('<B', LONGDEGbytes)[0]
-            long_min = struct.unpack('<B', LONGMINbytes)[0]
-            long_mm = struct.unpack('<H', LONGMMbytes)[0]
+            arg_value = struct.unpack(unpack_arg, value)[0]
         except :
-            traceback.print_exc()
-            print("err:UNPACKGPSPOS")
-            return "";
-        format = str(timestamp) + ":[SURF  ,0082]%c%02ddeg%02d.%03dmn, %c%03ddeg%02d.%03dmn\r\n"
-        return format % (lat_hemi,lat_deg,lat_min,lat_mm,long_hemi,long_deg,long_min,long_mm)
-    elif shortId == 13 :
-        # GPS DOP
-        TIMESTAMPbytes = f.read(4)
-        if len(TIMESTAMPbytes) != 4 :
-            print("err:TIMESTAMPbytes")
-            return "";
-        HDOPbytes = f.read(1)
-        if len(HDOPbytes) != 1 :
-            print("err:HDOPbytes")
-            return "";
-        mHDOPbytes = f.read(2)
-        if len(mHDOPbytes) != 2 :
-            print("err:mHDOPbytes")
-            return "";
-        VDOPbytes = f.read(1)
-        if len(VDOPbytes) != 1 :
-            print("err:VDOPbytes")
-            return "";
-        mVDOPbytes = f.read(2)
-        if len(mVDOPbytes) != 2 :
-            print("err:mVDOPbytes")
-            return "";
-        timestamp = 0
-        hdop = 0
-        mhdop = 0
-        vdop = 0
-        mvdop = 0
-        try :
-            # Unpack Integer of 4 bytes
-            timestamp = struct.unpack('<I', TIMESTAMPbytes)[0]
-            hdop = struct.unpack('<b', HDOPbytes)[0]
-            mhdop = struct.unpack('<h', mHDOPbytes)[0]
-            vdop = struct.unpack('<b', VDOPbytes)[0]
-            mvdop = struct.unpack('<h', mVDOPbytes)[0]
-        except :
-            traceback.print_exc()
-            print("err:UNPACKGPSDOP")
-            return "";
-        format = str(timestamp) + ":[SURF  ,0084]hdop %d.%03d, vdop %d.%03d\r\n"
-        return format % (hdop,mhdop,vdop,mvdop)
+            traceback.print_exc()    
+            print("err:unpackvalue")
+            return ""   
+        # seach specific format
+        regexShortFomat = "[^%]*(%([\-\+ 0])?(\d)*\.?([\d\*])*([dfcsXxupt]))"
+        shortformatfind = re.findall(regexShortFomat, arg["FORMAT"])
+        if len(shortformatfind) == 0 :
+            print("err:wrongformat")
+            return ""
 
-    return ""
+        replace_pattern = shortformatfind[0][0]
+        flags = shortformatfind[0][1]
+        width = shortformatfind[0][2]
+        precision = shortformatfind[0][3]
+        specifier = shortformatfind[0][4]
+        if specifier == 't' :
+            # value is a timestamp
+            isodate = UTCDateTime(int(arg_value)).isoformat()
+            format_str = format_str + arg["FORMAT"].replace(replace_pattern,isodate)
+        elif specifier == 'f' :
+            # value is a float stored on integer
+            divisor = 1
+            if precision.isnumeric():
+                divisor = 10 ** int(precision)
+            argf = float(arg_value) / divisor
+            argf_format = "{:." + precision + "f}"
+            argf_str = argf_format.format(argf)
+            format_str = format_str + arg["FORMAT"].replace(replace_pattern,argf_str)
+        else :
+            format_str = format_str + arg["FORMAT"] % arg_value
+    return format_str + "\r\n"       
 
 
 # Decrypt one file with LOG, WARN,and ERR cards give in arguments
-def decrypt_one(path,LOG_card,WARN_card,ERR_card):
+def decrypt_one(path,LOG_card,WARN_card,ERR_card,short_card):
     '''
 
     Read a file byte by byte and wait for header characters.
@@ -900,7 +576,7 @@ def decrypt_one(path,LOG_card,WARN_card,ERR_card):
                 if byte != b'@':
                     continue
                 else :
-                    string += decrypt_short(f);
+                    string += decrypt_short(f,short_card);
             else :
                 byte = f.read(1)
                 if byte != b'*':
@@ -972,10 +648,13 @@ def decrypt_all(path):
                             warn_card = decrypt_card["DECRYPTCARD"]
                         elif decrypt_card["TYPE"] == "ERR":
                             err_card = decrypt_card["DECRYPTCARD"]
+                        elif decrypt_card["TYPE"] == "SHORT":
+                            short_card = decrypt_card["DECRYPTCARD"]
                     try :
-                        result = decrypt_one(binary_file,log_card,warn_card,err_card)
+                        result = decrypt_one(binary_file,log_card,warn_card,err_card,short_card)
                     except:
                         print(("FORMAT ERROR :" +str(binary_file)))
+                        traceback.print_exc()
                     else:
                         if result :
                             with open(log_file,"w") as f:
@@ -1091,6 +770,7 @@ def convert_in_cycle(path,begin,end):
                 is_dive = False
                 is_finish = False
                 is_gps_fix = False
+                gps_fix_none = 0
                 is_emergency = False
                 is_reboot_in_dive = False
                 lines = utils.split_log_lines(fileRead)
@@ -1102,13 +782,35 @@ def convert_in_cycle(path,begin,end):
                     if not is_finish and re.findall("\*\*\* switching to.*", line) :
                         is_finish = True
                     # Gps fix ?
-                    if not is_gps_fix and re.findall("GPS fix...", line) :
+                    if not is_gps_fix and re.findall("GPS fix\.\.\.", line) :
+                        is_gps_fix = True
+
+                    # No GPS without gps fix date ?
+                    gps_none_line = re.findall("<WARN>no fix after",line)
+                    if gps_none_line:
+                        if not is_gps_fix :
+                            last_datetime = str(int(last_date.timestamp))
+                            fileFixed += last_datetime + ":[SURF  ,0022]GPS fix..." + delim
+                            gps_fix_none = 1
+                            is_gps_fix = True
+                        else :
+                            gps_fix_none = gps_fix_none + 1
+                            if gps_fix_none >= 3 :
+                                is_gps_fix = False
+                                gps_fix_none = 0
+
+                    # GPS ACK without gps fix date ?
+                    gps_ack_line = re.findall("\$GPSACK:.+;",line)
+                    if gps_ack_line and not is_gps_fix:
+                        last_datetime = str(int(last_date.timestamp))
+                        fileFixed += last_datetime + ":[SURF  ,0022]GPS fix..." + delim
                         is_gps_fix = True
                     # GPS line without gps fix date ?
                     gps_line = re.findall("(\d+):\[SURF *, *\d+\]([S,N])(\d+)deg(\d+.\d+)mn", line)
                     if gps_line :
                         if not is_gps_fix :
-                            fileFixed += gps_line[0][0] + ":[SURF  ,422]GPS fix..." + delim
+                            last_datetime = str(int(last_date.timestamp))
+                            fileFixed += last_datetime + ":[SURF  ,0022]GPS fix..." + delim
                         is_gps_fix = False
                     # Split line and test
                     catch = re.findall("(\d+):", line)
@@ -1141,10 +843,13 @@ def convert_in_cycle(path,begin,end):
                         # Wait an internal pressure follower by bypass configuration
                         internal_pressure = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
                         if internal_pressure :
-                            next_index = index+1
-                            if next_index < len(lines) :
+                            next_index = index
+                            while next_index < len(lines):
+                                next_index = next_index+1
                                 before_dive = re.findall('(\d+):(\[.+\])? +bypass (\d+)ms (\d+)ms \((\d+)ms (\d+)ms stored\)', lines[next_index])
-
+                                if before_dive :
+                                    break;
+                            
                         # Wait start of next dive
                         if before_dive :
                             # exit the loop
