@@ -4,9 +4,9 @@
 # pymaid environment (Python v2.7)
 #
 # Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux
+# Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 05-Aug-2021
+# Last modified by JDS: 03-Oct-2022
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -23,8 +23,8 @@ version = setup.get_version()
 
 def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
     # Read file
-    with open(vital_file_path + vital_file_name, "r") as f:
-        content = f.read()
+    with open(vital_file_path + vital_file_name, "rb") as f:
+        content = f.read().decode("utf-8","replace")
 
     # Find battery values
     battery_catch = re.findall("(.+): Vbat (\d+)mV \(min (\d+)mV\)", content)
@@ -78,8 +78,8 @@ def plot_battery_voltage(vital_file_path, vital_file_name, begin, end):
 
 def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
     # Read file
-    with open(vital_file_path + vital_file_name, "r") as f:
-        content = f.read()
+    with open(vital_file_path + vital_file_name, "rb") as f:
+        content = f.read().decode("utf-8","replace")
 
     # Find battery values
     date = []
@@ -131,8 +131,8 @@ def plot_internal_pressure(vital_file_path, vital_file_name, begin, end):
 
 def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
     # Read file
-    with open(vital_file_path + vital_file_name, "r") as f:
-        content = f.read()
+    with open(vital_file_path + vital_file_name, "rb") as f:
+        content = f.read().decode("utf-8","replace")
 
     # Find battery values
     pressure_offset_catch = re.findall("(.+): Pext (-?\d+)mbar \(range (-?\d+)mbar\)", content)
@@ -196,9 +196,9 @@ def plot_pressure_offset(vital_file_path, vital_file_name, begin, end):
 
     return
 
-def plot_corrected_pressure_offset(vital_file_path, complete_dives, begin, end):
-    date  = [d.end_date for d in complete_dives]
-    corrected_pressure_offset = [d.p2t_offset_corrected for d in complete_dives]
+def plot_corrected_pressure_offset(vital_file_path, cycles, begin, end):
+    date  = [cycle.end_date for cycle in cycles]
+    corrected_pressure_offset = [cycle.last_p2t_offset_corrected for cycle in cycles]
 
     # Dead-float adjustment
     if len(date) < 1:
@@ -237,40 +237,42 @@ def plot_corrected_pressure_offset(vital_file_path, complete_dives, begin, end):
 
     return
 
-def write_corrected_pressure_offset(dives_dict, processed_path):
+def write_corrected_pressure_offset(lastcycle, processed_path):
     '''Writes:
 
-    [processed_path]/lastdive_pressure_offset.txt
+    [processed_path]/lastcycle_pressure_offset.txt
 
-    given a dict of whose keys are float serial numbers and whose values are
-    lists of their associated Dive instances
+    given a dict of whose keys are float serial numbers whose single values are
+    the last assocaited Complete_Dive instance
 
     '''
 
-    lastdive_fmt_spec = "{:>12s}    {:>19s}    {:>15s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
-    lastdive_f = os.path.join(processed_path, "lastdive_pressure_offset.txt")
-    with open(lastdive_f, "w+") as f:
-        f.write("     MERMAID         LAST_SURFACING           LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
+    lastcycle_fmt_spec = "{:>14s}    {:>19s}    {:>17s}      {:>3d}      {:>3d}          {:>3d}  {:3>s}\n"
+    lastcycle_f = os.path.join(processed_path, "lastcycle_pressure_offset.txt")
+    with open(lastcycle_f, "w+") as f:
+        f.write("       MERMAID         LAST_SURFACING             LOG_NAME     PEXT   OFFSET  PEXT-OFFSET\n".format())
+        for mfloat in sorted(lastcycle.keys()):
+            cycle = lastcycle[mfloat]
+            if cycle.last_p2t_log_name is not None:
+                print("Checking final corrected external pressure reading for float {:s} [from {:s}]".format(mfloat, str(cycle.last_p2t_log_name)))
+                warn_str = ''
+                if cycle.last_p2t_offset_corrected > 200:
+                    warn_str = '!!!'
+                    print("\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing"
+                          .format(mfloat, cycle.last_p2t_offset_corrected))
+                    print("!!! The corrected external pressure must stay below 300 mbar")
+                    print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...'\n"
+                          .format(mfloat))
 
-        for mfloat in sorted(dives_dict.keys()):
-            for d in reversed(dives_dict[mfloat]):
-                if d.is_complete_dive:
-                    lastdive = d
-                    break
-
-            warn_str = ''
-            if lastdive.p2t_offset_corrected > 200:
-                warn_str = '!!!'
-                print("\n!!! WARNING: {:s} corrected external pressure was {:d} mbar at last surfacing"
-                      .format(mfloat, lastdive.p2t_offset_corrected))
-                print("!!! The corrected external pressure must stay below 300 mbar")
-                print("!!! Consider adjusting {:s}.cmd using 'p2t qm!offset ...' AFTER 'buoy bypass' and BEFORE 'stage ...'\n"
-                      .format(mfloat))
-
-            f.write(lastdive_fmt_spec.format(mfloat,
-                                             str(lastdive.ascent_reach_surface_date)[0:19],
-                                             lastdive.log_name,
-                                             lastdive.p2t_offset_measurement,
-                                             lastdive.p2t_offset_param,
-                                             lastdive.p2t_offset_corrected,
-                                             warn_str))
+                f.write(lastcycle_fmt_spec.format(mfloat,
+                                                 str(cycle.ascent_reach_surface_date)[0:19],
+                                                 cycle.last_p2t_log_name,
+                                                 cycle.last_p2t_offset_measurement,
+                                                 cycle.last_p2t_offset_param,
+                                                 cycle.last_p2t_offset_corrected,
+                                                 warn_str))
+            else:
+                # Final .LOG did not record any external pressure measurements
+                # (e.g. due error/reset/incomplete transmission)
+                f.write("{:>14s} >> no external pressure measurements in {:s}) <<\n"\
+                        .format(mfloat, cycle.cycle_name[-1]))

@@ -1,0 +1,6 @@
+Joel D. Simon - jdsimon@alumni.princeton.edu
+
+2.0 - > v2.1
+
+* Removed ambigious 'Scale', 'ScaleFrequency', and 'ScaleUnits' columns
+* Replaced empty string ("") with "nan" in "Location" colum for "measurement" rows

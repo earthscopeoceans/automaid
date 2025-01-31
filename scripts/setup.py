@@ -1,12 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-# Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v2.7)
-#
-# Developer: Joel D. Simon (JDS)
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 02-Aug-2022
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 def get_version():
     """Return automaid version number.
@@ -19,7 +11,7 @@ def get_version():
 
     """
 
-    return 'v3.5.1'
+    return 'v4.0.0-2'
 
 def get_url():
     return 'https://github.com/earthscopeoceans/automaid [doi: 10.5281/zenodo.5057096]'

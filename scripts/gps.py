@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v2.7)
+# pymaid environment (Python v3.10)
 #
-# Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux (SB)
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 02-Aug-2022
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Developer: Frédéric rocca <FRO>
+# Contact:  frederic.rocca@osean.fr
+# Last modified by FRO: 09-Sep-2024
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
+
+
 
 import os
 import re
@@ -20,19 +21,18 @@ import setup
 # Get current version number.
 version = setup.get_version()
 
-class GPS(object):
-    def __init__(self, date=None, latitude=None, longitude=None,
-                 clockdrift=None, clockfreq=None, hdop=None, vdop=None):
-
+class GPS:
+    def __init__(self, date=None, latitude=None, longitude=None,hdop=None,vdop=None,clockdrift=None, clockfreq=None, source=None, rawstr_dict=None):
+        self.__version__ = version
         self.date = date
         self.latitude = latitude
         self.longitude = longitude
-        self.clockdrift = clockdrift
-        self.clockfreq = clockfreq
         self.hdop = hdop
         self.vdop = vdop
-        self.__version__ = version
-
+        self.clockdrift = clockdrift
+        self.clockfreq = clockfreq
+        self.rawstr_dict = rawstr_dict
+        self.source = source
         # The miniSEED convention of a time delay is of opposite sign of the
         # `clockdrift` (or the `clockdrift_correction`) of this program
         #
@@ -40,78 +40,12 @@ class GPS(object):
         # (-) clockdrift = MER time LATE w.r.t GPS = (+) MER (record) time delay
         if self.clockdrift is not None:
             self.mseed_time_delay = -self.clockdrift
-
         else:
             self.mseed_time_delay = None
-
     def __len__(self):
         # To check if a single GPS instance passed into something that expects a list
         return 1
 
-
-class GPS_nonUnique(GPS):
-    def __init__(self, date=None, latitude=None, longitude=None,
-                 clockdrift=None, clockfreq=None, hdop=None, vdop=None,
-                 source=None, rawstr_dict=None):
-
-        super(GPS_nonUnique, self).__init__(date=date, latitude=latitude,
-                                            longitude=longitude,
-                                            clockdrift=clockdrift,
-                                            clockfreq=clockfreq, hdop=hdop,
-                                            vdop=vdop)
-
-        self.source = source
-        self.loc_source = self.source
-        self.time_source = self.source
-        self.rawstr_dict = rawstr_dict
-
-
-class GPS_unique(GPS):
-    def __init__(self, date=None, latitude=None, longitude=None,
-                 clockdrift=None, clockfreq=None, hdop=None, vdop=None,
-                 loc_source=None, time_source=None):
-
-        super(GPS_unique, self).__init__(date=date, latitude=latitude,
-                                         longitude=longitude,
-                                         clockdrift=clockdrift,
-                                         clockfreq=clockfreq, hdop=hdop,
-                                         vdop=vdop)
-
-        self.loc_source = loc_source
-        self.time_source = time_source
-
-
-    def mer_time_log_loc(self):
-        '''Returns True if timing info is sourced from a .MER file and location info is
-        sourced from a .LOG file in a GPS_unique object.
-
-        It is my understanding that:
-        *time in the .MER file is BEFORE the onboard clock has been synced with GPS time
-        *time in the .LOG file is AFTER the onboard clock has been synced with GPS time
-
-        but both the .LOG and .MER within a "GPS pair" will record the same
-        clockdrift, even though strictly speaking that clockdrift has actually
-        been removed from the .LOG time but not the .MER time?
-
-        Therefore, Seb suggests, "I think that for the clock information, such
-        as GPSACK, you should use only the .MER file. Use the LOG file only for
-        GPS position and hvdop," because, as I reason it, we want to use the
-        uncorrected (.MER time) and the measured correction to compute
-        proportionally how much of that time delay was acquired at the time of
-        recording events.
-
-        This explains why .MER times are always after .LOG times: for the same
-        GPS session, the time written to .MER is the uncorrected, time-delayed
-        time on of the MERMAID clock, while the .LOG time is the time after
-        correction (gps_time-mer_time is almost always negative, meaning that
-        MERMAID time is late compared to GPS time).
-
-        '''
-
-        if 'MER' in self.time_source and 'LOG' in self.loc_source:
-            return True
-        else:
-            return False
 
 class GPS_interp(GPS):
     def __init__(self, date=None, latitude=None, longitude=None,
@@ -184,11 +118,11 @@ def linear_interpolation(gps_list, date):
             interp_drift_time = 0.0
             interp_lat_drift_dist_deg = 0.0
             interp_lon_drift_dist_deg = 0.0
-            description = description + "; interpolation not required (interpolation date is gps_list.date)"
+            description += "; interpolation not required (interpolation date is gps_list.date)"
 
         else:
             date = gps_list[0].date # overwrite: we did not interpolate at the requested date
-            description = description + "; location and date fixed to input gps_list"
+            description += "; location and date fixed to input gps_list"
 
         interp_dict = locals()
 
@@ -236,7 +170,6 @@ def linear_interpolation(gps_list, date):
     gps_list.sort(key=lambda x: x.date)
 
     # Identify the reference GPS points (gps_list[i]):
-
     # If date is before any gps fix compute drift from the two first gps fix
     if date < gps_list[0].date:
         # In this case: gps_list[i] is the FIRST GPS fix AFTER the interpolation date
@@ -275,7 +208,6 @@ def linear_interpolation(gps_list, date):
             j += 1
 
     description= "interpolation attempted using multiple GPS points"
-
     # If the distance between the two GPS points retained is less than 20 m, don't interpolate just
     # return the one nearest in time to the requested date (don't simply fix a known location to the
     # requested interpolation date because it may happen that the input locations may be very near
@@ -286,7 +218,7 @@ def linear_interpolation(gps_list, date):
         interp_lat = gps_list[i].latitude
         interp_lon = gps_list[i].longitude
         date = gps_list[i].date  # overwrite: we did not interpolate at the requested date
-        description = description + "; retained points too close (spatially) for interpolation; location and date fixed to one of input gps_list"
+        description += "; retained points too close (spatially) for interpolation; location and date fixed to one of input gps_list"
 
     else:
         input_drift_dist_m = gps2dist_azimuth(gps_list[j].latitude, gps_list[j].longitude, \
@@ -323,6 +255,12 @@ def linear_interpolation(gps_list, date):
         interp_lon = loni + interp_lon_drift_dist_deg
 
         # Previously longitudes converted to [0:360] from [-180:180]
+        if loni > 180:
+            loni -= 360
+
+        if lonj > 180:
+            lonj -= 360
+
         if interp_lon > 180:
             interp_lon -= 360
 
@@ -331,15 +269,29 @@ def linear_interpolation(gps_list, date):
         # different distance than in our equal-box lat/lon projection; as such, the interpolated
         # drift velocity, which in reality must equal the drift velocity computed from the input,
         # will be slightly different
+        # print("************************")
+        # print("first {} source {}".format(gps_list[i].rawstr_dict,gps_list[i].source))
+        # print("second {} source {}".format(gps_list[j].rawstr_dict,gps_list[j].source))
+        # print("latitude 1 {} / latitude 2 {}".format(gps_list[i].latitude,gps_list[j].latitude))
+        # print("longitude 1 {} / longitude 2 {}".format(gps_list[i].longitude,gps_list[j].longitude))
+        # print("interp_lat_drift_dist_deg {} ".format(interp_lat_drift_dist_deg))
+        # print("interp_drift_time {} ".format(interp_drift_time))
+        # print("interp_lat_drift_vel_degs {} ".format(interp_lat_drift_vel_degs))
+        #
+        # print("input_lat_drift_vel_degs {} ".format(input_lat_drift_vel_degs))
+        # print("input_lat_drift_dist_deg {} ".format(input_lat_drift_dist_deg))
+        # print("input_drift_time {} ".format(input_drift_time))
+        # print("input_drift_vel_ms {} ".format(input_drift_vel_ms))
+        # print("input_drift_dist_m {}".format(input_drift_dist_m))
+        # print("************************")
         interp_drift_dist_m = gps2dist_azimuth(interp_lat, interp_lon, gps_list[i].latitude, gps_list[i].longitude)[0]
         interp_drift_vel_ms = interp_drift_dist_m / interp_drift_time
-        description = description + "; executed successfully"
+        description += "; executed successfully"
 
     interp_dict = locals()
 
     # Nicety: >>> from pprint import pprint
     #         >>> pprint(interp_dict)
-
     return GPS_interp(date=date,
                       latitude=interp_lat,
                       longitude=interp_lon,
@@ -348,129 +300,6 @@ def linear_interpolation(gps_list, date):
                       hdop=None,
                       vdop=None,
                       interp_dict=interp_dict)
-
-
-# Find GPS fix in log files and Mermaid files
-def get_gps_lists(log_name, log_content, mer_environment_name, mer_environment, begin, end):
-    '''Collect GPS fixes from .LOG and .MER environments within an inclusive
-    datetime range.  Returns raw lists from the .LOG, and .MER, a combined
-    nonunique zipped list from the .LOG and .MER, and a unique list of GPS fixes
-    using (ideally) timing from the .MER environments and positions from the
-    .LOG files when both are available and form a GPS pair (see
-    `gps.merge_list.list`).
-
-    '''
-
-    # Get nonunique GPS lists from both .LOG and .MER
-    gps_from_log = get_gps_from_log_content(log_name, log_content, begin, end)
-    gps_from_mer_environment = get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, end)
-
-    # Concatenate nonunique lists from both files
-    gps_nonunique_list = gps_from_log + gps_from_mer_environment
-    gps_nonunique_list = sorted(gps_nonunique_list, key=lambda x: x.date)
-
-    # Merge nonunique GPS pairs from both files into unique list
-    gps_list = merge_gps_list(gps_nonunique_list)
-
-    return gps_list, gps_nonunique_list, gps_from_log, gps_from_mer_environment
-
-def merge_gps_list(gps_nonunique_list):
-    '''Returns a list of unique GPS fixes via the merging of .LOG and .MER file
-    pairs keeping (when available): .MER time, .LOG position.  If a .LOG or .MER
-    is unpaired the complete data from the lone file is returned. A GPS pair is
-    defined as two GPS positions written to a .LOG and .MER w/in 60 s of one
-    another with identical clockdrifts (implying that they form a "pair").
-
-    Note: does NOT remove GPS with bad clock synchronizations because we need to
-    know if those occurred immediately before/after dives to determine if those
-    GPS are valid for interpolation. See dives.validate_gps for more.
-
-    Runs recursively to handle GPS triplets, quartets etc.
-
-    For more see: $AUTOMAID/tests_and_verifications/example_merge_gps_list.py
-
-    '''
-    gps_nonunique_list = sorted(gps_nonunique_list, key=lambda x: x.date)
-
-    i = 0
-    pair_merged = False
-    gps_merged_list = list()
-    while i < len(gps_nonunique_list):
-        # Compare adjacent GPS fixes to see if they are nonunique pairs
-        # (set last GPS fix equal to itself to handle case of unpaired final GPS)*
-        gps1 = gps_nonunique_list[i]
-        gps2 = gps_nonunique_list[i+1] if i != len(gps_nonunique_list)-1 else gps1
-
-        # Generally GPS pairs are separated by 1 s
-        # Other times they are separated by 12 s (and maybe more?)
-        # Define a pair to be: < 60 s time diff and same clockdrift (implying no synchronization)
-        # NB: clockdrifts are printed with USEC precision in both .LOG and .MER
-        time_diff = abs(gps1.date - gps2.date)
-        clockdrift_diff = abs(gps1.clockdrift-gps2.clockdrift)
-
-        if time_diff < 60 and clockdrift_diff < 1e-6:
-            # Keep the time from the .MER and the location from the .LOG
-            if 'LOG' and 'MER' in (gps1.loc_source + gps1.time_source +
-                                   gps2.loc_source + gps2.time_source):
-                log_gps = gps1 if 'LOG' in gps1.loc_source else gps2
-                mer_gps = gps1 if 'MER' in gps1.time_source else gps2
-
-                gps_merged = GPS_unique(date=mer_gps.date,
-                                        clockdrift=mer_gps.clockdrift,
-                                        clockfreq=mer_gps.clockfreq,
-                                        time_source=mer_gps.time_source,
-                                        latitude=log_gps.latitude,
-                                        longitude=log_gps.longitude,
-                                        hdop=log_gps.hdop,
-                                        vdop=log_gps.vdop,
-                                        loc_source=log_gps.loc_source)
-
-            else:
-                # Redundant GPS pair in the same file (does this ever happen?) -OR-
-                # `gps1` is `gps2`, which occurs with odd indexing (some unpaired GPS)*
-                # We have the choice to keep either GPS; just keep the first
-                gps_merged = GPS_unique(date=gps1.date,
-                                        clockdrift=gps1.clockdrift,
-                                        clockfreq=gps1.clockfreq,
-                                        time_source=gps1.time_source,
-                                        latitude=gps1.latitude,
-                                        longitude=gps1.longitude,
-                                        hdop=gps1.hdop,
-                                        vdop=gps1.vdop,
-                                        loc_source=gps1.loc_source)
-
-            # Iterate twice since this pair was merged (or it was the same GPS fix)
-            # Note the merger of a GPS pair (if it was not the same GPS fix)
-            i += 2
-            if gps1 is not gps2:
-                pair_merged = True
-
-        else:
-            # `gps1` and `gps2` are unpaired due to, e.g., transmission issues
-            # We MUST keep the first GPS in this case because we only iterate once
-            # (and we may again only retain `gps1` (this `gps2`) in the next iteration)
-            gps_merged = GPS_unique(date=gps1.date,
-                                    clockdrift=gps1.clockdrift,
-                                    clockfreq=gps1.clockfreq,
-                                    time_source=gps1.time_source,
-                                    latitude=gps1.latitude,
-                                    longitude=gps1.longitude,
-                                    hdop=gps1.hdop,
-                                    vdop=gps1.vdop,
-                                    loc_source=gps1.loc_source)
-
-            # Iterate once since we did not just merge a pair
-            i += 1
-
-        gps_merged_list.append(gps_merged)
-
-    # Run recursively if we had to merge GPS to ensure that no GPS triplets,
-    # quartets etc. were missed (I don't think that every happens)?
-    if pair_merged:
-        return merge_gps_list(gps_merged_list)
-
-    else:
-        return gps_merged_list
 
 def valid_clockfreq(GPS_object):
     '''Returns True if the clock frequency associated with a single GPS object is
@@ -523,12 +352,14 @@ def valid_clockfreq(GPS_object):
     else:
         return False
 
-def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, end):
-
-    '''Collect GPS fixes from MER environments within an inclusive datetime range
+def get_gps_from_mer_environment(mer_environment_name, mer_environment):
 
     '''
-    gps_out = list()
+
+        Collect GPS fixes from MER environments within an inclusive datetime range
+
+    '''
+    gps_out = []
 
     # Mermaid environment can be empty
     if mer_environment is None:
@@ -538,11 +369,9 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
     gps_mer_list = mer_environment.split("</ENVIRONMENT>")[0].split("<GPSINFO")[1:]
     for gps_mer in gps_mer_list:
         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
-
         # .MER times are given simply as, e.g., "2020-10-20T02:36:55"
         fixdate = re.findall(" DATE=(\d+-\d+-\d+T\d+:\d+:\d+)", gps_mer)
         if len(fixdate) > 0:
-            rawstr_dict['fixdate'] = re.search("DATE=(.*) LAT", gps_mer).group(1)
             fixdate = fixdate[0]
             rawstr_dict['fixdate'] = fixdate
             fixdate = UTCDateTime(fixdate)
@@ -627,21 +456,14 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
             #        + " at " + fixdate.isoformat() + ", clockfreq = " + str(clockfreq) + "Hz"
             # print err_msg
 
-        # .MER files do not include hdop or vdop.
-        hdop = None
-        vdop = None
-
         # Add date to the list
         if fixdate is not None and latitude is not None and longitude is not None and clockdrift \
            is not None and clockfreq is not None:
-            if begin <= fixdate <= end:
-                gps_out.append(GPS_nonUnique(date=fixdate,
+                gps_out.append(GPS(date=fixdate,
                                              latitude=latitude,
                                              longitude=longitude,
                                              clockdrift=clockdrift,
                                              clockfreq=clockfreq,
-                                             hdop=hdop,
-                                             vdop=vdop,
                                              source=mer_environment_name,
                                              rawstr_dict=rawstr_dict))
         else:
@@ -651,37 +473,32 @@ def get_gps_from_mer_environment(mer_environment_name, mer_environment, begin, e
     return gps_out
 
 
-def get_gps_from_log_content(log_name, log_content, begin, end):
-    '''Collect GPS fixes from LOG files within an inclusive datetime range
-
+def get_gps_from_log_content(log_name, log_content):
     '''
 
-    gps_out = list()
+        Collect GPS fixes from LOG files within an inclusive datetime range
 
+    '''
+    gps_out = []
     gps_log_list = log_content.split("GPS fix...")[1:]
     for gps_log in gps_log_list:
         rawstr_dict = {'fixdate': None, 'latitude': None, 'longitude': None, 'clockdrift': None}
-
-        # .LOG GPS times are given as integer UNIX Epoch times prepending the "GPSACK" line
-        fixdate = re.findall("(\d+):\[MRMAID *, *\d+\]\$GPSACK", gps_log)
-        if len(fixdate) > 0:
-            fixdate = fixdate[0]
-            rawstr_dict['fixdate'] = fixdate
-            fixdate = UTCDateTime(int(fixdate))
-        else:
-            fixdate = None
-
+        # .LOG GPS times are given as integer UNIX Epoch times prepending the latitude longitude line
         # .LOG latitudes are given as, e.g., "S22deg33.978mn" (degrees and decimal minutes)
-        latitude = re.findall("([S,N])(\d+)deg(\d+.\d+)mn", gps_log)
+        latitude = re.findall("(\d+):\[SURF *, *\d+\]([S,N])(\d+)deg(\d+.\d+)mn", gps_log)
         if len(latitude) > 0:
             rawstr_dict['latitude'] = re.search("[S,N][0-9]+deg[0-9]+\.[0-9]+mn", gps_log).group(0)
             latitude = latitude[0]
-            if latitude[0] == "N":
+            fixdate = latitude[0]
+            rawstr_dict['fixdate'] = fixdate
+            fixdate = UTCDateTime(int(fixdate))
+            if latitude[1] == "N":
                 sign = 1
-            elif latitude[0] == "S":
+            elif latitude[1] == "S":
                 sign = -1
-            latitude = sign*(float(latitude[1]) + float(latitude[2])/60.)
+            latitude = sign*(float(latitude[2]) + float(latitude[3])/60.)
         else:
+            fixdate = None
             latitude = None
 
         # .LOG latitudes are given as, e.g., "W141deg22.679mn" (degrees and decimal minutes)
@@ -697,14 +514,24 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
         else:
             longitude = None
 
-        # .LOG clockdrifts are given as, e.g., "$GPSACK:+48,+7,+4,+12,+41,+20,-563354;" which
-        # describe the drift in terms of "year,month,day,hour,min,sec,usec" (manual Ref:
-        # 452.000.852, pg. 16) where the sign convention is "drift = gps_time - mermaid_time"
-        # (pg. 32), there describing the .MER environment, but it must be the same for the .LOG
+        hdop = re.findall("hdop (\d+.\d+)", gps_log)
+        if len(hdop) > 0:
+            hdop = hdop[0]
+            hdop = float(hdop)
+        else:
+            hdop = None
+
+        vdop = re.findall("vdop (\d+.\d+)", gps_log)
+        if len(vdop) > 0:
+            vdop = vdop[0]
+            vdop = float(vdop)
+        else:
+            vdop = None
+
         clockdrift = re.findall("GPSACK:(.\d+),(.\d+),(.\d+),(.\d+),(.\d+),(.\d+),(.\d+)?;", gps_log)
         if len(clockdrift) > 0:
             clockdrift = clockdrift[0]
-            rawstr_dict['clockdrift'] = re.search("GPSACK:(.\d+,.\d+,.\d+,.\d+,.\d+,.\d+,.\d+)?;", gps_log).group(1)
+            rawstr_dict['clockdrift'] = clockdrift
             # YEAR + MONTH + DAY + HOUR + MIN + SEC + USEC
             clockdrift = 365 * 24 * 60 * 60 * float(clockdrift[0]) \
                 + 30 * 24 * 60 * 60 * float(clockdrift[1]) \
@@ -723,25 +550,8 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
         else:
             clockfreq = None
 
-        hdop = re.findall("hdop (\d+.\d+)", gps_log)
-        if len(hdop) > 0:
-            hdop = hdop[0]
-            hdop = float(hdop)
-
-        else:
-            hdop = None
-
-        vdop = re.findall("vdop (\d+.\d+)", gps_log)
-        if len(vdop) > 0:
-            vdop = vdop[0]
-            vdop = float(vdop)
-
-        else:
-            vdop = None
-
         if fixdate is not None and latitude is not None and longitude is not None:
-            if begin <= fixdate <= end:
-                gps_out.append(GPS_nonUnique(date=fixdate,
+            gps_out.append(GPS(date=fixdate,
                                              latitude=latitude,
                                              longitude=longitude,
                                              clockdrift=clockdrift,
@@ -755,21 +565,36 @@ def get_gps_from_log_content(log_name, log_content, begin, end):
     return gps_out
 
 
-def write_gps(dive_logs, creation_datestr, processed_path, mfloat_path):
-    '''Write complete (raw, full, all, nonunique) GPS data from .LOG and .MER.
+def merge_gps_list(gps_from_log,gps_from_mer_environment) :
+    '''
+
+    Merge gps from log and gps from mermaid
+
+    All are unique position but objects are not same
+
+    '''
+    gps_list = gps_from_log + gps_from_mer_environment
+    gps_list = sorted(gps_list, key=lambda x: x.date)
+    return gps_list
+
+
+def write_gps(cycles, creation_datestr, processed_path, mfloat_path):
+    '''
+
+    Write complete (raw, full, all, nonunique) GPS data from .LOG and .MER.
     Differs from GeoCSV, which writes unique (merged .MER time and .LOG
     position) GPS fixes.
 
     '''
 
-    gps_genexp = (gps for dive in dive_logs for gps in dive.gps_nonunique_list)
+    gps_genexp = (gps for cycle in cycles for gps in cycle.gps_list)
 
     # Version and creation-date lines are the same for both csv and txt files
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
 
     # Specify field headers of both csv and txt files
-    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time mer_clockfreq             source       raw_gps_lat        raw_gps_lon\n"
+    header_line_txt = "           gps_time       gps_lat        gps_lon  gps_hdop  gps_vdop    gps_time-mer_time mer_clockfreq               source       raw_gps_lat        raw_gps_lon\n"
     header_line_csv = '#' + ','.join(header_line_txt.split()) + '\n'
     header_line_txt = '#' + header_line_txt # add pound sign after comma substitution
 
@@ -781,7 +606,7 @@ def write_gps(dive_logs, creation_datestr, processed_path, mfloat_path):
            '{:>6.3f}',
            '{:>17.6f}',
            '{:>10.0f}',
-           '{:>15s}',
+           '{:>17s}',
            '{:>14s}',
            '{:>15s}\n']
 
@@ -812,6 +637,8 @@ def write_gps(dive_logs, creation_datestr, processed_path, mfloat_path):
                 g.hdop = float("NaN")
             if g.vdop is None:
                 g.vdop = float("NaN")
+            if g.clockdrift is None:
+                g.clockdrift = float("NaN")
             if g.clockfreq is None:
                 g.clockfreq = float("NaN")
 
@@ -836,7 +663,7 @@ def write_gps(dive_logs, creation_datestr, processed_path, mfloat_path):
             f_txt.write(fmt_txt.format(*gps_data))
 
 
-def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path, mfloat_path):
+def write_gps_interpolation_txt(cycles, creation_datestr, processed_path, mfloat_path):
     '''Writes MERMAID GPS interpolation file, detailing GPS and interpolation parameters for the three
     main regimes of each dive: descent and drift in the surface layer, drift in the mixed layer, and
     ascent and drift in the surface layer.
@@ -867,6 +694,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                         leg['input_drift_vel_ms'] * 3.6 * 24  if leg['input_drift_vel_ms'] else float("Nan")] # km/day
 
         input_params = map(abs, input_params)
+        input_params = list(input_params)
         input_fmt_spec = '{:>6.0f}        {:>7.1f}        {:>6.0f}        {:>4.1f}        {:>5.2f}        {:>7.2f}        {:>7.2f}'
 
         return (input_params, input_fmt_spec)
@@ -883,12 +711,13 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                         leg['interp_drift_vel_ms'] * 3.6 * 24  if leg['interp_drift_vel_ms'] else float("Nan")] # km/day
 
         interp_params = map(abs, interp_params)
+        interp_params = list(interp_params)
         interp_fmt_spec = '{:>6.0f}        {:>7.1f}        {:>6.0f}        {:>4.1f}        {:>5.2f}        {:>7.2f}        {:>7.2f}'
 
         return (interp_params, interp_fmt_spec)
 
-    # Generate (unique) list of dives with events whose interpolated locations we are able to compute
-    dive_set = set(dive for dive in complete_dives for event in dive.events if event.station_loc)
+    # Generate (unique) list of cycle with events whose interpolated locations we are able to compute
+    cycle_set = set(cycle for cycle in cycles for event in cycle.events if event.station_loc)
 
     # Print GPS interpolation information for every dive that includes an event all three dive regimes
     gps_interp_file = os.path.join(processed_path, mfloat_path, "gps_interpolation.txt")
@@ -899,7 +728,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
         f.write(version_line)
         f.write(created_line)
 
-        for dive in sorted(dive_set, key=lambda x: x.start_date):
+        for cycle in sorted(cycle_set, key=lambda x: x.start_date):
 
             # Compute the percentage of the total interpolate distance for the three regimes:
             # (1) surface-layer drift during the descent
@@ -910,13 +739,13 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
             #
             # (3) surface-layer drift during the ascent
 
-            leg_descent = dive.descent_last_loc_before_event
-            leg_ascent = dive.ascent_first_loc_after_event
+            leg_descent = cycle.descent_last_loc_before_event
+            leg_ascent = cycle.ascent_first_loc_after_event
             if leg_descent is None or leg_ascent is None:
                 continue
 
             interp_dist_descent = leg_descent.interp_dict['interp_drift_dist_m']
-            input_dist_mixed =  dive.events[0].station_loc.interp_dict['input_drift_dist_m']
+            input_dist_mixed =  cycle.events[0].station_loc.interp_dict['input_drift_dist_m']
             interp_dist_ascent = leg_ascent.interp_dict['interp_drift_dist_m']
 
             if all([interp_dist_descent, input_dist_mixed, interp_dist_ascent]):
@@ -932,26 +761,18 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                 input_perc_mixed = float("nan")
                 interp_perc_ascent = float("nan")
 
-            # Write headers to each dive block
-            f.write("DIVE ID: ")
-            for id in dive.dive_id:
-                f.write("{:>4d}".format(id))
+            # Write headers to each cycle block
+            f.write("CYCLE ID: {:>4d} ".format(cycle.cycle_nb))
+            f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(cycle.start_date)[:19] + 'Z', str(cycle.end_date)[:19] + 'Z'))
+            f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                   SAC_MSEED_TRACE\n")
 
-                if id != dive.dive_id[-1]:
-                    f.write(", ")
-
-                else:
-                    f.write("\n")
-            f.write("DATES: {:>19s} --> {:19s}\n\n".format(str(dive.start_date)[:19] + 'Z', str(dive.end_date)[:19] + 'Z'))
-            f.write("DRIFT_REGIME               TIME_S       TIME_MIN        DIST_M     DIST_KM      VEL_M/S      VEL_KM/HR     VEL_KM/DAY      DIST_%                                 SAC_MSEED_TRACE\n")
-
-            # Parse the GPS ('input') components of surface drift before dive: these are actual GPS points
+            # Parse the GPS ('input') components of surface drift before cycle: these are actual GPS points
             gps_surface_descent, gps_fmt_spec = parse_input_params(leg_descent.interp_dict)
 
             gps_fmt_spec = "gps_surface                " + gps_fmt_spec + "\n"
             f.write(gps_fmt_spec.format(*gps_surface_descent))
 
-            # Parse the interpolated components of surface drift before dive: between last GPS point
+            # Parse the interpolated components of surface drift before cycle: between last GPS point
             # and crossing into mixed layer
             interp_surface_descent, interp_fmt_spec = parse_interp_params(leg_descent.interp_dict)
             interp_surface_descent.append(interp_perc_descent)
@@ -959,29 +780,29 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
             interp_fmt_spec = "interp_surface             " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*interp_surface_descent))
 
-            # For every event recorded during the dive: parse the interpolated components of the
+            # For every event recorded during the cycle: parse the interpolated components of the
             # mixed-layer drift from leaving the surface layer (passing into the "deep" or
             # mixed-layer drift regime) and recording an event
-            for event in dive.events:
+            for event in cycle.events:
                 # if event.station_loc_is_preliminary:
                 #     continue
 
                 interp_drift_to_event_mixed_layer, interp_fmt_spec = parse_interp_params(event.station_loc.interp_dict)
                 interp_drift_to_event_mixed_layer.append(event.processed_file_name)
 
-                interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>40s}\n"
+                interp_fmt_spec = " interp_mixed(to_event)    " + interp_fmt_spec + "                    {:>42s}\n"
                 f.write(interp_fmt_spec.format(*interp_drift_to_event_mixed_layer))
 
             # The total interpolated drift in the mixed layer -- that drift that occurs between the
             # last point of the ascent and the first point of the ascent -- is the same for every
             # event; just use the last event instance
-            total_drift_mixed_layer, interp_fmt_spec = parse_input_params(dive.events[0].station_loc.interp_dict)
+            total_drift_mixed_layer, interp_fmt_spec = parse_input_params(cycle.events[0].station_loc.interp_dict)
             total_drift_mixed_layer.append(input_perc_mixed)
 
             interp_fmt_spec = "interp_mixed(total)        " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*total_drift_mixed_layer))
 
-            # Parse the interpolated components of surface drift after dive: crossing out of mixed
+            # Parse the interpolated components of surface drift after cycle: crossing out of mixed
             # layer and recording first GPS point
             interp_surface_ascent, interp_fmt_spec = parse_interp_params(leg_ascent.interp_dict)
             interp_surface_ascent.append(interp_perc_ascent)
@@ -989,7 +810,7 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
             interp_fmt_spec = "interp_surface             " + interp_fmt_spec + "        {:>4.1f}\n"
             f.write(interp_fmt_spec.format(*interp_surface_ascent))
 
-            # Parse the GPS ('input') components of surface drift after dive: these are actual GPS points
+            # Parse the GPS ('input') components of surface drift after cycle: these are actual GPS points
             gps_surface_ascent, gps_fmt_spec = parse_input_params(leg_ascent.interp_dict)
 
             gps_fmt_spec = "gps_surface                " + gps_fmt_spec + "\n"
@@ -1002,9 +823,9 @@ def write_gps_interpolation_txt(complete_dives, creation_datestr, processed_path
                     f.write("*Interpolation issue before dive (surface-layer drift): {:s}\n" \
                             .format(leg_descent.interp_dict['description']))
 
-                if dive.events[0].station_loc.interp_dict['input_drift_dist_m'] is None:
+                if cycle.events[0].station_loc.interp_dict['input_drift_dist_m'] is None:
                     f.write("*Interpolation issue during dive (mixed-layer drift): {:s}\n" \
-                            .format(dive.events[0].station_loc.interp_dict['description']))
+                            .format(cycle.events[0].station_loc.interp_dict['description']))
 
                 if leg_ascent.interp_dict['input_drift_dist_m'] is None:
                     f.write("*Interpolation issue after dive (surface-layer drift): {:s}\n" \

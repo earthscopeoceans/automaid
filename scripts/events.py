@@ -1,19 +1,25 @@
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v2.7)
+# pymaid environment (Python v3.10)
 #
-# Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux (SB)
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 16-Sep-2021
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Developer: Frédéric rocca <FRO>
+# Contact:  frederic.rocca@osean.fr
+# Last modified by FRO: 09-Sep-2024
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
 
+
+import sys
 import os
 import re
 import glob
 import subprocess
 import numpy as np
+import matplotlib
+# if os.environ.get('DISPLAY','') == '':
+#     print "no display found. Using non-interactive Agg backend"#
+#     matplotlib.use('agg',warn=False, force=True)
+matplotlib.use('tkagg')   # Joel's edit on MacOS, Big Sur 11.6 (otherwise `plt.show()` throws seg fault)
 import matplotlib.pyplot as plt
 import plotly.offline as plotly
 import plotly.graph_objs as graph
@@ -25,8 +31,10 @@ from obspy.core.stream import Stream
 
 import gps
 import sys
-import utils
 import setup
+import utils
+import mermaidpsd
+import time
 
 # Get current version number.
 version = setup.get_version()
@@ -43,7 +51,8 @@ class Events:
     def __init__(self, base_path=None, mer_name=None):
         self.mer_name = mer_name
         self.base_path = base_path
-        self.events = list()
+        self.events = []
+        self.gps_info = []
         self.__version__ = version
 
         # If just a base path to (e.g., a server directory) is passed, load all
@@ -58,14 +67,22 @@ class Events:
             mer_binary_name = mer_file.split("/")[-1]
 
             # The </EVENT> binary blocks contained in this .MER file
-            with open(mer_file, "r") as f:
+            with open(mer_file, "rb") as f:
                 content = f.read()
-            events = content.split("</PARAMETERS>")[-1].split("<EVENT>")[1:]
 
+            catch = re.findall(b"<ENVIRONMENT>.+</PARAMETERS>", content, re.DOTALL)
+            if catch :
+                mer_environment = catch[0].decode("utf-8","replace")
+                self.gps_info += gps.get_gps_from_mer_environment(mer_binary_name,mer_environment)
+
+            events = content.split(b'</PARAMETERS>')[-1].split(b'<EVENT>')[1:]
             for event in events:
+                # Ensure every event block is complete(ly transmitted)
+                if event[0:14] != b"\n\r\t<INFO DATE=" or event[-22:] != b"\n\r\t</DATA>\n\r</EVENT>\n\r":
+                    continue
                 # The header of this specific </EVENT> block (NOT the </ENVIRONMENT> of
                 # the same .MER file, which may be unrelated (different time))
-                mer_binary_header = event.split("<DATA>\x0A\x0D")[0]
+                mer_binary_header = event.split(b"<DATA>\x0A\x0D")[0]
 
                 # The actual binary data contained in this </EVENT> block (the seismogram)
                 # N.B:
@@ -73,7 +90,7 @@ class Events:
                 # "\x0D" is "\r": True
                 # "\x09" is "\t": True
                 # https://docs.python.org/2/reference/lexical_analysis.html#string-and-bytes-literals
-                mer_binary_binary = event.split("<DATA>\x0A\x0D")[1].split("\x0A\x0D\x09</DATA>")[0]
+                mer_binary_binary = event.split(b"<DATA>\x0A\x0D")[1].split(b"\x0A\x0D\x09</DATA>")[0]
 
                 # The double split above is not foolproof; if the final data
                 # block in the .MER file ends without </DATA> (i.e., the file
@@ -83,18 +100,20 @@ class Events:
                 # returns the byte-length of a string, though I am not super
                 # happy with this solution because I would prefer to know the
                 # specific encoding used for event binary...)
-                actual_binary_length = len(mer_binary_binary)
-                bytes_per_sample = int(re.search('BYTES_PER_SAMPLE=(\d+)', mer_binary_header).group(1))
-                num_samples = int(re.search('LENGTH=(\d+)', mer_binary_header).group(1))
-                expected_binary_length = bytes_per_sample * num_samples
+                if b" ROUNDS=" not in mer_binary_header:
+                    actual_binary_length = len(mer_binary_binary)
+                    bytes_per_sample = int(re.search(b'BYTES_PER_SAMPLE=(\d+)', mer_binary_header).group(1))
+                    num_samples = int(re.search(b'LENGTH=(\d+)', mer_binary_header).group(1))
+                    expected_binary_length = bytes_per_sample * num_samples
+                    if actual_binary_length != expected_binary_length:
+                        continue
 
-                if actual_binary_length == expected_binary_length:
-                    evt = Event(mer_binary_name, mer_binary_header, mer_binary_binary)
+                evt = Event(mer_binary_name, mer_binary_header, mer_binary_binary,mer_environment)
 
-                    # Use weak catchall for obj init issues (e.g., formatting
-                    # abnormalities in the .MER file)
-                    if evt.info_date:
-                        self.events.append(evt)
+                # Use weak catchall for obj init issues (e.g., formatting
+                # abnormalities in the .MER file)
+                if evt.info_date:
+                    self.events.append(evt)
 
         # Sort by events by reported "INFO DATE", which may be 1970 if the clock
         # was reset (the info date has not been corrected for clockdrift)
@@ -116,13 +135,18 @@ class Events:
         #   </PARAMETERS><EVENT>
         #   <INFO DATE=1970-01-03T10:18:13.513763 ... />
         # "
-
-        catched_events = list()
+        catched_events = []
         for event in self.events:
             if begin < event.info_date < end:
                 catched_events.append(event)
         return sorted(catched_events, key=lambda x: x.info_date)
 
+    def get_gps_between(self, begin, end):
+        catched_gps = []
+        for gps in self.gps_info:
+            if begin < gps.date < end:
+                catched_gps.append(gps)
+        return sorted(catched_gps, key=lambda x: x.date)
     # def __repr__(self):
     #     return "Events('{}', '{}')".format(self.base_path, self.mer_name)
 
@@ -139,13 +163,16 @@ class Event:
 
     '''
 
-    def __init__(self, mer_binary_name=None, mer_binary_header=None, mer_binary_binary=None):
+    def __init__(self, mer_binary_name=None, mer_binary_header=None, mer_binary_binary=None, default_mer_environment=None):
         self.mer_binary_name = mer_binary_name
         self.mer_binary_header = mer_binary_header
         self.mer_binary_binary = mer_binary_binary
+        self.default_mer_environment = default_mer_environment
         self.__version__ = version
 
-        # Defaults
+        self.kstnm = None
+        self.kinst = None
+        self.kcmpnm = None
         self.mer_environment_name = None
         self.mer_environment = None
 
@@ -153,6 +180,8 @@ class Event:
         self.measured_fs = None
         self.decimated_fs = None
         self.trig = None
+        self.pressure_mbar = None
+        self.pressure_dbar = None
         self.depth = None
         self.temperature = None
         self.criterion = None
@@ -173,37 +202,122 @@ class Event:
 
         self.is_requested = None
 
+        self.is_stanford_event = None
+        self.stanford_rounds = None
+        self.stanford_duration = None
+        self.stanford_period = None
+        self.stanford_win_len = None
+        self.stanford_win_type = None
+        self.stanford_overlap = None
+        self.stanford_db_offset = None
+        self.stanford_psd_freqs = None
+        self.stanford_psd_perc50 = None
+        self.stanford_psd_perc95 = None
+
         print("{} (binary)".format(self.mer_binary_name))
 
-        self.scales = re.findall(" STAGES=(-?\d+)", self.mer_binary_header)[0]
-        catch_trig = re.findall(" TRIG=(\d+)", self.mer_binary_header)
-        if len(catch_trig) > 0:
-            # Event detected with STA/LTA algorithm
+        if len(re.findall(b" ROUNDS=(-?\d+)", self.mer_binary_header)) > 0 :
+            self.is_stanford_event = True
+            self.stanford_rounds = re.findall(b" ROUNDS=(-?\d+)", self.mer_binary_header)[0]
+            date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
+            self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S.%f")
             self.is_requested = False
-            self.trig = int(catch_trig[0])
-
-            # Sometimes "INFO DATE" is transferred with the incorrect precision,
-            # e.g., in 0039_5E71459C.MER, which is missing fractional seconds
-            # ("INFO DATE=2020-03-16T01:06:42")
-            date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
-            if not date:
-                return
-
-            self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
-            self.depth = int(re.findall(" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
-            self.temperature = int(re.findall(" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
-            self.criterion = float(re.findall(" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
-            self.snr = float(re.findall(" SNR=(\d+\.\d+)", self.mer_binary_header)[0])
+            #if len(re.findall("FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.\d{6})", self.header))  0 :
+            #self.requested = True
 
         else:
-            # Event requested by user
-            self.is_requested = True
-            date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
-            self.info_date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
+            self.is_stanford_event = False
+            self.scales = re.findall(b" STAGES=(-?\d+)", self.mer_binary_header)[0].decode("utf-8","replace")
+            catch_trig = re.findall(b" TRIG=(\d+)", self.mer_binary_header)
+            if len(catch_trig) > 0:
+                # Event detected with STA/LTA algorithm
+                self.is_requested = False
+                self.trig = int(catch_trig[0])
+
+                # Sometimes "INFO DATE" is transferred with the incorrect precision,
+                # e.g., in 0039_5E71459C.MER, which is missing fractional seconds
+                # ("INFO DATE=2020-03-16T01:06:42")
+                date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", mer_binary_header, re.DOTALL)
+                if not date:
+                    return
+
+                # Potentially something like this, if we want to allow
+                # non-fractional seconds...
+                # date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6})", header, re.DOTALL)
+                # try:
+                #     self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S.%f")
+                # except IndexError as e:
+                #     date = re.findall(" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", header, re.DOTALL)
+                #     self.date = UTCDateTime.strptime(date[0], "%Y-%m-%dT%H:%M:%S")
+
+                # The "depth" of an event is actually units of dbar in both .LOG and .MER
+                # (not mbar, like other pressures in the .LOG)
+                # We assume 1 dbar = 1 m = 100 mbar
+                # (NOT 1 m = 101 mbar as stated in MERMAID manual Réf : 452.000.852 Version 00)
+                self.pressure_dbar = int(re.findall(b" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
+                self.pressure_mbar = self.pressure_dbar * 100
+                self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S.%f")
+                self.depth = self.pressure_dbar # ~= meters
+                self.temperature = int(re.findall(b" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
+                self.criterion = float(re.findall(b" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
+                self.snr = float(re.findall(b" SNR=(\d+\.\d+)", self.mer_binary_header)[0])
+
+            else:
+                # Event requested by user
+                self.is_requested = True
+                date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
+                self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S")
+
+    def set_kstnm_kinst(self, kstnm=None, kinst=None):
+        '''Sets `kstnm` and `kinst` attrs using those station and instrument names
+        previously derived with `dives.Dive.set_kstnm_kinst()`; see there for details
+
+        '''
+
+        self.kstnm = kstnm
+        self.kinst = kinst
 
     def set_environment(self, mer_environment_name, mer_environment):
         self.mer_environment_name = mer_environment_name
         self.mer_environment = mer_environment
+
+        # Shouldn't these attrs remain `None` instead of `""` if not a
+        # Stanford float?
+        duration = re.findall("DURATION_h=(\d+)", self.mer_environment)
+        if len(duration) > 0:
+            self.stanford_duration = duration[0]
+        else :
+            self.stanford_duration = ""
+
+        period = re.findall("PROCESS_PERIOD_h=(\d+)", self.mer_environment)
+        if len(duration) > 0:
+            self.stanford_period = period[0]
+        else :
+            self.stanford_period = ""
+
+        win_len = re.findall("WINDOW_LEN=(\d+)", self.mer_environment)
+        if len(duration) > 0:
+            self.stanford_win_len = win_len[0]
+        else :
+            self.stanford_win_len = ""
+
+        win_type = re.findall("WINDOW_TYPE=(\w+)", self.mer_environment)
+        if len(duration) > 0:
+            self.stanford_win_type = win_type[0]
+        else :
+            self.stanford_win_type = ""
+
+        overlap = re.findall("OVERLAP_PERCENT=(\d+)", self.mer_environment)
+        if len(duration) > 0:
+            self.stanford_overlap = overlap[0]
+        else :
+            self.stanford_overlap = ""
+
+        db_offset = re.findall("dB_OFFSET=(\d+)", self.mer_environment)
+        if len(duration) > 0:
+            self.stanford_db_offset = db_offset[0]
+        else :
+            self.stanford_db_offset = ""
 
     def find_measured_sampling_frequency(self):
         # Get the frequency recorded in the .MER environment header
@@ -214,12 +328,14 @@ class Event:
             return
 
         # Divide frequency by number of scales
-        int_scl = int(self.scales)
-        if int_scl >= 0:
-            self.decimated_fs = self.measured_fs / (2. ** (6 - int_scl))
+        if not self.is_stanford_event and self.scales != "-1":
+                self.decimated_fs = self.measured_fs / (2. ** (6 - int(self.scales)))
         else:
-            # This is raw data sampled at 40Hz
+            # Sampled at ~40Hz
+            # Either: Stanford PSD float or seismic float with `scales = -1` (raw data)
             self.decimated_fs = self.measured_fs
+
+        self.kcmpnm = utils.channel(self.decimated_fs)
 
     def set_uncorrected_starttime(self):
         '''Compute the starttime of the event (uncorrected for GPS clockdrift) from the
@@ -228,6 +344,12 @@ class Event:
         '''
 
         if not self.measured_fs:
+            print("=> measured_fs not found  !!!!!!")
+            self.uncorrected_starttime = self.info_date
+            return
+
+        if self.is_stanford_event:
+            self.uncorrected_starttime = self.info_date
             return
 
         if self.is_requested:
@@ -251,14 +373,14 @@ class Event:
             # milliseconds could be introduced in the date of the requested
             # signal (and the error would be of several tenths of seconds by
             # considering the sampling frequency exactly equal to 40Hz)."
-            rec_file_date = re.findall("FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2})", self.mer_binary_header)
-            rec_file_date = UTCDateTime.strptime(rec_file_date[0], "%Y-%m-%dT%H_%M_%S")
+            rec_file_date = re.findall(b"FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2})", self.mer_binary_header)
+            rec_file_date = UTCDateTime.strptime(rec_file_date[0].decode("utf-8","replace"), "%Y-%m-%dT%H_%M_%S")
 
-            rec_file_ms = re.findall("FNAME=\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.?(\d{6}?)", self.mer_binary_header)
+            rec_file_ms = re.findall(b"FNAME=\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.?(\d{6}?)", self.mer_binary_header)
             if len(rec_file_ms) > 0:
-                rec_file_date += float("0." + rec_file_ms[0])
+                rec_file_date += float("0." + rec_file_ms[0].decode("utf-8","replace"))
 
-            sample_offset = re.findall("SMP_OFFSET=(\d+)", self.mer_binary_header)
+            sample_offset = re.findall(b"SMP_OFFSET=(\d+)", self.mer_binary_header)
             sample_offset = float(sample_offset[0])
             self.uncorrected_starttime = rec_file_date + sample_offset / self.measured_fs
         else:
@@ -278,97 +400,133 @@ class Event:
             # Bumps and other matters," 28 Mar 2021.
             self.uncorrected_starttime = self.info_date - float(self.trig) / self.decimated_fs
 
-    def process_binary_data(self, bin_path=os.path.join(os.environ["AUTOMAID"], "scripts", "bin")):
-        '''Convert raw .MER binary data to processed MERMAID traces, generally via
-        CDF(2,4) inversion for "WLT?" data, or simply though casting to int32 in
-        the case of "RAW" (STAGES=-1) data.
+    def set_processed_data(self):
+        '''Convert raw .MER binary data to processed MERMAID traces or Stanford PSD
+        50-95% arrays.  The former's binary are generally inverted via a
+        CDF(2,4) wavelet transform for "WLT?" data (or through casting to int32
+        in the case of "RAW" [STAGES=-1] data), while the latter's are simply
+        cast to int8 and...
 
         Sets attrs:
-        `normalized`
-        `edges_correction`
-        `processed_data`
+        `processed_data`          (for V1 floats and V2 Stanford PSD floats)
+        `data_max`                (for V1 floats and V2 Stanford PSD floats)
+        `data_min`                (for V1 floats and V2 Stanford PSD floats)
+        `normalized`              (only for V1 floats)
+        `edges_correction`        (only for V1 floats)
 
         '''
 
-        # Get additional information on flavor of invert wavelet transform
-        # Must do this before the `return` statement, in the case of RAW files
-        self.normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
-        self.edges_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.mer_environment)[0]
+        if self.is_stanford_event:
+            self.processed_data = np.frombuffer(self.mer_binary_binary, np.int8) - np.int8(self.stanford_db_offset)
+            x_split = np.array_split(self.processed_data, 2)
+            self.stanford_psd_perc50 = x_split[0]
+            self.stanford_psd_perc95 = x_split[1]
+            freq_max = float(self.stanford_psd_perc50.size * 40 / int(self.stanford_win_len))
 
-        # If scales == -1 this is a raw signal, just convert binary data to np array of int32
-        if self.scales == "-1":
-            self.processed_data = np.frombuffer(self.mer_binary_binary, np.int32)
-            return
+            dt = '<f8'  # little-endian float64 (native Python "float" on JDS' Mac)
+            #dt = '>f4' # big-endian float32
+            self.stanford_psd_freqs = np.arange(0., freq_max, freq_max/self.stanford_psd_perc50.size,
+                                                dtype=dt)
 
-        # Change to binary directory because the executable C inversion program
-        # called below can fail with full paths :(
-        start_dir = os.getcwd();
-        os.chdir(bin_path)
+            # Endianness notes to be moved out of here...
+            # l = np.float64(90.7)
+            # b = l.byteswap()
+            # WRONG: b.dtype.byteorder still says "=" for native little!
+            # WRONG: still wrong, even after call to  b.dtype.newbyteorder('>')
+            # I don't get it...see
+            # "byteswap() doesn't change byteorder attribute #10372"
+            # https://github.com/numpy/numpy/issues/10372
+            # ...perhaps addressed in newer Python.  I think this is an issue
+            # with the "view" of the array vs. the array representation in
+            # memory. The only way I could reliably get b.dtype.byteorder to be
+            # ">" was to initialize it as such; doesn't seem I can alter later
+            #
+            # DOES NOT WORK: b = np.float64(90.7, dtype='>f8') (endianness ignored)
+            # DOES WORK: b = np.arange(90.7, dtype='>f8')
 
-        # The following scripts READ wavelet coefficients (what MERMAID
-        # generally sends) from a file named "wtcoeffs" and WRITE the inverted
-        # data to a file name, e.g., "wtcoeffs.icdf24_5"
-        wtcoeffs_data_file_name = "wtcoeffs"
-        inverted_data_file_name = "wtcoeffs.icdf24_" + self.scales
-
-        # Delete any previously-inverted data just to be absolutely sure we are
-        # working with this event's data only (an interruption before the second
-        # call to delete these files could result in their persistence)
-        if os.path.exists(wtcoeffs_data_file_name):
-            os.remove(wtcoeffs_data_file_name)
-
-        if os.path.exists(inverted_data_file_name):
-            os.remove(inverted_data_file_name)
-
-        # Write cdf24 data to file named "wtcoeffs" in local directory
-        with open(wtcoeffs_data_file_name, 'w') as f:
-            f.write(self.mer_binary_binary)
-
-        # The inverse wavelet transform C code (`icdf24_v103(ec)_test`) is
-        # called below in a shell subprocess and its output is verified;
-        # determine if edge correction needs to be accounted for and set the
-        # first argument (the executable) in the full command (note that "./" is
-        # required before script on JDS' Linux machine, but not JDS' Mac...)
-        icdf24_shell_command = list()
-        if self.edges_correction == "1":
-            icdf24_shell_command.append("./icdf24_v103ec_test")
 
         else:
-            icdf24_shell_command.append("./icdf24_v103_test")
+            # Get additional information on flavor of invert wavelet transform
+            # Must do this before the `return` statement, in the case of RAW files
+            self.normalized = re.findall(" NORMALIZED=(\d+)", self.mer_environment)[0]
+            self.edges_correction = re.findall(" EDGES_CORRECTION=(\d+)", self.mer_environment)[0]
 
-        # Append the argument list to feed inversion script, e.g., "5 1 wtcoeffs"
-        icdf24_shell_command.extend([self.scales, self.normalized, wtcoeffs_data_file_name])
+            # If scales == -1 this is a raw signal, just convert binary data to np array of int32
+            if self.scales != "-1":
+                # Change to bin/ directory because the executable C inversion
+                # program called below can fail with full paths :(
+                os.chdir("bin")
 
-        # Perform inverse wavelet transform, e.g., running in background shell --
-        # $ ./icdf24_v103ec_test 5 1 wtcoeffs
-        # NB, `subprocess` is analogous to `system` in MATLAB
-        stdout = subprocess.check_output(icdf24_shell_command)
+                # The following scripts READ wavelet coefficients (what MERMAID
+                # generally sends) from a file named "wtcoeffs" and WRITE the inverted
+                # data to a file name, e.g., "wtcoeffs.icdf24_5"
+                wtcoeffs_data_file_name = "wtcoeffs"
+                inverted_data_file_name = "wtcoeffs.icdf24_" + self.scales
 
-        # Ensure the inverse wavelet transform worked as expected, meaning that
-        # it generated an output file of int32 data
-        if not os.path.exists(inverted_data_file_name):
-            cmd = ' '.join(map(str, icdf24_shell_command))
-            err_mess = "\nFailed: inverse wavelet transformation\n"
-            err_mess += "In directory: {:s}\n".format(bin_path)
-            err_mess += "Attempted command: {:s}\n".format(cmd)
-            err_mess += "Using: event around {:s} in {:s}\n\n".format(self.info_date, self.mer_binary_name)
-            err_mess += "Command printout:\n'{:s}'".format(stdout)
+                # Delete any previously-inverted data just to be absolutely sure we are
+                # working with this event's data only (an interruption before the second
+                # call to delete these files could result in their persistence)
+                if os.path.exists(wtcoeffs_data_file_name):
+                    os.remove(wtcoeffs_data_file_name)
 
-            # This output message is more helpful than the program crashing on
-            # the next line
-            sys.exit(err_mess)
+                if os.path.exists(inverted_data_file_name):
+                    os.remove(inverted_data_file_name)
 
-        # Read the inverted data
-        self.processed_data = np.fromfile(inverted_data_file_name, np.int32)
+                # Write cdf24 data to file named "wtcoeffs" in local directory
+                with open(wtcoeffs_data_file_name, 'wb') as f:
+                    f.write(self.mer_binary_binary)
 
-        # Delete the files of coefficient and inverted data, otherwise a latter
-        # .MER with an incomplete binary event block can come along and use the
-        # same data
-        os.remove(wtcoeffs_data_file_name)
-        os.remove(inverted_data_file_name)
+                # The inverse wavelet transform C code (`icdf24_v103(ec)_test`) is
+                # called below in a shell subprocess and its output is verified;
+                # determine if edge correction needs to be accounted for and set the
+                # first argument (the executable) in the full command (note that "./" is
+                # required before script on JDS' Linux machine, but not JDS' Mac...)
+                icdf24_shell_command = []
+                if self.edges_correction == "1":
+                    icdf24_shell_command.append("./icdf24_v103ec_test")
 
-        # Return to start directory.
-        os.chdir(start_dir)
+                else:
+                    icdf24_shell_command.append("./icdf24_v103_test")
+
+                # Append the argument list to feed inversion script, e.g., "5 1 wtcoeffs"
+                icdf24_shell_command.extend([self.scales, self.normalized, wtcoeffs_data_file_name])
+
+                # Perform inverse wavelet transform, e.g., running in background shell --
+                # $ ./icdf24_v103ec_test 5 1 wtcoeffs
+                # NB, `subprocess` is analogous to `system` in MATLAB
+                stdout = subprocess.check_output(icdf24_shell_command)
+
+                # Ensure the inverse wavelet transform worked as expected, meaning that
+                # it generated an output file of int32 data
+                if not os.path.exists(inverted_data_file_name):
+                    cmd = ' '.join(map(str, icdf24_shell_command))
+                    err_mess = "\nFailed: inverse wavelet transformation\n"
+                    err_mess += "In directory: {:s}\n".format(bin_path)
+                    err_mess += "Attempted command: {:s}\n".format(cmd)
+                    err_mess += "Using: event around {:s} in {:s}\n\n".format(self.info_date, self.mer_binary_name)
+                    err_mess += "Command printout:\n'{:s}'".format(stdout)
+
+                    # This output message is more helpful than the program crashing on
+                    # the next line
+                    sys.exit(err_mess)
+
+                # Read the inverted data
+                self.processed_data = np.fromfile(inverted_data_file_name, np.int32)
+
+                # Delete the files of coefficient and inverted data, otherwise a latter
+                # .MER with an incomplete binary event block can come along and use the
+                # same data
+                os.remove(wtcoeffs_data_file_name)
+                os.remove(inverted_data_file_name)
+
+                # Move up one level back into the scripts/ directory
+                os.chdir("..")
+
+            else:
+                self.processed_data = np.frombuffer(self.mer_binary_binary, np.int32)
+
+        self.processed_data_max = np.amax(self.processed_data)
+        self.processed_data_min = np.amin(self.processed_data)
 
     def correct_clockdrift(self, gps_descent, gps_ascent):
         '''Estimate and correct GPS clockdrift for this event.
@@ -388,19 +546,19 @@ class Event:
         # The miniSEED convention of a time correction is of the same sign of
         # the `clockdrift` (or the `clockdrift_correction') of this program
         #
-        # positive clockdrift = negative time delay => MER time early w.r.t GPS
-        # negative clockdrift = positive time delay => MER time delayed w.r.t GPS
+        # positive clockdrift => uncorrected MER time early (onboard clock is slow) w.r.t GPS
+        # negative clockdrift => uncorrected MER time late (oboard clock is fast) w.r.t GPS
         self.mseed_time_correction = self.clockdrift_correction
 
         # Apply correction
         self.corrected_starttime = self.uncorrected_starttime + self.clockdrift_correction
-
 
     def compute_station_location(self, drift_begin_gps, drift_end_gps, station_loc_is_preliminary=False):
         '''Fills attr `station_loc`, the interpolated location of MERMAID when it
         recorded an event
 
         '''
+
         self.station_loc = gps.linear_interpolation([drift_begin_gps,
                                                      drift_end_gps],
                                                     self.corrected_starttime)
@@ -420,63 +578,160 @@ class Event:
             return
 
         processed_file_name = UTCDateTime.strftime(UTCDateTime(self.corrected_starttime),\
-                                                "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
+                                                   "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
 
-        if not self.trig:
-            processed_file_name += ".REQ"
-        else:
-            processed_file_name += ".DET"
+        if self.is_stanford_event:
+            processed_file_name += ".STD"
 
-        if self.scales == "-1":
-            processed_file_name += ".RAW"
         else:
-            processed_file_name += ".WLT" + self.scales
+            if not self.trig:
+                processed_file_name += ".REQ"
+            else:
+                processed_file_name += ".DET"
+
+            if self.scales == "-1":
+                processed_file_name += ".RAW"
+            else:
+                processed_file_name += ".WLT" + self.scales
 
         if self.station_loc_is_preliminary:
             processed_file_name += '.prelim'
 
         self.processed_file_name = processed_file_name
 
+    def statistics(self):
+        if not self.is_stanford_event:
+            stat_date = self.corrected_starttime
+
+        else:
+            stat_date = self.info_date
+
+        return [UTCDateTime.strftime(UTCDateTime(stat_date), "%Y%m%dT%H%M%S"),self.processed_data_max, self.processed_data_min]
+
     def __get_figure_title(self):
         title = "" + self.corrected_starttime.isoformat() \
                 + "     Fs = " + str(self.decimated_fs) + "Hz\n" \
-                + "     Depth: " + str(self.depth) + " m" \
-                + "     Temperature: " + str(self.temperature) + " degC" \
+                + "     Depth: " + str(self.depth) + " m\n" \
+                + "     Temperature: " + str(self.temperature) + " degC\n" \
                 + "     Criterion = " + str(self.criterion) \
                 + "     SNR = " + str(self.snr)
         return title
 
-    def plotly(self, processed_path, force_redo=False):
+    def __get_figure_title_stanford_html(self):
+        title = "" + self.info_date.isoformat() \
+                + "<br Fs = " + str(self.decimated_fs) + "Hz" \
+                + "     DURATION = " + str(self.stanford_duration) + "h" \
+                + "     PROCESS_PERIOD = " + str(self.stanford_period) + "h" \
+                + "     WINDOW_LEN = " + str(self.stanford_win_len) \
+                + "<br WINDOW_TYPE = " + str(self.stanford_win_type) \
+                + "     OVERLAP_PERCENT = " + str(self.stanford_overlap) \
+                + "     dB_OFFSET = " + str(self.stanford_db_offset) + "db"
+        return title
+
+    def __get_figure_title_stanford(self):
+        title = "" + self.info_date.isoformat() \
+                + "\n Fs = " + str(self.decimated_fs) + "Hz" \
+                + "     DURATION = " + str(self.stanford_duration) + "h" \
+                + "     PROCESS_PERIOD = " + str(self.stanford_period) + "h" \
+                + "     WINDOW_LEN = " + str(self.stanford_win_len) \
+                + "\n WINDOW_TYPE = " + str(self.stanford_win_type) \
+                + "     OVERLAP_PERCENT = " + str(self.stanford_overlap) \
+                + "     dB_OFFSET = " + str(self.stanford_db_offset) + "db"
+        return title
+
+    def plot_html(self, processed_path, optimize=False, include_plotly=True):
         if self.processed_file_name is None:
             return
 
         # Check if file exist
         processed_path_html = processed_path + self.processed_file_name + ".html"
-        if not force_redo and os.path.exists(processed_path_html):
+        if os.path.exists(processed_path_html):
             return
 
         if self.station_loc is None:
             return
 
+        print("plot {}".format(self.processed_file_name + ".html"))
+        # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+        # for increased speed, improved interactivity, and the ability to plot even more data.
+        Scatter = graph.Scatter
+        if optimize :
+            Scatter = graph.Scattergl
         # Add acoustic values to the graph
-        data_line = graph.Scatter(x=utils.get_date_array(self.corrected_starttime, len(self.processed_data), 1./self.decimated_fs),
-                                  y=self.processed_data,
-                                  name="counts",
-                                  line=dict(color='blue',
-                                            width=2),
+        pascals = [utils.counts2pascal(d) for d in self.processed_data]
+
+        data_line = Scatter(x=utils.get_date_array(self.corrected_starttime, len(pascals), 1./self.decimated_fs),
+                                  y=pascals,
+                                  name="pascals",
+                                  line=dict(color='blue',width=2),
                                   mode='lines')
 
         data = [data_line]
 
         layout = graph.Layout(title=self.__get_figure_title(),
                               xaxis=dict(title='Coordinated Universal Time (UTC)', titlefont=dict(size=18)),
-                              yaxis=dict(title='Counts', titlefont=dict(size=18)),
+                              yaxis=dict(title='Pascals', titlefont=dict(size=18)),
+                              hovermode='closest')
+        figure = graph.Figure(data=data, layout=layout)
+
+        # Include plotly into any html files ?
+        # If false user need connexion to open html files
+        if include_plotly :
+            figure.write_html(file=processed_path_html, include_plotlyjs=True)
+        else :
+            figure.write_html(file=processed_path_html,
+                              include_plotlyjs='cdn', full_html=False)
+
+    def plot_html_stanford(self, processed_path, optimize=False, include_plotly=True):
+        # Check if file exist
+        processed_path_html = processed_path + self.processed_file_name+ ".html"
+        print(processed_path_html)
+        if os.path.exists(processed_path_html):
+            return
+        win_sz = re.findall("WINDOW_LEN=(\d+)", self.mer_environment, re.DOTALL)
+        dt = np.dtype([('perc50', np.int8)])
+        x_split = np.array_split(self.processed_data,2)
+        x0=x_split[0]
+        x1=x_split[1]
+        freq_max=(float)((x0.size*40)/int(win_sz[0]))
+        freq = np.arange(0.,freq_max,freq_max/x0.size)
+
+
+        # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+        # for increased speed, improved interactivity, and the ability to plot even more data.
+        Scatter = graph.Scatter
+        if optimize :
+            Scatter = graph.Scattergl
+
+        # Add acoustic values to the graph
+        x0_line = Scatter(x=freq,
+                                  y=x0,
+                                  name="Percentile 50",
+                                  line=dict(color='blue',
+                                            width=2),
+                                  mode='lines')
+        x1_line = Scatter(x=freq,
+                                  y=x1,
+                                  name="Percentile 95",
+                                  line=dict(color='red',
+                                            width=2),
+                                  mode='lines')
+
+        data = [x0_line,x1_line]
+        layout = graph.Layout(title=self.__get_figure_title_stanford_html(),
+                              xaxis=dict(title='Freq (Hz)', titlefont=dict(size=18), type='log'),
+                              yaxis=dict(title='dBfs^2/Hz', titlefont=dict(size=18)),
                               hovermode='closest'
                               )
+        figure = graph.Figure(data=data, layout=layout)
 
-        plotly.plot({'data': data, 'layout': layout},
-                    filename=processed_path_html,
-                    auto_open=False)
+        # Include plotly into any html files ?
+        # If false user need connexion to open html files
+        if include_plotly :
+            figure.write_html(file=processed_path_html, include_plotlyjs=True)
+        else :
+            figure.write_html(file=processed_path_html,
+                              include_plotlyjs='cdn', full_html=False)
 
     def plot_png(self, processed_path, force_redo=False):
         if self.processed_file_name is None:
@@ -506,8 +761,54 @@ class Event:
         plt.clf()
         plt.close()
 
-    def attach_obspy_trace_stats(self, kstnm, kinst, force_without_loc=False):
-        '''Attaches attribute: obspy_trace_stats, an obspy.core.trace.Stats instance.
+    def plot_png_stanford(self, processed_path):
+
+        # Check if file exist
+        processed_path_png = processed_path + self.processed_file_name + ".png"
+        print(processed_path_png)
+        if os.path.exists(processed_path_png):
+            return
+        win_sz = re.findall("WINDOW_LEN=(\d+)", self.mer_environment, re.DOTALL)
+        dt = np.dtype([('perc50', np.int8)])
+        x_split = np.array_split(self.processed_data,2)
+        x0=x_split[0]
+        x1=x_split[1]
+        freq_max=(float)((x0.size*40)/int(win_sz[0]))
+        freq = np.arange(0.,freq_max,(freq_max/x0.size))
+
+        # Plot frequency image
+        plt.figure(figsize=(9, 4))
+        plt.title(self.__get_figure_title_stanford(), fontsize=12)
+        plt.plot(freq,x0,color='b')
+        plt.plot(freq,x1,color='r')
+        plt.xlabel("Freq (Hz)", fontsize=12)
+        plt.ylabel("dBfs^2/Hz", fontsize=12)
+        plt.xscale("log")
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(processed_path_png)
+        plt.clf()
+        plt.close()
+
+        # This *_2.png left here to compare JDS' rewrite using .stanford attrs
+        # with Rocca's original code (e.g., x0, x1)...later to be removed after
+        processed_path_png2 = processed_path + self.processed_file_name + "_2.png"
+        print(processed_path_png2)
+        plt.figure(figsize=(9, 4))
+        plt.title(self.__get_figure_title_stanford(), fontsize=12)
+        plt.plot(self.stanford_psd_freqs, self.stanford_psd_perc50, color='b')
+        plt.plot(self.stanford_psd_freqs, self.stanford_psd_perc95, color='r')
+        plt.xlabel("Freq (Hz)", fontsize=12)
+        plt.ylabel("dBfs^2/Hz", fontsize=12)
+        plt.xscale("log")
+        plt.tight_layout()
+        plt.grid()
+        plt.savefig(processed_path_png2)
+        plt.clf()
+        plt.close()
+
+    def set_obspy_trace_stats(self, force_without_loc=False):
+        '''Sets attr `obspy_trace_stats`, an obspy.core.trace.Stats instance
 
         obspy_trace_stats holds metadata common to both miniSEED and SAC formats.
         obspy_trace_stats.sac holds extra metadata only found in the SAC format.
@@ -534,16 +835,22 @@ class Event:
 
         For more detail see: http://www.adc1.iris.edu/files/sac-manual/manual/file_format.html
 
-        Update function `events.write_metadata` if the fields in this method are changed.
+        Update function `events.write_obspy_trace_stats` if the fields in this method are changed.
 
         '''
+
+        # Do not try to hack SAC header vars to fit Stanford data...
+        # Trust me (JDS), it's not worth it
+        # (e.g., how to handle `npts`, 'delta`, and their effect on `start\endtime`?)
+        if self.is_stanford_event:
+            return
 
         # Fill metadata common to SAC and miniSEED formats
         stats = Stats()
         stats.network = utils.network()
-        stats.station = kstnm
+        stats.station = self.kstnm
         stats.location = "00"
-        stats.channel = utils.band_code(self.decimated_fs) + "DH"  # SEED manual Appendix A
+        stats.channel = self.kcmpnm
         stats.starttime = self.corrected_starttime
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.processed_data)
@@ -608,7 +915,7 @@ class Event:
         # REQ events do not record their depth at the time of acquisition, and because the onboard
         # detection algorithm was not triggered there are no trigger parameters to report
         if not self.is_requested:
-            stats.sac["stdp"] = self.depth # meters (from external pressure sensor; down is positive)
+            stats.sac["stdp"] = self.depth # dbar ~= meters (from external pressure sensor; down is positive)
             stats.sac["user0"] = self.snr
             stats.sac["user1"] = self.criterion
             stats.sac["user2"] = self.trig # sample index
@@ -618,7 +925,7 @@ class Event:
         stats.sac["user3"] = self.clockdrift_correction # = self.mseed_time_correction
 
         # Generic instrument (e.g., '452.020')
-        stats.sac['kinst'] = kinst
+        stats.sac['kinst'] = self.kinst
 
         # automaid version number
         stats.sac["kuser0"] = self.__version__
@@ -635,11 +942,14 @@ class Event:
         # Attach Stats to events object
         self.obspy_trace_stats = stats
 
-    def to_mseed(self, processed_path, kstnm, kinst, force_without_loc=False,
+    def write_mseed(self, processed_path, force_without_loc=False,
                  force_redo=False, force_without_time_correction=False):
         # NB, mseed2sac writes, e.g., "MH.P0025..BDH.D.2018.259.211355.SAC",
         # where "D" is the quality indicator, "D -- The state of quality control
         # of the data is indeterminate" (SEED v2.4 manual pg. 108)
+
+        if self.is_stanford_event:
+            return
 
         # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
@@ -648,7 +958,7 @@ class Event:
 
         # Format the metadata into miniSEED and SAC header formats
         if not self.obspy_trace_stats:
-            self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
+            self.set_obspy_trace_stats(force_without_loc)
 
         # Check if file exists
         mseed_filename = processed_path + self.processed_file_name + ".mseed"
@@ -656,7 +966,7 @@ class Event:
             return
 
         # Get stream object
-        stream = self.get_stream(processed_path, kstnm, kinst, force_without_loc)
+        stream = self.get_stream(processed_path, force_without_loc)
 
         # Save stream object with the time correction applied but without 'Time
         # correction applied' flag or 'Time correction' value being set in the
@@ -668,15 +978,25 @@ class Event:
         if not force_without_time_correction and not self.station_loc_is_preliminary:
             utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
 
-    def to_sac(self, processed_path, kstnm, kinst, force_without_loc=False, force_redo=False):
-       # Check if the station location has been calculated
+    def write_sac(self, processed_path, force_without_loc=False, force_redo=False):
+        '''
+        A note about starttime and .sac, and the headers NZMSEC and B, if
+        str(event.obspy_trace_stats["starttime"]) == '2018-09-28T10:14:34.251926Z',
+        then in the .sac header "NZMSEC" would be 251 and "B" would be 926.
+
+        '''
+
+        if self.is_stanford_event:
+            return
+
+        # Check if the station location has been calculated
         if self.station_loc is None and not force_without_loc:
             #print self.processed_file_name + ": Skip sac generation, wait the next ascent to compute location"
             return
 
         # Format the metadata into miniSEED and SAC header formats
         if not self.obspy_trace_stats:
-            self.attach_obspy_trace_stats(kstnm, kinst, force_without_loc)
+            self.set_obspy_trace_stats(force_without_loc)
 
         # Check if file exists
         sac_filename = processed_path + self.processed_file_name + ".sac"
@@ -684,12 +1004,28 @@ class Event:
             return
 
         # Get stream object
-        stream = self.get_stream(processed_path, kstnm, kinst, force_without_loc)
+        stream = self.get_stream(processed_path, force_without_loc)
 
         # Save stream object
         stream.write(sac_filename, format='SAC')
 
-    def get_stream(self, processed_path, kstnm, kinst, force_without_loc=False):
+    def write_mhpsd(self, processed_path, creation_datestr, force_redo=False):
+        if not self.is_stanford_event or self.station_loc is None:
+            return
+
+        # Check if the file exists
+        mhpsd_filename = processed_path + self.processed_file_name + ".mhpsd"
+        if not force_redo and os.path.exists(mhpsd_filename):
+            return
+
+        # Stanford PSD percentiles, hardcoded for now (forever?)
+        mhpsd_desc = ["freq", "perc50", "perc95"]
+        mhpsd_data = [self.stanford_psd_freqs, self.stanford_psd_perc50, self.stanford_psd_perc95]
+
+        # Write .mhpsd file
+        mhpsd = mermaidpsd.write(mhpsd_filename, self, mhpsd_data, mhpsd_desc, creation_datestr)
+
+    def get_stream(self, processed_path, force_without_loc=False):
         # Check if an interpolated station location exists
         if self.station_loc is None and not force_without_loc:
             return
@@ -713,30 +1049,28 @@ class Event:
     #     return "Event('{}', '{}', {})".format(self.mer_binary_name, self.mer_binary_header, bin_str)
 
 
-def write_traces_txt(dive_logs, creation_datestr, processed_path, mfloat_path):
-    event_dive_tup = ((event, dive) for dive in dive_logs for event in dive.events if event.station_loc and not event.station_loc_is_preliminary)
+def write_traces_txt(cycles, creation_datestr, processed_path, mfloat_path):
+    event_cycle_tup = ((event, cycle) for cycle in cycles for event in cycle.events if event.station_loc and not event.station_loc_is_preliminary)
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
-    fmt_spec = '{:<47s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}    {:>15s}\n'
+    fmt_spec = '{:>42s}    {:>17s}    {:>23s}    {:>32s}\n'
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#                               filename                   bin_mer      prev_dive_log  prev_dive_env_mer      this_dive_log  this_dive_env_mer      next_dive_log  next_dive_env_mer\n"
+    header_line = "#                                 filename              bin_mer                 cycle_name                             log_files\n"
 
     with open(traces_file, "w+") as f:
         f.write(version_line)
         f.write(created_line)
         f.write(header_line)
-
-        for e, d in sorted(event_dive_tup, key=lambda x: x[0].corrected_starttime):
+        for e, c in sorted(event_cycle_tup, key=lambda x: x[0].corrected_starttime):
+            log_files = ""
+            for log in c.logs :
+                log_files += "{:>17s} ".format(log.log_name)
             f.write(fmt_spec.format(e.processed_file_name,
                                     e.mer_binary_name,
-                                    d.prev_dive_log_name,
-                                    d.prev_dive_mer_environment_name,
-                                    d.log_name,
-                                    d.mer_environment_name,
-                                    d.next_dive_log_name,
-                                    d.next_dive_mer_environment_name))
+                                    c.cycle_name,
+                                    log_files))
 
 def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Writes interpolated station locations at the time of event recording for all events for each
@@ -747,11 +1081,11 @@ def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path)
     event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
-    fmt_spec = "{:<47s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
+    fmt_spec = "{:>42s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
 
     version_line = "#automaid {} ({})\n".format(setup.get_version(), setup.get_url())
     created_line = "#created {}\n".format(creation_datestr)
-    header_line = "#                               filename          interp_STLA    interp_STLO      STDP\n"
+    header_line = "#                                 filename   interp_STLA    interp_STLO      STDP\n"
 
     with open(loc_file, "w+") as f:
         f.write(version_line)
@@ -759,16 +1093,21 @@ def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path)
         f.write(header_line)
 
         for e in sorted(event_list, key=lambda x: x.corrected_starttime):
+            if e.is_stanford_event:
+                # Revist this...
+                continue
+
             f.write(fmt_spec.format(e.processed_file_name,
                                     np.float32(e.obspy_trace_stats.sac["stla"]),
                                     np.float32(e.obspy_trace_stats.sac["stlo"]),
                                     np.float32(e.obspy_trace_stats.sac["stdp"])))
 
-def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path):
+
+def write_obspy_trace_stats(complete_dives, creation_datestr, processed_path, mfloat_path):
     '''Write mseed2sac metadata and automaid metadata files.
 
     Update this function if the fields in method
-    `events.attach_obspy_trace_stats` are changed.
+    `events.set_obspy_trace_stats` are changed.
 
     In total six files are written:
 
@@ -974,6 +1313,10 @@ def write_metadata(complete_dives, creation_datestr, processed_path, mfloat_path
         # Loop over all events for which a station location was computed
         event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
         for e in sorted(event_list, key=lambda x: x.corrected_starttime):
+            if e.is_stanford_event:
+                # Revist this...
+                continue
+
             ## Collect metadata and convert to np.float32()
 
             # For mseed2sac_metadata*.csv:

@@ -7,7 +7,7 @@
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 # Last modified by JDS: 14-Sep-2021
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Last tested: Python 3.10.13, 22.04.3-Ubuntu
 
 import setup
 import os
@@ -421,7 +421,7 @@ def complex_trajectory(mfloat_name, complete_dives):
     # Add last dive surface position
     if len(complete_dives[-1].gps_list) > 0:
         pos += str(complete_dives[-1].gps_list[-1].longitude) + "," + str(complete_dives[-1].gps_list[-1].latitude) + ",0\n"
-    
+
     line_style = "#lineStyle_m" + mfloat_name[-2:]
     string += """
             <Placemark>

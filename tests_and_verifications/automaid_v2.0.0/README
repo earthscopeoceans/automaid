@@ -1,0 +1,38 @@
+TL;DR
+
+This proves that the interpolated locations based on the complete (.LOG and
+.MER) GPS list, as compiled by me in automaid v2.0.0, do not differ
+significantly (mostly around or less than 100 m) from those locations generated
+by Seb's original code, which used just the .MER or .LOG lists.
+
+In this folder, old_new_diff_light.txt was generated with:
+
+automaidversions(false)
+
+$OMNIA commit:
+
+870567d9503c390daf3f6e12a55c4217c9930cd3
+
+with:
+
+allowed_date_diff = 1e-3; % milliseconds
+allowed_dist_diff = 1e-3; % ~100 m
+
+i.e., flag all SAC files with GPS-interpolated locations greater than ~100 m
+using my new scheme of concatenating GPS from .LOG and .MER in automaid v2.0.0.
+
+old_new_diff_light compares $MERMAID/test_processed, which was completely remade
+with "redo = True" in main.py, with $MERMAID/processed commit:
+
+870567d9503c390daf3f6e12a55c4217c9930cd3
+
+The diff text files are this dir's txt vs
+$PAPER20/automaid_version_diffs/old_new_diff_light.txt; diff.txt is a straight
+diff and diffy is a diff -y.
+
+We can see the diffs are nearly identical--some things are different--but
+overall there are no major changes.
+
+Again, we know that this latest version is correct and the old versions are
+wrong because they did thing like, e.g., reuse "wtcoeffs.icdf25_5", which was
+fixed in automaid v1.4.0.
