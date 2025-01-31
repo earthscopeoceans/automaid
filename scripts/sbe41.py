@@ -8,8 +8,6 @@
 # Last modified by FRO: 09-Sep-2024
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
 
-
-
 import os
 import sys
 import csv

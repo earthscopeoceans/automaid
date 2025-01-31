@@ -7,8 +7,11 @@
 # Contact:  frederic.rocca@osean.fr
 # Last modified by FRO: 09-Sep-2024
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
-
-
+#
+# Developer: Joel D. Simon (JDS)
+# Contact:  jdsimon@alumni.princeton.edu
+# Last modified: 31-Jan-2025
+# Last tested: Python Python 3.10.15, Darwin Kernel Version 23.6.0
 
 import os
 import re
@@ -27,7 +30,6 @@ import utils
 import events
 import vitals
 import geocsv
-import profile
 import preprocess
 import sbe41
 import sbe61
