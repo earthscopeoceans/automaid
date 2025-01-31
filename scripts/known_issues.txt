@@ -1,5 +1,3 @@
-[ ] P0012 crashing -- skipping for now (empty or missing .MER?)
-
 [ ] MERMAIDs 43, 44, 45, 49: missing KSTNM column in GPS measurement (and
     others?) row; prints ",,"
 
