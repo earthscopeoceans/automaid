@@ -93,9 +93,9 @@ disk space.
 
 ### 4. CITATION
 
-Joel D. Simon, Sébastien Bonnieux, (and Frédéric Rocca?,) Frederik J Simons &
-The EarthScope-Oceans Consortium. (2024). earthscopeoceans/automaid: v4.0.0-1
-(v4.4.0-1). Zenodo. https://doi.org/10.5281/zenodo.5076553
+Joel D. Simon, Sébastien Bonnieux, Frédéric Rocca, Frederik J Simons &
+The EarthScope-Oceans Consortium. (2024). earthscopeoceans/automaid: v4.0.0.
+Zenodo, https://doi.org/10.5281/zenodo.5057096.
 
 <sup>1</sup>One-liner of conda install including all packages suggested by
 Dalija Namjesnik after she and Joel Simon struggled with an install in May 2023;
