@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-10-23 10:29:38
 # @Last Modified by:   fro
-# @Last Modified time: 2024-11-21 09:17:59
+# @Last Modified time: 2025-02-13 16:15:01
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
@@ -766,7 +766,13 @@ def convert_in_cycle(path,begin,end):
                 fileFixed = ""
                 # Get current delimiter char
                 delim = utils.get_log_delimiter(fileRead)
-                # Split file by line
+                if not delim:
+                    delim = "\r\n"
+                if delim == "\r\n":
+                   fileRead = fileRead.replace("\r\n","\n")
+                   fileRead = fileRead.replace("\r","\n")
+                   delim = "\n"
+                #Split file by line
                 is_dive = False
                 is_finish = False
                 is_gps_fix = False
@@ -786,10 +792,10 @@ def convert_in_cycle(path,begin,end):
                         is_gps_fix = True
 
                     # No GPS without gps fix date ?
-                    gps_none_line = re.findall("<WARN>no fix after",line)
+                    gps_none_line = re.findall("(\d+):\[.+\]<WARN>no fix after",line)
                     if gps_none_line:
                         if not is_gps_fix :
-                            last_datetime = str(int(last_date.timestamp))
+                            last_datetime = str(int(gps_none_line[0]) - 180)
                             fileFixed += last_datetime + ":[SURF  ,0022]GPS fix..." + delim
                             gps_fix_none = 1
                             is_gps_fix = True

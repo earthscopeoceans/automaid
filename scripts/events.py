@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-09-13 16:14:34
 # @Last Modified by:   fro
-# @Last Modified time: 2024-11-12 10:21:25
+# @Last Modified time: 2025-02-13 11:45:48
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
@@ -380,15 +380,17 @@ class Event:
             # signal (and the error would be of several tenths of seconds by
             # considering the sampling frequency exactly equal to 40Hz)."
             rec_file_date = re.findall(b"FNAME=(\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2})", self.mer_binary_header)
-            rec_file_date = UTCDateTime.strptime(rec_file_date[0].decode("utf-8","replace"), "%Y-%m-%dT%H_%M_%S")
+            if rec_file_date:
+                rec_file_date = UTCDateTime.strptime(rec_file_date[0].decode("utf-8","replace"), "%Y-%m-%dT%H_%M_%S")
+                rec_file_ms = re.findall(b"FNAME=\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.?(\d{6}?)", self.mer_binary_header)
+                if len(rec_file_ms) > 0:
+                    rec_file_date += float("0." + rec_file_ms[0].decode("utf-8","replace"))
 
-            rec_file_ms = re.findall(b"FNAME=\d{4}-\d{2}-\d{2}T\d{2}_\d{2}_\d{2}\.?(\d{6}?)", self.mer_binary_header)
-            if len(rec_file_ms) > 0:
-                rec_file_date += float("0." + rec_file_ms[0].decode("utf-8","replace"))
-
-            sample_offset = re.findall(b"SMP_OFFSET=(\d+)", self.mer_binary_header)
-            sample_offset = float(sample_offset[0])
-            self.uncorrected_starttime = rec_file_date + sample_offset / self.measured_fs
+                sample_offset = re.findall(b"SMP_OFFSET=(\d+)", self.mer_binary_header)
+                sample_offset = float(sample_offset[0])
+                self.uncorrected_starttime = rec_file_date + sample_offset / self.measured_fs
+            else :
+                self.uncorrected_starttime = self.info_date
         else:
             # For a detected event the INFO DATE is timestamp of the STA/LTA trigger
             #
@@ -679,8 +681,6 @@ class Event:
         return title
 
     def plot_html(self, processed_path, optimize=False, include_plotly=True):
-
-
         processed_file_name = self.processed_file_name
         starttime = self.corrected_starttime
 
@@ -728,7 +728,13 @@ class Event:
 
     def plot_html_stanford(self, processed_path, optimize=False, include_plotly=True):
         # Check if file exist
-        processed_path_html = processed_path + self.processed_file_name+ ".html"
+        processed_file_name = self.processed_file_name
+        if processed_file_name is None:
+            processed_file_name = self.uncorrected_processed_file_name
+            if processed_file_name is None:
+                return
+
+        processed_path_html = processed_path + processed_file_name+ ".html"
         print(processed_path_html)
         if os.path.exists(processed_path_html):
             return

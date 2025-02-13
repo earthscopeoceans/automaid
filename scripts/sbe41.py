@@ -16,6 +16,7 @@ import csv
 import glob
 import re
 import utils
+import math
 
 import numpy
 from obspy import UTCDateTime
@@ -46,11 +47,18 @@ class Profiles:
             file_name = profile_file.split("/")[-1]
             with open(profile_file, "rb") as f:
                 content = f.read()
-            splitted = content.split(b'</PARAMETERS>\r\n')
-            header = splitted[0].decode('latin1')
-            if len(splitted) > 1:
-                binary = splitted[1]
-                self.profiles.append(Profile(file_name, header, binary))
+            if b'</PILOTS>' in content :
+                splitted = content.split(b'</PILOTS>\r\n')
+                header = splitted[0].decode('latin1')
+                if len(splitted) > 1 :
+                    binary = splitted[1]
+                    self.profiles.append(Prototype(file_name, header, binary))
+            else :    
+                splitted = content.split(b'</PARAMETERS>\r\n')
+                header = splitted[0].decode('latin1')
+                if len(splitted) > 1:
+                    binary = splitted[1]
+                    self.profiles.append(Profile(file_name, header, binary))
 
     def get_profiles_between(self, begin, end):
         catched_profiles = list()
@@ -58,6 +66,9 @@ class Profiles:
             if begin < profile.date < end:
                 catched_profiles.append(profile)
         return catched_profiles
+
+
+
 
 
 class Profile:
@@ -199,7 +210,6 @@ class Profile:
         header += " <speed_start_mbar_per_s>"+str(self.speed_start_mbar_per_s)+"</speed_start_mbar_per_s>\r\n"
         header += " <speed_control_mbar_per_s>"+str(self.speed_control_mbar_per_s)+"</speed_control_mbar_per_s>\r\n"
         return header
-
     def write_csv(self, export_path) :
         if list(self.data):
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
@@ -213,7 +223,6 @@ class Profile:
                     csv_file.writerow(row)
         else:
             print((export_path + " can't be exploited for csv data"))
-
     def write_temperature_html(self, export_path, optimize=False, include_plotly=True):
         if list(self.data):
             # Check if file exist
@@ -260,7 +269,6 @@ class Profile:
                                   include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for temperature profile"))
-
     def write_salinity_html(self, export_path, optimize=False, include_plotly=True):
         if list(self.data):
             # Check if file exist
@@ -304,3 +312,234 @@ class Profile:
                                   include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for salinity profile"))
+
+
+class Prototype:
+    date = None
+    old_version = None
+    fast_sample = None
+    file_name = None
+    header = None
+    binary = None
+    data = None
+    data_pressure = None
+    data_temperature = None
+    data_salinity = None
+    p_cut_off_dbar = None
+    samplerate = None
+    top_bin_interval_dbar = None
+    top_bin_size_dbar = None
+    top_bin_max_dbar = None
+    middle_bin_interval_dbar = None
+    middle_bin_size_dbar = None
+    middle_bin_max_dbar = None
+    bottom_bin_interval_dbar = None
+    bottom_bin_size_dbar = None
+    include_transition_bin = None
+    include_nbin = None
+    continiousprofile = None
+    speed_detection = None
+    speed_control_mbar_per_s = 8
+    bin_average_output = None
+    running_pump_before_profile_s = None
+
+    hexoutput = False
+    manual_profil_rate_h = 1
+    speed_start_mbar_per_s = None
+    output_pressure = None
+    echo_cmd = None
+    auto_bin_avg = None
+    ts_wait_s = None
+    manual_profil = False
+    load_test_sample = None
+
+
+    def __init__(self, file_name, header, binary):
+        self.file_name = file_name
+        self.date = utils.get_date_from_file_name(file_name)
+        self.header = header
+        self.binary = binary
+        self.pcutoff = re.findall("pcutoff=(-?\d+)", self.header)[0]
+        self.old_version = True
+        try:
+            self.samplerate = re.findall("samplerate=(\d+)", self.header)[0]
+        except IndexError:
+            self.old_version = False
+            self.samplerate = re.findall("samplerate=(\w+)", self.header)[0]
+            if "fast" in self.samplerate :
+                self.fast_sample = True
+            else :
+                self.fast_sample = False
+        else :
+            if int(self.samplerate) > 0:
+              self.fast_sample = True
+            else :
+              self.fast_sample = False   
+
+        self.top_bin_interval_dbar = re.findall("top_bin_interval=(\d+)", self.header)[0]
+        self.top_bin_size_dbar = re.findall("top_bin_size=(\d+)", self.header)[0]
+        self.top_bin_max_dbar = re.findall("top_bin_max=(\d+)", self.header)[0]
+        self.middle_bin_interval_dbar = re.findall("middle_bin_interval=(\d+)", self.header)[0]
+        self.middle_bin_size_dbar = re.findall("middle_bin_size=(\d+)", self.header)[0]
+        self.middle_bin_max_dbar = re.findall("middle_bin_max=(\d+)", self.header)[0]
+        self.bottom_bin_interval_dbar = re.findall("bottom_bin_interval=(\d+)", self.header)[0]
+        self.bottom_bin_size_dbar = re.findall("bottom_bin_size=(\d+)", self.header)[0]
+        self.include_transition_bin = re.findall("include_transition_bin=(\d+)", self.header)[0]
+        self.include_nbin = re.findall("include_nbin=(\d+)", self.header)[0]
+        self.continiousprofile = re.findall("continiousprofile=(\d+)", self.header)[0]
+        self.speed_detection = re.findall("speeddetection=(\d+)", self.header)[0]
+        self.hexoutput = re.findall("hexoutput=(\d+)", self.header)[0]
+        self.bin_average_output = re.findall("binaverageoutput=(\d+)", self.header)[0]
+        self.running_pump_before_profile_s = re.findall("runningpumpbeforeprofile=(\d+)", self.header)[0]
+        self.speed_start_mbar_per_s = re.findall("speedstart=(\d+)", self.header)[0]
+
+        speed_control_match = re.findall("speedcontrol=(\d+)", self.header)
+        if len(speed_control_match) > 0 :
+            self.speed_control_mbar_per_s = speed_control_match[0]
+
+        try:
+            if int(self.include_nbin) > 0:
+                newsize = math.floor(len(self.binary) / 10) * 10
+                self.binary = self.binary[:newsize]
+                self.data = numpy.frombuffer(self.binary, numpy.dtype(
+                    [('pressLSB', 'u1'),('pressMID', 'u1'),('pressMSB', 'u1'),
+                    ('tempLSB', 'u1'),('tempMID', 'u1'),('tempMSB', 'u1'),
+                    ('salLSB', 'u1'),('salMID', 'u1'),('salMSB', 'u1')
+                    ,('nbin', 'u1')]))
+            else:
+                newsize = math.floor(len(self.binary) / 9) * 9
+                self.binary = self.binary[:newsize]
+                self.data = numpy.frombuffer(self.binary, numpy.dtype(
+                    [('pressLSB', 'u1'),('pressMID', 'u1'),('pressMSB', 'u1'),
+                    ('tempLSB', 'u1'),('tempMID', 'u1'),('tempMSB', 'u1'),
+                    ('salLSB', 'u1'),('salMID', 'u1'),('salMSB', 'u1')]))
+        except:
+            traceback.print_exc()
+            self.data = None
+        else:
+            self.data_pressure = list()
+            self.data_temperature = list()
+            self.data_salinity = list()
+            self.data_nbin = list()
+
+            rangeIndex = None
+            if int(self.bin_average_output) > 0:
+                rangeIndex = range(0, len(self.data), 1)
+            else :
+                # reverse array when data are discrete
+                rangeIndex = range(len(self.data)-1, -1, -1)
+            for index in rangeIndex :
+                press = (self.data[index]['pressMSB'] << 16) |(self.data[index]['pressMID'] << 8) |self.data[index]['pressLSB']
+                temp = (self.data[index]['tempMSB'] << 16) |(self.data[index]['tempMID'] << 8) |self.data[index]['tempLSB']
+                sal = (self.data[index]['salMSB'] << 16) |(self.data[index]['salMID'] << 8) |self.data[index]['salLSB']
+                if not (press == 0 and temp == 0 and sal == 0):
+                    self.data_pressure.append((float(press) / 100.0) - 10.0)
+                    self.data_temperature.append((float(temp) / 10000.0) - 5)
+                    self.data_salinity.append((float(sal) / 10000.0) - 1)
+                    if int(self.include_nbin) > 0:
+                        self.data_nbin.append(self.data[index]['nbin'])
+    def parameters_header(self):
+        return self.header
+    def write_csv(self, export_path) :
+        if list(self.data):
+            export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
+                "." + self.file_name + ".csv"
+            export_path = export_path + export_name
+            rows = list(zip(self.data_pressure, self.data_temperature, self.data_salinity))
+            with open(export_path, mode='w') as csv_file:
+                csv_file = csv.writer(
+                    csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                for row in rows:
+                    csv_file.writerow(row)
+        else:
+            print((export_path + " can't be exploited for csv data"))
+    def write_temperature_html(self, export_path, optimize=False, include_plotly=True):
+        if list(self.data):
+            # Check if file exist
+            export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
+                "." + self.file_name + ".TEMP" + ".html"
+            export_path = export_path + export_name
+            if os.path.exists(export_path):
+                print((export_path + "already exist"))
+                return
+
+            print(export_name)
+            # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+            # for increased speed, improved interactivity, and the ability to plot even more data.
+            Scatter = graph.Scatter
+            if optimize :
+                Scatter = graph.Scattergl
+            data_line = Scatter(x=self.data_temperature,
+                                y=self.data_pressure,
+                                marker=dict(size=6,
+                                            cmax=30,
+                                            cmin=-2,
+                                            color=self.data_temperature,
+                                            colorbar=dict(
+                                                title="Temperatures (Deg C)"),
+                                            colorscale="Bluered"),
+                                mode="markers",
+                                name="Temperatures (Deg C)")
+
+            data = [data_line]
+            layout = graph.Layout(title="CTD Profile with SBE41 [Temperature = f(Pressures)] ",
+                                  xaxis=dict(
+                                      title='Temperatures (Deg C)', titlefont=dict(size=18)),
+                                  yaxis=dict(title='Pressures (dbar)', titlefont=dict(
+                                      size=18), autorange="reversed"),
+                                  hovermode='closest'
+                                  )
+            figure = graph.Figure(data=data, layout=layout)
+            # Include plotly into any html files ?
+            # If false user need connexion to open html files
+            if include_plotly :
+                figure.write_html(file=export_path, include_plotlyjs=True)
+            else :
+                figure.write_html(file=export_path,
+                                  include_plotlyjs='cdn', full_html=False)
+        else:
+            print((export_path + " can't be exploited for temperature profile"))
+    def write_salinity_html(self, export_path, optimize=False, include_plotly=True):
+        if list(self.data):
+            # Check if file exist
+            export_path = export_path + \
+                UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
+                "." + self.file_name + ".SAL" + ".html"
+            if os.path.exists(export_path):
+                print((export_path + "already exist"))
+                return
+            Scatter = graph.Scatter
+            if optimize :
+                Scatter = graph.Scattergl
+            # Add acoustic values to the graph
+            data_line = Scatter(x=self.data_salinity,
+                                y=self.data_pressure,
+                                marker=dict(size=9,
+                                            cmax=39,
+                                            cmin=31,
+                                            color=self.data_salinity,
+                                            colorbar=dict(
+                                                title="Salinity (PSU)"),
+                                            colorscale="aggrnyl"),
+                                mode="markers",
+                                name="Salinity (PSU)")
+
+            data = [data_line]
+            layout = graph.Layout(title="CTD Profile with SBE41 [Salinity = f(Pressures)]",
+                                  xaxis=dict(title='Salinity (PSU)',
+                                             titlefont=dict(size=18)),
+                                  yaxis=dict(title='Pressures (dbar)', titlefont=dict(
+                                      size=18), autorange="reversed"),
+                                  hovermode='closest'
+                                  )
+            figure = graph.Figure(data=data, layout=layout)
+            # Include plotly into any html files ?
+            # If false user need connexion to open html files
+            if include_plotly :
+                figure.write_html(file=export_path, include_plotlyjs=True)
+            else :
+                figure.write_html(file=export_path,
+                                  include_plotlyjs='cdn', full_html=False)
+        else:
+            print((export_path + " can't be exploited for salinity profile"))
+

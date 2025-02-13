@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-10-23 10:29:38
 # @Last Modified by:   fro
-# @Last Modified time: 2024-11-12 10:08:21
+# @Last Modified time: 2025-02-13 15:27:54
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
@@ -159,14 +159,16 @@ class Log:
         # (the metadata header, which does not necessarily relate to the
         # events and their binary data below that header in the same .MER)
         self.events = events.get_events_between(self.start_date, self.end_date)
+
         # Set and parse info from .MER file and invert wavelet transform any binary data
         # (cannot invert the data without vital information from the .MER environment)
         if not self.mer_environment and len(self.events) > 0:
-            # Mer file is not logged on LOG file but events are found during this dive
-            # E.g : 12_65B5EC90.LOG / 12_65BF9636.MER
+            #Mer file is not logged on LOG file but events are found during this dive
+            #E.g : 12_65B5EC90.LOG / 12_65BF9636.MER
             self.mer_environment = self.events[0].default_mer_environment
 
         for event in self.events:
+            print(event.mer_binary_name)
             event.set_kstnm_kinst(self.kstnm, self.kinst)
             event.set_environment(self.mer_environment_name, self.mer_environment)
             event.find_measured_sampling_frequency()

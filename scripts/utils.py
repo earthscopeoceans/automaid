@@ -32,25 +32,24 @@ version = setup.get_version()
 def get_log_delimiter(content):
     if "\r\n" in content:
         delim = "\r\n"
-
     elif "\r" in content:
         delim = "\r"
-
     elif "\n" in content:
         delim = "\n"
-
     else:
-        raise ValueError("Delimiter from list of expected delimiters not found")
+        delim = None
 
     return delim
 
 # Split logs in several lines
 def split_log_lines(content):
+    splits = []
     delim = get_log_delimiter(content)
-    splits = content.split(delim)
-    if splits[-1] == "":
-        splits = splits[:-1]
-
+    if delim :
+        splits = content.split(delim)
+        if splits[-1] == "":
+            splits = splits[:-1]
+        
     return splits
 
 # Search timestamps for a specific keyword
