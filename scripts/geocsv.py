@@ -33,7 +33,6 @@ class GeoCSV:
         cycles (list): List of cycles.Cycle instances
         creation_datestr (str): File-creation datestr as "YYYY-MM-DDTHH:MM:SS.sssZ"
         mixed_layer_depth_m (float): Depth to thermocline in meters positive down (def: np.float32('nan'))
-        version (str): GeoCSV version (def: 'v2.2.0-2')
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
 
@@ -43,7 +42,6 @@ class GeoCSV:
                  cycle_list,
                  creation_datestr = datetime.datetime.now(pytz.UTC).isoformat()[:23] + "Z",
                  mixed_layer_depth_m = np.float32('nan'),
-                 version='v2.2.0-1',  # Semantic versioning: v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
                  delimiter=',',
                  lineterminator='\n'):
 
@@ -53,12 +51,11 @@ class GeoCSV:
         self.cycles = cycle_list
         self.creation_datestr = creation_datestr
         self.mixed_layer_depth_m = mixed_layer_depth_m
-        self.version = version
         self.delimiter = delimiter
         self.lineterminator = lineterminator
 
         # Comments (multiple, some keywords required, start with # or "#)
-        self.dataset_comment = ['#dataset: GeoCSV ' + self.version]
+        self.dataset_comment = ['#dataset: GeoCSV']
         self.created_comment = ['#created: ' + self.creation_datestr]
         self.description_comment = ['#description: Metadata for drifting Mobile Earthquake Recording in Marine Areas by Independent Divers (MERMAID) hydrophones, www.EarthScopeOceans.org']
         self.attribution_comment = ['#attribution: automaid {} ({})'.format(setup.get_version(), setup.get_url())]
