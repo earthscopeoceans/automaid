@@ -681,7 +681,7 @@ class Cycle:
         Args:
         num_gps (int): Min. # GPS fixes before(after) diving(surfacing) (def=2)
         max_time (int): Max. time (s) before(after) diving(surfacing) within
-                        which `num_gps` must be  recorded (def=3600)
+                        which `num_gps` must be  recorded (def=5400)
 
         Sets attrs:
         `gps_valid4clockdrift_correction`: True is good synchronization pre/post dive
