@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
+# -*- Coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v3.10)
 #
+# Developer: Joel D. Simon <JDS>
 # Developer: Frédéric rocca <FRO>
 # Contact:  frederic.rocca@osean.fr
+# Last modified by JDS: 21-Apr-2025
 # Last modified by FRO: 09-Sep-2024
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
-
-
 
 import os
 import re
@@ -22,7 +22,9 @@ import setup
 version = setup.get_version()
 
 class GPS:
-    def __init__(self, date=None, latitude=None, longitude=None,hdop=None,vdop=None,clockdrift=None, clockfreq=None, source=None, rawstr_dict=None):
+    def __init__(self, date=None, latitude=None,
+                 longitude=None,hdop=None,vdop=None,clockdrift=None, clockfreq=None,
+                 source=None, rawstr_dict=None):
         self.__version__ = version
         self.date = date
         self.latitude = latitude

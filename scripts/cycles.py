@@ -3,11 +3,14 @@
 # Part of automaid -- a Python package to process MERMAID files
 # pymaid environment (Python v3.10)
 #
+# Developer: Joel D. Simon <JDS>
 # Developer: Frédéric rocca <FRO>
 # Contact:  frederic.rocca@osean.fr
+# Last modified by JDS: 21-Apr-2025
 # Last modified by FRO: 09-Sep-2024
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
 
+# NB: developed as "dives.py"
 
 import os
 import re
