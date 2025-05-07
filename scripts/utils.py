@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 11-Sep-2023
+# Last modified by JDS: 06-May-2025
 # Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
 
 import re
@@ -334,6 +334,8 @@ def deployDate():
     '''
     Return dictionary of deployment datetimes.
 
+    Simultaneously update deploydate.txt in omnia, or better yet, extract this
+    into separate file next time it's updated and delete both of these.
     '''
 
     # *I found dates in the same range (~minutes before) as misalo.txt and set
