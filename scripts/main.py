@@ -10,7 +10,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact:  jdsimon@alumni.princeton.edu
-# Last modified: 31-Jan-2025
+# Last modified: 13-May-2025
 # Last tested: Python Python 3.10.15, Darwin Kernel Version 23.6.0
 
 import os
@@ -369,6 +369,14 @@ def main():
         # of external pressure measurements for the entire array
         if cycle_logs:
             lastcycle[mfloat] = cycle_logs[-1]
+
+        # Remove lingering incomplete "IcCycle" folders, if completed
+        mfloat_files = os.listdir(mfloat_path)
+        incomplete_cycles = list(filter(lambda x: 'IcCycle' in x, mfloat_files))
+        for incomplete_cycle in incomplete_cycles:
+            complete_cycle = incomplete_cycle.replace('IcCycle', '')
+            if os.path.exists(os.path.join(mfloat_path, complete_cycle)):
+                shutil.rmtree(os.path.join(mfloat_path, incomplete_cycle))
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
