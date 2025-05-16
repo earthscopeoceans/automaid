@@ -139,7 +139,7 @@ class GeoCSV:
             self.field_unit_comment,
             self.field_type_comment,
         ]
-        print(comment_lines)
+        #print(comment_lines)
         return comment_lines
 
     def write(self, filename='geo.csv'):
@@ -352,7 +352,7 @@ class GeoCSV:
 
         # Remove pressure measurements taken before(after) first(last) GPS measurements
         # (currently: GPS dates, but not pressure dates, affected by `filterDate` in main.py)
-        print(gps_rows)
+        #print(gps_rows)
         gps_dates = [x[1] for x in sorted(gps_rows, key=lambda x: x[1])]
         try:
             press_rows = [x for x in press_rows if x[1] > gps_dates[0] and x[1] < gps_dates[-1]]
