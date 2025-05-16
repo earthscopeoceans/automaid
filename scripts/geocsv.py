@@ -5,7 +5,7 @@
 #
 # Developer: Joel D. Simon (JDS)
 # Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 26-Sep-2024
+# Last modified by JDS: 16-May-2025
 # Last tested: Python 3.10.13, Darwin Kernel Version 23.6.0
 
 # Todo:
@@ -354,7 +354,10 @@ class GeoCSV:
         # (currently: GPS dates, but not pressure dates, affected by `filterDate` in main.py)
         print(gps_rows)
         gps_dates = [x[1] for x in sorted(gps_rows, key=lambda x: x[1])]
-        press_rows = [x for x in press_rows if x[1] > gps_dates[0] and x[1] < gps_dates[-1]]
+        try:
+            press_rows = [x for x in press_rows if x[1] > gps_dates[0] and x[1] < gps_dates[-1]]
+        except IndexError:
+            pass
 
         # The "Measurement:" rows are "GPS" and "Pressure"
         meas_rows = gps_rows + press_rows
