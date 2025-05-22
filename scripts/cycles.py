@@ -549,9 +549,9 @@ class Cycle:
         # DO NOT DO: `('\[PRESS ,\s*\d+\]P\s*(\+?\-?\d+)mbar', self.cycle_content)`
         # because "P.*mbar" is a valid pressure, even if prefixed with "[SURFIN, ..."
         pressure = utils.find_timestamped_values("P\s*(\+?\-?\d+)mbar", self.cycle_content)
-        bypass = utils.find_timestamped_values(":\[BYPASS", self.cycle_content)
-        valve = utils.find_timestamped_values(":\[VALVE", self.cycle_content)
-        pump = utils.find_timestamped_values(":\[PUMP", self.cycle_content)
+        bypass = utils.find_timestamped_values("BYPASS.+\].*opening (\d+)", self.cycle_content)
+        valve = utils.find_timestamped_values(":\[VALVE.+\].*opening f?o?r? ?(\d+)ms", self.cycle_content)
+        pump = utils.find_timestamped_values(":\[PUMP.+\].*during (\d+)ms", self.cycle_content)
         mermaid_events = utils.find_timestamped_values("\[MRMAID,\d+\] *\d+dbar, *-?\d+degC", self.cycle_content)
 
         # Return if there is no data to plot
