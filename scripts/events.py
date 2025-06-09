@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon <JDS>
 # Developer: Frédéric rocca <FRO>
 # Contact:  frederic.rocca@osean.fr
-# Last modified by JDS: 03-Jun-2025
+# Last modified by JDS: 09-Jun-2025
 # Last modified by FRO: 09-Sep-2024
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
 
@@ -856,14 +856,15 @@ class Event:
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.processed_data)
 
-        # Mark REQ files with data quality 'R' (lower than default, 'D') so that
-        # DET files take precedence in overlap/merge at EarthScope DMC. While
-        # 'D' is the default when written to disk, the .mseed attr isn't
-        # actually set by default (so set it, it's needed in geocsv.py)
+        # Mark DET files with higher quality "Q" data quality, and REQ files
+        # with lower quality "D" data quality so that DET files take precedence
+        # in overlap/merge at EarthScope DMC. While "D" is the default when
+        # written to disk, the .mseed attr isn't actually set by default (so set
+        # it here -- it's needed in geocsv.py).
         if self.is_requested:
-            stats.mseed = {'dataquality': 'R'}
-        else:
             stats.mseed = {'dataquality': 'D'}
+        else:
+            stats.mseed = {'dataquality': 'Q'}
 
         # Extra metadata, some of which is only written to SAC files
         keys = ['stla',
