@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-10-23 10:29:38
 # @Last Modified by:   fro
-# @Last Modified time: 2025-05-22 15:10:51
+# @Last Modified time: 2025-05-15 11:48:33
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
