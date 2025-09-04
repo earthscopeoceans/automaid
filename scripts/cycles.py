@@ -917,7 +917,7 @@ class Cycle:
         pressure_dbar = [int(p[0])/100. for p in self.pressure_mbar]
 
         # Determine if using one- or two-layer ocean.
-        if max(pressure_dbar) > mixed_layer_depth_m:
+        if max(pressure_dbar) > mixed_layer_depth_m and not self.emergency_triggers:
             # Two-layer ocean case (surface and mixed)
             # Interpolate for location that MERMAID passed from the surface layer to the mixed layer
             # on the descent
