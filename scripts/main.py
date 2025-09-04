@@ -231,9 +231,6 @@ def main():
               .format(mfloat))
         cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s)
 
-        kml.generate(mfloat_path, mfloat, cycle_logs)
-
-
         # Verify dive logs are sorted as expected
         if cycle_logs!= sorted(cycle_logs, key=lambda x: x.start_date):
             raise ValueError('`cycle_logs` improperly sorted')
@@ -310,8 +307,11 @@ def main():
         # Sort event lists by corrected starttime is exist => use uncorrected_starttime elsewhere
         if events_list != sorted(events_list, key=functools.cmp_to_key(sort_events)):
             raise ValueError('`cycle_logs[*].events` improperly sorted')
-        # Plot vital data
+
+        # Generate kml file for Google Earth
         kml.generate(mfloat_path, mfloat, cycle_logs)
+
+        # Plot vital data
         vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
         vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
         vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
