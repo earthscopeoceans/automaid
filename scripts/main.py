@@ -21,6 +21,7 @@ import shutil
 import argparse
 import datetime
 import functools
+import pickle
 
 import kml
 import gps
@@ -377,6 +378,9 @@ def main():
             complete_cycle = incomplete_cycle.replace('IcCycle', '')
             if os.path.exists(os.path.join(mfloat_path, complete_cycle)):
                 shutil.rmtree(os.path.join(mfloat_path, incomplete_cycle))
+
+        with open(mfloat_path + "/" + mfloat + '.pickle', 'wb') as handle:
+            pickle.dump(cycle_logs, handle)
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
