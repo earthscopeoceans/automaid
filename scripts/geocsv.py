@@ -74,12 +74,14 @@ class GeoCSV:
             'unitless',
             'unitless',
             'unitless',
+            'unitless',
             'degrees_north',
             'degrees_east',
             'meters',
             'mbar',
             'unitless',
             'hertz',
+            'unitless',
             'seconds',
             'seconds'
         ]
@@ -92,12 +94,14 @@ class GeoCSV:
             'string',
             'string',
             'string',
+            'string',
             'float',
             'float',
             'float',
             'float',
             'string',
             'float',
+            'integer',
             'float',
             'float'
         ]
@@ -110,12 +114,14 @@ class GeoCSV:
             'Station',
             'Location',
             'Channel',
+            'DataQuality',
             'Latitude',
             'Longitude',
             'Elevation',
             'WaterPressure',
             'InstrumentDescription',
             'SampleRate',
+            'SampleCount',
             'TimeDelay',
             'TimeCorrection'
         ]
@@ -180,11 +186,13 @@ class GeoCSV:
                     cycle.kstnm,
                     nan,
                     nan,
+                    nan,
                     d6(gps.latitude),
                     d6(gps.longitude),
                     nan,
                     nan,
                     'MERMAIDHydrophone({:s})'.format(cycle.kinst),
+                    nan,
                     nan,
                     d6(gps.mseed_time_delay),
                     nan
@@ -218,8 +226,10 @@ class GeoCSV:
                     nan,
                     nan,
                     nan,
+                    nan,
                     d0(pressure[0]),
                     'MERMAIDHydrophone({:s})'.format(cycle.kinst),
+                    nan,
                     nan,
                     nan,
                     nan
@@ -248,6 +258,9 @@ class GeoCSV:
 
             # Initialize a "previous" row to check for redundancies
             # This can occur when, e.g., a REQ file is multiply requested
+            # For example: these are identical, so only one line is written to GeoCSV
+            #     '20180713T094801.07_5B6DEE36.MER.REQ.WLT5.sac'
+            #     '20180713T094801.07_5B7739F0.MER.REQ.WLT5.sac'
             det_algo_rows = []
             req_algo_rows = []
             prev_algorithm_row = []
@@ -262,12 +275,14 @@ class GeoCSV:
                     cycle.kstnm,
                     event.obspy_trace_stats["location"],
                     event.obspy_trace_stats["channel"],
+                    event.obspy_trace_stats.mseed["dataquality"],
                     d6(event.obspy_trace_stats.sac["stla"]),
                     d6(event.obspy_trace_stats.sac["stlo"]),
                     nan,
                     d0(event.pressure_mbar),
                     'MERMAIDHydrophone({:s})'.format(cycle.kinst),
                     d1(event.obspy_trace_stats["sampling_rate"]),
+                    event.obspy_trace_stats["npts"],
                     nan,
                     d6(event.mseed_time_correction)
                 ]
@@ -316,11 +331,13 @@ class GeoCSV:
                     cycle.kstnm,
                     nan,
                     nan,
+                    nan,
                     d6(thermo.latitude),
                     d6(thermo.longitude),
                     nan,
                     self.mixed_layer_depth_m * 100,
                     'MERMAIDHydrophone({:s})'.format(cycle.kinst),
+                    nan,
                     nan,
                     nan,
                     nan
