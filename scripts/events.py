@@ -200,6 +200,7 @@ class Event:
         self.mseed_time_correction = None
         self.obspy_trace_stats = None
         self.processed_file_name = None
+        self.uncorrected_processed_file_name = None
 
         self.is_requested = None
 
@@ -575,6 +576,10 @@ class Event:
 
         '''
 
+        processed_file_name = UTCDateTime.strftime(UTCDateTime(self.uncorrected_starttime),\
+                                                   "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
+        self.uncorrected_processed_file_name = processed_file_name
+
         if not self.corrected_starttime:
             return
 
@@ -943,7 +948,10 @@ class Event:
 
         # String describing detection/request status, and number of wavelet scales transmitted
         # (e.g., 'DET.WLT5')
-        reqdet_scales = self.processed_file_name.split('.')[-2:]
+        if self.processed_file_name :
+            reqdet_scales = self.processed_file_name.split('.')[-2:]
+        else :
+            reqdet_scales = self.uncorrected_processed_file_name.split('.')[-2:]
         stats.sac['kuser1'] = '.'.join(reqdet_scales)
 
         # String detailing the type of (i)CDF24 transform: edge correction and

@@ -540,6 +540,7 @@ def decrypt_short(f,short_card) :
         if specifier == 't' :
             # value is a timestamp
             isodate = UTCDateTime(int(arg_value)).isoformat()
+            isodate.replace(":","_")
             format_str = format_str + arg["FORMAT"].replace(replace_pattern,isodate)
         elif specifier == 'f' :
             # value is a float stored on integer
