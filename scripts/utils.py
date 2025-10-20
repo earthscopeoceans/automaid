@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v2.7)
+# pymaid environment (Python v3.10+)
 #
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
-# Last modified by JDS: 06-May-2025
-# Last tested: Python 2.7.15, Darwin-18.7.0-x86_64-i386-64bit
+# Contact: jdsimon@bathymetrix.com
+# Last modified: 20-Oct-2025
+# Last tested: Python Python 3.10.15, Darwin Kernel Version 23.6.0
 
 import re
 import sys
@@ -456,3 +456,11 @@ def deploy2present():
       fDay[m] = [dDay[m], now]
 
   return fDay
+
+def princeton_mermaids():
+    """
+    Return OSEAN serial number set for Princeton floats {452.020-P-08, ..., 452.020-P-25}.
+    """
+
+    return {f"452.020-P-{i:02}" for i in range(8, 26)}
+

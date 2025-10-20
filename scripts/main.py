@@ -9,8 +9,8 @@
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
 #
 # Developer: Joel D. Simon (JDS)
-# Contact:  jdsimon@alumni.princeton.edu
-# Last modified: 13-May-2025
+# Contact: jdsimon@alumni.princeton.edu
+# Last modified: 20-Oct-2025
 # Last tested: Python Python 3.10.15, Darwin Kernel Version 23.6.0
 
 import os
@@ -103,6 +103,9 @@ filterDate = utils.deploy2present()
 # Boolean set to true in order to delete every processed data and redo everything
 redo = False
 
+# Filter to only run Princeton set.
+princeton_only = False
+
 # Figures commented by default (take heaps of memory)
 write_png = False
 write_html = False
@@ -121,7 +124,6 @@ local_html = True
 
 # Dictionary to write last-cycle vital data to output files
 lastcycle = {}
-
 
 def sort_events(eventA,eventB) :
     if eventA.corrected_starttime and eventB.corrected_starttime :
@@ -165,6 +167,10 @@ def main():
 
     # For each MERMAID float
     for mfloat in mfloats_sorted:
+        if princeton_only:
+            if mfloat not in utils.princeton_mermaids():
+                continue
+
         print("Processing {:s} .LOG & .MER files...".format(mfloat))
 
         # Set the path for the float
