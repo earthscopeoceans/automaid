@@ -77,13 +77,15 @@ def format_log(log):
             timestamp = catch[0]
             isodate = UTCDateTime(int(timestamp)).isoformat()
             datetime_log += line.replace(timestamp, isodate) + "\r\n"
+        else :
+            datetime_log += line + "\r\n"
     formatted_log = "".join(datetime_log)
     return formatted_log
 
 
 # Get date from a .LOG or a .MER file name
 def get_date_from_file_name(filename):
-    hexdate = re.findall("(.+\d+_)?([A-Z0-9]+)\.(S41|S61|LOG|MER|\d{3})", filename)[0][1]
+    hexdate = re.findall("(.+\d+_)?([A-Z0-9]+)\.(\w{3})", filename)[0][1]
     timestamp = int(hexdate, 16)
     return UTCDateTime(timestamp)
 

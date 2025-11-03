@@ -285,9 +285,10 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
         string += str(timestamp) + ":" + type_string + "["+"{:04d}".format(id)+"] Format not found\r\n"
         return string
     #print (Formats)
-    string += str(timestamp) + ":"
-    string +="["+"{:6}".format(File)+","+"{:04d}".format(id)+"]"
-    string += type_string
+    if File != "__BLANK__" :
+        string += str(timestamp) + ":"
+        string +="["+"{:6}".format(File)+","+"{:04d}".format(id)+"]"
+        string += type_string
     index=0
     argIndex=0
     if dataSize > 0:
@@ -855,7 +856,7 @@ def convert_in_cycle(path,begin,end):
                         internal_pressure = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
                         if internal_pressure :
                             next_index = index
-                            while next_index < len(lines):
+                            while next_index < len(lines) - 1:
                                 next_index = next_index+1
                                 before_dive = re.findall('(\d+):(\[.+\])? +bypass (\d+)ms (\d+)ms \((\d+)ms (\d+)ms stored\)', lines[next_index])
                                 if before_dive :
