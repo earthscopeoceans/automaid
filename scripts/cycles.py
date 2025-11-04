@@ -48,6 +48,8 @@ class Log:
     s41_file_name_exists = False
     s61_file_name = None
     s61_file_name_exists = False
+    rbr_file_name = None
+    rbr_file_name_exists = False
 
     p2t_offset_param = None
     p2t_offset_measurement = None
@@ -190,6 +192,14 @@ class Log:
             s61_fullfile_name = self.base_path + self.s61_file_name
             if os.path.exists(s61_fullfile_name):
                 self.s61_file_name_exists = True
+        # Check if CTD samples stored on RBR file
+        rbr_catch = re.findall("samples in (\w+/\w+\.RBR)", self.log_content)
+        if len(rbr_catch) > 0:
+            self.rbr_file_name = rbr_catch[-1].replace("/", "_")
+            # Sometimes the S41 .file named in the .LOG does not exist on the server
+            rbr_fullfile_name = self.base_path + self.rbr_file_name
+            if os.path.exists(rbr_fullfile_name):
+                self.rbr_file_name_exists = True
 # Class to manipulate cycle files
 class Cycle:
     '''
@@ -229,6 +239,7 @@ class Cycle:
     events = None
     profilesS41 = None
     profilesS61 = None
+    profilesRBR = None
 
     # All gps (SYNC MERMAID + LOG)
     gps_before_dive = None
@@ -278,7 +289,7 @@ class Cycle:
     # Class attribute to hold MERMAID "MH" FDSN network code
     network = utils.network()
 
-    def __init__(self, base_path=None, cycle_name=None, events=None, profilesS41=None ,profilesS61=None):
+    def __init__(self, base_path=None, cycle_name=None, events=None, profilesS41=None ,profilesS61=None, profilesRBR=None):
         self.base_path = base_path
         self.__version__ = version
         self.cycle_name = cycle_name
@@ -435,6 +446,8 @@ class Cycle:
         self.profilesS41 = profilesS41.get_profiles_between(self.start_date, self.end_date)
         # Find the S61 profiles if any
         self.profilesS61 = profilesS61.get_profiles_between(self.start_date, self.end_date)
+        # Find the RBR profiles if any
+        self.profilesRBR = profilesRBR.get_profiles_between(self.start_date, self.end_date)
         # Constitute lists of gps
         self.gps_before_dive = []
         self.gps_after_dive = []
@@ -1030,11 +1043,15 @@ class Cycle:
         for profile in self.profilesS61:
             profile.write_temperature_html(self.processed_path,optimize,include_plotly)
             profile.write_salinity_html(self.processed_path,optimize,include_plotly)
+        for profile in self.profilesRBR:
+            profile.write_park_html(self.processed_path,optimize,include_plotly)
 
     def write_profile_csv(self):
         for profile in self.profilesS41:
             profile.write_csv(self.processed_path)
         for profile in self.profilesS61:
+            profile.write_csv(self.processed_path)
+        for profile in self.profilesRBR:
             profile.write_csv(self.processed_path)
 
     def write_events_sac(self):
@@ -1123,6 +1140,8 @@ class Cycle:
                 profile_str = "{:s}.".format(self.logs[i].s41_file_name)
             elif self.logs[i].s61_file_name :
                 profile_str = "{:s}.".format(self.logs[i].s61_file_name)
+            elif self.logs[i].rbr_file_name :
+                profile_str = "{:s}.".format(self.logs[i].rbr_file_name)
             else :
                 profile_str = ""
 
@@ -1158,7 +1177,7 @@ class Cycle:
 
 
 # Create dives object
-def get_cycles(path, events, profilesS41, profilesS61):
+def get_cycles(path, events, profilesS41, profilesS61, profilesRBR):
     # Get the list of cycle files
     cycle_names = glob.glob(path + "*.CYCLE")
     cycle_names = [os.path.basename(x) for x in cycle_names]
@@ -1166,7 +1185,7 @@ def get_cycles(path, events, profilesS41, profilesS61):
     # Create Cycle objects
     cycles = []
     for cycle_name in cycle_names:
-        c = Cycle(path, cycle_name, events, profilesS41, profilesS61)
+        c = Cycle(path, cycle_name, events, profilesS41, profilesS61, profilesRBR)
         if c.cycle_content:
             cycles.append(c)
     return cycles

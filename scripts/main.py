@@ -34,6 +34,7 @@ import geocsv
 import preprocess
 import sbe41
 import sbe61
+import rbr
 
 ## !!! TEMP VARS !! ##
 csv_file = True
@@ -113,7 +114,7 @@ write_mhpsd = True
 
 # Use WebGL implementation of graph to
 # increase speed, improve interactivity, and the ability to plot even more data
-optimized_html = False
+optimized_html = True
 
 # Integrate the plotly library into every html file
 # If false user must have internet connection to access graph
@@ -227,10 +228,15 @@ def main():
         # Build list of all S61 profiles recorded
         ms61s = sbe61.Profiles(mfloat_path)
 
+        # Concatenate RBR files
+        preprocess.concatenate_rbr_files(mfloat_path);
+        # Build list of all RBR profiles recorded
+        mRBRs = rbr.Profiles(mfloat_path)
+
         # Collect all the .CYCLE files
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat))
-        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s)
+        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s, mRBRs)
 
         # Verify dive logs are sorted as expected
         if cycle_logs!= sorted(cycle_logs, key=lambda x: x.start_date):
@@ -361,6 +367,7 @@ def main():
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S41")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S61")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.RBR")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.BIN")
         files_to_delete += glob.glob(mfloat_path + "/" + "*.CYCLE")

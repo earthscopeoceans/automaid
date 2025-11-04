@@ -139,6 +139,31 @@ def concatenate_files(path):
                             fl.write(bin)
                         bin = b''
 
+'''
+
+Concatenate RBR files with decimal extensions
+.RBR .RB0 .RB1 .RB3 => .RBR
+
+Keyword arguments:
+path -- Path with source files of one profiler
+
+'''
+def concatenate_rbr_files(path):
+    files_path = glob.glob(path + "*.RBR")
+    for file_path in files_path:
+        # list file with same head than log file
+        files_to_merge = list(glob.glob(file_path[:-4] +".R[0-9][0-9]"))
+        # Sort list => [0000_XXXXXX.R00,0000_XXXXXX.R01,0000_XXXXXX.R02,0000_XXXXXX.R03]
+        files_to_merge.sort()       
+        for file_to_merge in files_to_merge :
+            bin = b''
+            with open(file_to_merge, "rb") as fl:
+                bin = fl.read()
+            with open(file_path, "ab") as fl:
+                fl.write(bin)
+                # Remove file after append
+                os.remove(file_to_merge)
+
 # Get database name with linker file and version read on file
 '''
 
