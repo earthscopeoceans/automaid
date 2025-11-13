@@ -110,7 +110,7 @@ class Profile:
     # PARK
     park_period_s = -1
     # ASCENT
-    ascent_cut_off_dbar = -1
+    final_dbar = -1
     # regime 1
     ascent_bottom_max_dbar = -1
     ascent_bottom_size_dbar = -1
@@ -156,7 +156,7 @@ class Profile:
             self.ascent_top_period_ms = top[0][2]
         final_cutoff = re.findall("FINAL=(\d+)", self.header)
         if len(final_cutoff) > 0 :
-            self.ascent_cut_off_dbar = final_cutoff[0]
+            self.final_dbar = final_cutoff[0]
         self.datasets = []
         datasets = self.binary.split(b'</DATA>\x0D\x0A')
         for dataset in datasets:
@@ -196,9 +196,9 @@ class Profile:
                 # Check if file exist
                 export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
                     "." + self.file_name + ".PARK" + str(index) + ".html"
-                export_path = export_path + export_name
-                if os.path.exists(export_path):
-                    print((export_path + " already exist"))
+                file_path = export_path + export_name
+                if os.path.exists(file_path):
+                    print((file_path + " already exist"))
                     continue
                 print(export_name)
                 # Plotly you can implement WebGL with Scattergl() in place of Scatter()
@@ -219,9 +219,9 @@ class Profile:
 
                 figure.update_layout(title_text="Measurements performed in park mode")
                 if include_plotly :
-                    figure.write_html(file=export_path, include_plotlyjs=True)
+                    figure.write_html(file=file_path, include_plotlyjs=True)
                 else :
-                    figure.write_html(file=export_path,include_plotlyjs='cdn', full_html=False)                
+                    figure.write_html(file=file_path,include_plotlyjs='cdn', full_html=False)                
            
 
     def write_temperature_html(self, export_path, optimize=False, include_plotly=True):
@@ -250,9 +250,9 @@ class Profile:
             # Check if file exist
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
                 "." + self.file_name + ".TEMP" + ".html"
-            export_path = export_path + export_name
-            if os.path.exists(export_path):
-                print((export_path + "already exist"))
+            file_path = export_path + export_name
+            if os.path.exists(file_path):
+                print((file_path + "already exist"))
                 return
 
             print(export_name)
@@ -286,9 +286,9 @@ class Profile:
             #Include plotly into any html files ?
             #If false user need connexion to open html files
             if include_plotly :
-                figure.write_html(file=export_path, include_plotlyjs=True)
+                figure.write_html(file=file_path, include_plotlyjs=True)
             else :
-                figure.write_html(file=export_path,include_plotlyjs='cdn', full_html=False)
+                figure.write_html(file=file_path,include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for temperature profile"))
 
@@ -313,9 +313,9 @@ class Profile:
             # Check if file exist
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
                 "." + self.file_name + ".SAL" + ".html"
-            export_path = export_path + export_name
-            if os.path.exists(export_path):
-                print((export_path + "already exist"))
+            file_path = export_path + export_name
+            if os.path.exists(file_path):
+                print((file_path + "already exist"))
                 return
 
             # Plotly you can implement WebGL with Scattergl() in place of Scatter()
@@ -353,9 +353,9 @@ class Profile:
             #Include plotly into any html files ?
             #If false user need connexion to open html files
             if include_plotly :
-                figure.write_html(file=export_path, include_plotlyjs=True)
+                figure.write_html(file=file_path, include_plotlyjs=True)
             else :
-                figure.write_html(file=export_path,include_plotlyjs='cdn', full_html=False)
+                figure.write_html(file=file_path,include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for temperature profile"))
 
@@ -363,7 +363,7 @@ class Profile:
         string = "<PARK CONFIGURATION>\n"
         string += "park_period_s={}\n".format(self.park_period_s)
         string += "<ASCENT CONFIGURATION>\n"
-        string += "ascent_cut_off_dbar={}\n".format(self.ascent_cut_off_dbar)
+        string += "final_dbar={}\n".format(self.final_dbar)
         string += "ascent_bottom_max_dbar={}\n".format(self.ascent_bottom_max_dbar)
         string += "ascent_bottom_size_dbar={}\n".format(self.ascent_bottom_size_dbar)
         string += "ascent_bottom_period_ms={}\n".format(self.ascent_bottom_period_ms)
@@ -373,7 +373,6 @@ class Profile:
         string += "ascent_top_max_dbar={}\n".format(self.ascent_top_max_dbar)
         string += "ascent_top_size_dbar={}\n".format(self.ascent_top_size_dbar)
         string += "ascent_top_period_ms={}\n".format(self.ascent_top_period_ms)
-        string += "ascent_cut_off_dbar={}\n".format(self.ascent_cut_off_dbar)
         string += "<DATASET>\n"
         for dataset in self.datasets:
             string += "{}:{} {}\n".format(dataset.name,dataset.chanellist, dataset.dtype)

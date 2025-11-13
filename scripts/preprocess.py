@@ -565,7 +565,7 @@ def decrypt_short(f,short_card) :
         specifier = shortformatfind[0][4]
         if specifier == 't' :
             # value is a timestamp
-            isodate = UTCDateTime(int(arg_value)).isoformat()
+            isodate = UTCDateTime(int(arg_value)).isoformat().replace(':','_')
             isodate.replace(":","_")
             format_str = format_str + arg["FORMAT"].replace(replace_pattern,isodate)
         elif specifier == 'f' :
