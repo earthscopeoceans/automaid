@@ -9,6 +9,7 @@
 # Last tested: 
 
 
+from array import array
 import os
 import sys
 import csv
@@ -32,11 +33,14 @@ if os.environ.get('DISPLAY', '') == '':
 
 import matplotlib.pyplot as plt
 
+
 class Profiles:
-    profiles = None
+    profiles = list()
     params = None
+
     def __init__(self, base_path=None):
-        # Initialize event list (if list is declared above, then elements of the previous instance are kept in memory)
+        # Initialize event list (if list is declared above,
+        # then elements of the previous instance are kept in memory)
         self.profiles = list()
         if not base_path:
             return
@@ -61,16 +65,16 @@ class Profiles:
                 catched_profiles.append(profile)
         return catched_profiles
 
+
 class Dataset:
-    name: None
-    header: None
-    data: None
-    chanellist:None
-    channel_description: None
-    dtype:None
-    data_array:None
+    name = None
+    header = None
+    dtype = list()
+    channel_description = None
+    data_array = None
     def __init__(self, name, binary):
         self.name = name
+        self.dtype = []
         self.channel_description = {
             "pressure_00": "Absolute pressure (dbar)",
             "seapressure_00": "Hydrostatic pressure (dbar)",
@@ -84,10 +88,10 @@ class Dataset:
             "depth_00": "Depth in meter",
         }
         data = binary.split(b">\r\n", 1)
-        if len(data) > 1 :
+        if len(data) > 1:
             self.header = data[0]
             self.data = data[1]
-        if self.header :
+        if self.header:
             chanellist = re.findall(b" CHANNELLIST=(.+)", self.header)
             if len(chanellist) > 0 :
                 self.chanellist = ["timestamp"]
@@ -99,32 +103,33 @@ class Dataset:
                     self.dtype += [(channel_name,'<f4')]
                 self.data_array = numpy.frombuffer(self.data, numpy.dtype(self.dtype))
 
+
 class Profile:
     file_name = None
     header = None
-    #PARK
+    # PARK
     park_period_s = -1
-    #ASCENT
+    # ASCENT
     ascent_cut_off_dbar = -1
-    #regime 1
-    ascent_bottom_max_dbar = -1 
+    # regime 1
+    ascent_bottom_max_dbar = -1
     ascent_bottom_size_dbar = -1
     ascent_bottom_period_ms = -1
-    #regime 2
-    ascent_middle_max_dbar = -1 
+    # regime 2
+    ascent_middle_max_dbar = -1
     ascent_middle_size_dbar = -1
     ascent_middle_period_ms = -1
-    #regime 3
-    ascent_top_max_dbar = -1 
+    # regime 3
+    ascent_top_max_dbar = -1
     ascent_top_size_dbar = -1
     ascent_top_period_ms = -1
-    datasets = None
     data = None
     data_pressure = None
     data_temperature = None
     data_salinity = None
     data_nbin = None
     binary = None
+
     def __init__(self, file_name, header, binary):
         self.file_name = file_name
         print(("RBR file name : " + self.file_name))
@@ -156,7 +161,7 @@ class Profile:
         datasets = self.binary.split(b'</DATA>\x0D\x0A')
         for dataset in datasets:
             name = re.findall(b" CONFIG=(\w+) ", dataset)
-            if len(name) > 0 :
+            if len(name) > 0:
                 self.datasets.append(Dataset(name[0].decode('latin1'),dataset))
 
     def write_csv(self, export_path) :
@@ -167,7 +172,7 @@ class Profile:
             for dataset in self.datasets:
                 index = index + 1
                 dataset_name = dataset.name + str(index)
-                dataset_path =  export_path + "_" + dataset_name + ".csv"  
+                dataset_path = export_path + "_" + dataset_name + ".csv"
                 rows = dataset.data_array.tolist()
                 with open(dataset_path, mode='w') as csv_file:
                     csv_file = csv.writer(
@@ -196,10 +201,10 @@ class Profile:
                     print((export_path + " already exist"))
                     continue
                 print(export_name)
-                #Plotly you can implement WebGL with Scattergl() in place of Scatter()
+                # Plotly you can implement WebGL with Scattergl() in place of Scatter()
                 # for increased speed, improved interactivity, and the ability to plot even more data.
                 Scatter = graph.Scatter
-                if optimize :
+                if optimize:
                     Scatter = graph.Scattergl
 
                 rows_nb = len(dataset.chanellist)-1
@@ -225,15 +230,22 @@ class Profile:
             for dataset in self.datasets:
                 if dataset.name == "ASCENT":
                     ascent_dataset = dataset
-                    if not "pressure_00" in ascent_dataset.chanellist :
-                        print((export_path + " no pressure_00 channel"))
-                        return 
-                    if not "temperature_00" in ascent_dataset.chanellist :
-                        print((export_path + " no temperature_00 channel"))
-                        return 
             if not ascent_dataset:
-                print((export_path + " no ascent dataset"))
+                print("write_temperature_html : no ascent dataset")
                 return
+            if not "pressure_00" in ascent_dataset.chanellist :
+                print("write_temperature_html : no pressure_00 channel")
+                return 
+            temp_channels = []
+            if "temperature_00" in ascent_dataset.chanellist :
+                temp_channels += ["temperature_00"]
+            if "conductivitycelltemperature_00" in ascent_dataset.chanellist :
+                temp_channels += ["conductivitycelltemperature_00"]
+            if "temperaturedyncorr_00" in ascent_dataset.chanellist :
+                temp_channels += ["temperaturedyncorr_00"]   
+            if len(temp_channels) == 0 :
+                print("write_temperature_html : no temperature channel")
+                return                          
 
             # Check if file exist
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
@@ -250,19 +262,26 @@ class Profile:
             if optimize :
                 Scatter = graph.Scattergl
 
-            data_line = Scatter(x=ascent_dataset.data_array["temperature_00"],
+            colored_bar = {
+                "title":"Temperature (°C)",
+                "len":0.7
+            }
+            data = []
+            for channel in temp_channels:
+                data += [Scatter(x=ascent_dataset.data_array[channel],
                                 y=ascent_dataset.data_array["pressure_00"],
-                                marker=dict(size=6,cmax=30,cmin=-2,color=ascent_dataset.data_array["temperature_00"],
-                                            colorbar=dict(title="Marine temperature (°C)"),
+                                marker=dict(size=6,cmax=30,cmin=-2,
+                                            color=ascent_dataset.data_array[channel],
+                                            colorbar=colored_bar,
                                             colorscale="Bluered"),
                                 mode="markers",
-                                name="Marine temperature (°C)")
+                                name=channel)]          
 
-            data = [data_line]
-            layout = graph.Layout(title="CTD Profile with RBR [Temperature = f(Pressures)] ",
-                                  xaxis=dict(title='Marine temperature (°C)', titlefont=dict(size=18)),
-                                  yaxis=dict(title='Absolute pressure (dbar) (at surface will read around 10 dbar)', titlefont=dict(size=18), autorange="reversed"),
+            layout = graph.Layout(title="Temperature(s) profile with RBRArgo",
+                                  xaxis=dict(title='Temperature (°C)', titlefont=dict(size=18)),
+                                  yaxis=dict(title='Absolute pressure (dbar)', titlefont=dict(size=18), autorange="reversed"),
                                   hovermode='closest')
+
             figure = graph.Figure(data=data, layout=layout)
             #Include plotly into any html files ?
             #If false user need connexion to open html files
@@ -279,14 +298,16 @@ class Profile:
             for dataset in self.datasets:
                 if dataset.name == "ASCENT":
                     ascent_dataset = dataset
-                    if not "pressure_00" in ascent_dataset.chanellist :
-                        print((export_path + " no pressure_00 channel"))
-                        return 
-                    if not "salinity_00" in ascent_dataset.chanellist :
-                        print((export_path + " no salinity_00 channel"))
-                        return 
             if not ascent_dataset:
-                print((export_path + " no ascent dataset"))
+                print("write_salinity_html : no ascent dataset")
+                return
+            salinity_channels = []
+            if "salinity_00" in ascent_dataset.chanellist:
+                salinity_channels += ["salinity_00"]
+            if "salinitydyncorr_00" in ascent_dataset.chanellist:
+                salinity_channels += ["salinitydyncorr_00"]
+            if len(salinity_channels) == 0:
+                print("write_salinity_html : no temperature channel")
                 return
 
             # Check if file exist
@@ -297,24 +318,36 @@ class Profile:
                 print((export_path + "already exist"))
                 return
 
+            # Plotly you can implement WebGL with Scattergl() in place of Scatter()
+            # for increased speed, improved interactivity, and the ability to plot even more data.
+            Scatter = graph.Scatter
+            if optimize :
+                Scatter = graph.Scattergl
+
+            colored_bar = {
+                "title":"Salinity (PSU)",
+                "len":0.7
+            }
+            data = []
+            for channel in salinity_channels:
+                data += [Scatter(x=ascent_dataset.data_array[channel],
+                                y=ascent_dataset.data_array["pressure_00"],
+                                marker=dict(size=6,cmax=30,cmin=-2,
+                                            color=ascent_dataset.data_array[channel],
+                                            colorbar=colored_bar,
+                                            colorscale="Bluered"),
+                                mode="markers",
+                                name=channel)]    
             print(export_name)
             #Plotly you can implement WebGL with Scattergl() in place of Scatter()
             # for increased speed, improved interactivity, and the ability to plot even more data.
             Scatter = graph.Scatter
             if optimize :
                 Scatter = graph.Scattergl
-
-            data_line = Scatter(x=ascent_dataset.data_array["salinity_00"],
-                                y=ascent_dataset.data_array["pressure_00"],
-                                marker=dict(size=9,cmax=39,cmin=31,color=ascent_dataset.data_array["salinity_00"],
-                                            colorbar=dict(title="Salinity without dynamic correction applied (PSU)"),colorscale="aggrnyl"),
-                                mode="markers",
-                                name="Salinity (PSU)")
-
-            data = [data_line]
-            layout = graph.Layout(title="CTD Profile with RBR [Salinity = f(Pressures)] ",
-                                  xaxis=dict(title='Salinity without dynamic correction applied (PSU)', titlefont=dict(size=18)),
-                                  yaxis=dict(title='Absolute pressure (dbar) (at surface will read around 10 dbar)', titlefont=dict(size=18), autorange="reversed"),
+                
+            layout = graph.Layout(title="Salinity(s) profile with RBRArgo ",
+                                  xaxis=dict(title='Salinity (PSU)', titlefont=dict(size=18)),
+                                  yaxis=dict(title='Absolute pressure (dbar)', titlefont=dict(size=18), autorange="reversed"),
                                   hovermode='closest')
             figure = graph.Figure(data=data, layout=layout)
             #Include plotly into any html files ?
@@ -346,5 +379,3 @@ class Profile:
             string += "{}:{} {}\n".format(dataset.name,dataset.chanellist, dataset.dtype)
             string += "{}\n".format(dataset.data_array)
         return string
-
-            

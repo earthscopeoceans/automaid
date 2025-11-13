@@ -1045,6 +1045,8 @@ class Cycle:
             profile.write_salinity_html(self.processed_path,optimize,include_plotly)
         for profile in self.profilesRBR:
             profile.write_park_html(self.processed_path,optimize,include_plotly)
+            profile.write_temperature_html(self.processed_path,optimize,include_plotly)
+            profile.write_salinity_html(self.processed_path,optimize,include_plotly)
 
     def write_profile_csv(self):
         for profile in self.profilesS41:
