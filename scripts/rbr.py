@@ -15,6 +15,8 @@ import sys
 import csv
 import glob
 import re
+
+from numpy.typing import NDArray
 import utils
 
 import numpy
@@ -34,47 +36,29 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 
 
-class Profiles:
-    profiles = list()
-    params = None
-
-    def __init__(self, base_path=None):
-        # Initialize event list (if list is declared above,
-        # then elements of the previous instance are kept in memory)
-        self.profiles = list()
-        if not base_path:
-            return
-        # Read all S61 files and find profiles associated to the dive
-        profile_files = glob.glob(base_path + "*.RBR")
-        for profile_file in profile_files:
-            file_name = profile_file.split("/")[-1]
-            with open(profile_file, "rb") as f:
-                content = f.read()
-            splitted = content.split(b'</PARAMETERS>\r\n')
-            header = splitted[0].decode('latin1')
-            if len(splitted) > 1:
-                binary = splitted[1]
-                profil = Profile(file_name, header, binary)
-                print(profil)
-                self.profiles.append(profil)
-
-    def get_profiles_between(self, begin, end):
-        catched_profiles = list()
-        for profile in self.profiles:
-            if begin < profile.date < end:
-                catched_profiles.append(profile)
-        return catched_profiles
-
-
 class Dataset:
-    name = None
-    header = None
-    dtype = list()
-    channel_description = None
-    data_array = None
-    def __init__(self, name, binary):
+    name : str
+    index : int
+    file_name : str
+    header : bytes
+    channels : str
+    chanellist : list[str]
+    dtype : list[tuple[str,str]]
+    channel_description : dict
+    data_array : NDArray
+    csv_path : str
+    timeline_path : str
+    salinity_path : str
+    temperature_path : str
+
+    def __init__(self, name : str,index : int, binary : bytes):
         self.name = name
+        self.index = index
         self.dtype = []
+        self.csv_path = ""
+        self.timeline_path = ""
+        self.salinity_path = ""
+        self.temperature_path = ""
         self.channel_description = {
             "pressure_00": "Absolute pressure (dbar)",
             "seapressure_00": "Hydrostatic pressure (dbar)",
@@ -96,85 +80,83 @@ class Dataset:
             if len(chanellist) > 0 :
                 self.chanellist = ["timestamp"]
                 self.dtype = [('timestamp','<u8')]
-                chanellist = chanellist[0].split(b"|")
+                self.channels = chanellist[0].decode('latin1')
+                chanellist = self.channels.split("|")
                 for channel in chanellist:
-                    channel_name = channel.decode('latin1')
-                    self.chanellist.append(channel_name)
-                    self.dtype += [(channel_name,'<f4')]
+                    self.chanellist.append(channel)
+                    self.dtype += [(channel,'<f4')]
                 self.data_array = numpy.frombuffer(self.data, numpy.dtype(self.dtype))
 
 
 class Profile:
-    file_name = None
-    header = None
+    file_name : str
+    header : str
+    binary : bytes
+    date : UTCDateTime
+    base_path: str
     # PARK
-    park_period_s = -1
+    park_period_s : int
     # ASCENT
-    final_dbar = -1
+    final_dbar : int
     # regime 1
-    ascent_bottom_max_dbar = -1
-    ascent_bottom_size_dbar = -1
-    ascent_bottom_period_ms = -1
+    ascent_bottom_max_dbar : int
+    ascent_bottom_size_dbar : int
+    ascent_bottom_period_ms : int
     # regime 2
-    ascent_middle_max_dbar = -1
-    ascent_middle_size_dbar = -1
-    ascent_middle_period_ms = -1
+    ascent_middle_max_dbar : int
+    ascent_middle_size_dbar : int
+    ascent_middle_period_ms : int
     # regime 3
-    ascent_top_max_dbar = -1
-    ascent_top_size_dbar = -1
-    ascent_top_period_ms = -1
-    data = None
-    data_pressure = None
-    data_temperature = None
-    data_salinity = None
-    data_nbin = None
-    binary = None
+    ascent_top_max_dbar : int
+    ascent_top_size_dbar : int
+    ascent_top_period_ms : int
+    datasets : list[Dataset]
 
-    def __init__(self, file_name, header, binary):
+    def __init__(self, file_name : str, header : str, binary : bytes):
         self.file_name = file_name
         print(("RBR file name : " + self.file_name))
         self.date = utils.get_date_from_file_name(file_name)
         self.header = header
         self.binary = binary
-        park_period = re.findall("<PARK PERIOD=(\d+)>", self.header)
+        park_period = re.findall(r"<PARK PERIOD=(\d+)>", self.header)
         if len(park_period) > 0:
             self.park_period_s = park_period[0]
-        bottom = re.findall("BOTTOM=(\d+):(\d+):(\d+)", self.header)
+        bottom = re.findall(r"BOTTOM=(\d+):(\d+):(\d+)", self.header)
         if len(bottom) > 0:
             self.ascent_bottom_max_dbar = bottom[0][0]
             self.ascent_bottom_size_dbar = bottom[0][1]
             self.ascent_bottom_period_ms = bottom[0][2]
-        middle = re.findall("MIDDLE=(\d+):(\d+):(\d+)", self.header)
+        middle = re.findall(r"MIDDLE=(\d+):(\d+):(\d+)", self.header)
         if len(middle) > 0:
             self.ascent_middle_max_dbar = middle[0][0]
             self.ascent_middle_size_dbar = middle[0][1]
             self.ascent_middle_period_ms = middle[0][2]            
-        top = re.findall("TOP=(\d+):(\d+):(\d+)", self.header)
+        top = re.findall(r"TOP=(\d+):(\d+):(\d+)", self.header)
         if len(top) > 0 :
             self.ascent_top_max_dbar = top[0][0]
             self.ascent_top_size_dbar = top[0][1]
             self.ascent_top_period_ms = top[0][2]
-        final_cutoff = re.findall("FINAL=(\d+)", self.header)
+        final_cutoff = re.findall(r"FINAL=(\d+)", self.header)
         if len(final_cutoff) > 0 :
             self.final_dbar = final_cutoff[0]
         self.datasets = []
         datasets = self.binary.split(b'</DATA>\x0D\x0A')
+        index = 0
         for dataset in datasets:
-            name = re.findall(b" CONFIG=(\w+) ", dataset)
+            name = re.findall(br" CONFIG=(\w+) ", dataset)
             if len(name) > 0:
-                self.datasets.append(Dataset(name[0].decode('latin1'),dataset))
+                self.datasets.append(Dataset(name[0].decode('latin1'),index,dataset))
+                index = index + 1
 
-    def write_csv(self, export_path) :
+    def write_csv(self, export_path : str) :
         if len(self.datasets) > 0:
-            index = -1
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + "." + self.file_name
             export_path = export_path + export_name
             for dataset in self.datasets:
-                index = index + 1
-                dataset_name = dataset.name + str(index)
-                dataset_path = export_path + "_" + dataset_name + ".csv"
+                dataset_name = dataset.name + str(dataset.index)
+                dataset.csv_path = export_path + "_" + dataset_name + ".csv"
                 rows = dataset.data_array.tolist()
-                with open(dataset_path, mode='w') as csv_file:
+                with open(dataset.csv_path, mode='w') as csv_file:
                     csv_file = csv.writer(
                         csv_file, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                     csv_file.writerow(dataset.chanellist)
@@ -186,19 +168,17 @@ class Profile:
         else:
             print((export_path + " can't be exploited for csv data"))
 
-    def write_park_html(self, export_path, optimize=False, include_plotly=True):
+    def write_park_html(self, export_path = str, optimize : bool = False, include_plotly : bool = True):
         if len(self.datasets) > 0:
-            index = -1
             for dataset in self.datasets:
-                index = index + 1
                 if not dataset.name == "PARK":
                     continue
                 # Check if file exist
                 export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
-                    "." + self.file_name + ".PARK" + str(index) + ".html"
-                file_path = export_path + export_name
-                if os.path.exists(file_path):
-                    print((file_path + " already exist"))
+                    "." + self.file_name + ".PARK" + str(dataset.index) + ".html"
+                dataset.timeline_path = export_path + export_name
+                if os.path.exists(dataset.timeline_path):
+                    print((dataset.timeline_path + " already exist"))
                     continue
                 print(export_name)
                 # Plotly you can implement WebGL with Scattergl() in place of Scatter()
@@ -219,12 +199,12 @@ class Profile:
 
                 figure.update_layout(title_text="Measurements performed in park mode")
                 if include_plotly :
-                    figure.write_html(file=file_path, include_plotlyjs=True)
+                    figure.write_html(file=dataset.timeline_path, include_plotlyjs=True)
                 else :
-                    figure.write_html(file=file_path,include_plotlyjs='cdn', full_html=False)                
+                    figure.write_html(file=dataset.timeline_path,include_plotlyjs='cdn', full_html=False)                
            
 
-    def write_temperature_html(self, export_path, optimize=False, include_plotly=True):
+    def write_temperature_html(self, export_path : str, optimize : bool = False, include_plotly: bool = True):
         if len(self.datasets) > 0:
             ascent_dataset = None
             for dataset in self.datasets:
@@ -250,9 +230,9 @@ class Profile:
             # Check if file exist
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
                 "." + self.file_name + ".TEMP" + ".html"
-            file_path = export_path + export_name
-            if os.path.exists(file_path):
-                print((file_path + "already exist"))
+            ascent_dataset.temperature_path = export_path + export_name
+            if os.path.exists(ascent_dataset.temperature_path):
+                print((ascent_dataset.temperature_path + "already exist"))
                 return
 
             print(export_name)
@@ -286,13 +266,13 @@ class Profile:
             #Include plotly into any html files ?
             #If false user need connexion to open html files
             if include_plotly :
-                figure.write_html(file=file_path, include_plotlyjs=True)
+                figure.write_html(file=ascent_dataset.temperature_path, include_plotlyjs=True)
             else :
-                figure.write_html(file=file_path,include_plotlyjs='cdn', full_html=False)
+                figure.write_html(file=ascent_dataset.temperature_path,include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for temperature profile"))
 
-    def write_salinity_html(self, export_path, optimize=False, include_plotly=True):
+    def write_salinity_html(self, export_path : str, optimize : bool = False, include_plotly : bool = True):
         if len(self.datasets) > 0:
             ascent_dataset = None
             for dataset in self.datasets:
@@ -313,9 +293,9 @@ class Profile:
             # Check if file exist
             export_name = UTCDateTime.strftime(UTCDateTime(self.date), "%Y%m%dT%H%M%S") + \
                 "." + self.file_name + ".SAL" + ".html"
-            file_path = export_path + export_name
-            if os.path.exists(file_path):
-                print((file_path + "already exist"))
+            ascent_dataset.salinity_path = export_path + export_name
+            if os.path.exists(ascent_dataset.salinity_path):
+                print((ascent_dataset.salinity_path + "already exist"))
                 return
 
             # Plotly you can implement WebGL with Scattergl() in place of Scatter()
@@ -353,9 +333,9 @@ class Profile:
             #Include plotly into any html files ?
             #If false user need connexion to open html files
             if include_plotly :
-                figure.write_html(file=file_path, include_plotlyjs=True)
+                figure.write_html(file=ascent_dataset.salinity_path, include_plotlyjs=True)
             else :
-                figure.write_html(file=file_path,include_plotlyjs='cdn', full_html=False)
+                figure.write_html(file=ascent_dataset.salinity_path,include_plotlyjs='cdn', full_html=False)
         else:
             print((export_path + " can't be exploited for temperature profile"))
 
@@ -378,3 +358,32 @@ class Profile:
             string += "{}:{} {}\n".format(dataset.name,dataset.chanellist, dataset.dtype)
             string += "{}\n".format(dataset.data_array)
         return string
+
+class Profiles:
+    profiles : list[Profile]
+
+    def __init__(self, base_path : str = ""):
+        # Initialize event list (if list is declared above,
+        # then elements of the previous instance are kept in memory)
+        self.profiles = list()
+        if not base_path:
+            return
+        # Read all S61 files and find profiles associated to the dive
+        profile_files = glob.glob(base_path + "*.RBR")
+        for profile_file in profile_files:
+            file_name = profile_file.split("/")[-1]
+            with open(profile_file, "rb") as f:
+                content = f.read()
+            splitted = content.split(b'</PARAMETERS>\r\n')
+            header = splitted[0].decode('latin1')
+            if len(splitted) > 1:
+                binary = splitted[1]
+                profil = Profile(file_name, header, binary)
+                self.profiles.append(profil)
+
+    def get_profiles_between(self, begin : UTCDateTime, end : UTCDateTime):
+        catched_profiles : list[Profile] = list()
+        for profile in self.profiles:
+            if begin < profile.date < end:
+                catched_profiles.append(profile)
+        return catched_profiles
