@@ -26,9 +26,9 @@ import traceback
 import matplotlib as mpl
 
 import matplotlib
-print("backend for matplotlib : " + matplotlib.get_backend())
-def_mermaid_backend = os.environ["MERMAID_BACKEND"]
-if def_mermaid_backend != '' :
+def_mermaid_backend = os.environ.get("MERMAID_BACKEND", matplotlib.get_backend())
+if def_mermaid_backend :
+    print("backend for matplotlib : " + def_mermaid_backend)
     matplotlib.use(def_mermaid_backend)
 import matplotlib.pyplot as plt
 

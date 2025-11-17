@@ -29,15 +29,16 @@ import traceback
 import matplotlib
 import utils
 
-print("backend for matplotlib : " + matplotlib.get_backend())
-def_mermaid_backend = os.environ["MERMAID_BACKEND"]
-if def_mermaid_backend != '' :
+def_mermaid_backend = os.environ.get("MERMAID_BACKEND", matplotlib.get_backend())
+if def_mermaid_backend :
+    print("backend for matplotlib : " + def_mermaid_backend)
     matplotlib.use(def_mermaid_backend)
 
 import matplotlib.pyplot as plt
 
 
 class Dataset:
+    date : UTCDateTime
     name : str
     index : int
     file_name : str
@@ -87,6 +88,10 @@ class Dataset:
                     self.chanellist.append(channel)
                     self.dtype += [(channel,'<f4')]
                 self.data_array = numpy.frombuffer(self.data, numpy.dtype(self.dtype))
+                if len(self.data_array) > 0 :
+                    self.date = UTCDateTime(self.data_array[0]['timestamp'] / 1000)
+                else :
+                    self.date = UTCDateTime(0)
 
 
 class Profile:
