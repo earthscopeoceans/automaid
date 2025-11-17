@@ -24,12 +24,11 @@ import plotly.graph_objs as graph
 import plotly.offline as plotly
 import struct
 import traceback
-import matplotlib as mpl
-
-if os.environ.get('DISPLAY', '') == '':
-    print("no display found. Using non-interactive Agg backend")
-    mpl.use('agg', force=True)
-
+import matplotlib
+print("backend for matplotlib : " + matplotlib.get_backend())
+def_mermaid_backend = os.environ["MERMAID_BACKEND"]
+if def_mermaid_backend != '' :
+    matplotlib.use(def_mermaid_backend)
 import matplotlib.pyplot as plt
 
 class Profiles:

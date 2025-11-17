@@ -16,8 +16,8 @@ import csv
 import glob
 import re
 
-from numpy.typing import NDArray
-import utils
+#from numpy.typing import NDArray
+
 
 import numpy
 from obspy import UTCDateTime
@@ -26,12 +26,13 @@ import plotly.offline as plotly
 from plotly.subplots import make_subplots
 import struct
 import traceback
-import matplotlib as mpl
+import matplotlib
+import utils
 
-
-if os.environ.get('DISPLAY', '') == '':
-    print("no display found. Using non-interactive Agg backend")
-    mpl.use('agg', force=True)
+print("backend for matplotlib : " + matplotlib.get_backend())
+def_mermaid_backend = os.environ["MERMAID_BACKEND"]
+if def_mermaid_backend != '' :
+    matplotlib.use(def_mermaid_backend)
 
 import matplotlib.pyplot as plt
 
@@ -45,7 +46,7 @@ class Dataset:
     chanellist : list[str]
     dtype : list[tuple[str,str]]
     channel_description : dict
-    data_array : NDArray
+    data_array : numpy.ndarray
     csv_path : str
     timeline_path : str
     salinity_path : str

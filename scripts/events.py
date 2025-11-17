@@ -17,10 +17,12 @@ import glob
 import subprocess
 import numpy as np
 import matplotlib
-# if os.environ.get('DISPLAY','') == '':
-#     print "no display found. Using non-interactive Agg backend"#
-#     matplotlib.use('agg',warn=False, force=True)
-matplotlib.use('tkagg')   # Joel's edit on MacOS, Big Sur 11.6 (otherwise `plt.show()` throws seg fault)
+
+print("backend for matplotlib : " + matplotlib.get_backend())
+def_mermaid_backend = os.environ["MERMAID_BACKEND"]
+if def_mermaid_backend != '' :
+    matplotlib.use(def_mermaid_backend)
+    
 import matplotlib.pyplot as plt
 import plotly.offline as plotly
 import plotly.graph_objs as graph
