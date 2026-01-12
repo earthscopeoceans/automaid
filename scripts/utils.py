@@ -6,8 +6,8 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@bathymetrix.com
-# Last modified: 20-Oct-2025
-# Last tested: Python Python 3.10.15, Darwin Kernel Version 23.6.0
+# Last modified by JDS: 12-Jan-2026
+# Python Python 3.10.15, Darwin Kernel Version 23.6.0
 
 import re
 import sys
@@ -188,6 +188,13 @@ def band_code(sample_rate=None):
 
     return band_code
 
+def network():
+    """Returns 'MH', MERMAID FDSN network name:
+    https://www.fdsn.org/networks/detail/MH/
+
+    """
+    return 'MH'
+
 def channel(sample_rate=None):
     """Return instrument channel (KCMPNM in SAC parlance), e.g., 'BDH' given
     sampling frequency in Hz
@@ -200,13 +207,50 @@ def channel(sample_rate=None):
 
     return channel
 
-def network():
-    """Returns 'MH', MERMAID FDSN network name:
-    https://www.fdsn.org/networks/detail/MH/
+def location(event):
+    """ Sets location code based on sampling frequency (really, number of
+    wavelet scales transmitted)  s.t. SNCL:
 
+    Number of wavelet scales is in `event.scales`, itself pulled from "STAGES=*"
+    from the header in .MER files. "-1" means return raw 40 Hz data.  Otherwise
+    data frequencies vary based on the number of scales as follows:
+
+    P0006.MH.00.BHZ:   20 Hz = 5 scales (default; primary data assigned to location "00")
+    P0006.MH.01.BHZ:   40 Hz = "-1" raw 40 Hz data
+    P0006.MH.02.BHZ:   10 Hz = 4 scales
+
+    P0006.MH.00.MHZ:    5 Hz = 3 scales (mid period, so back to "00" primary loc)
+    P0006.MH.01.MHZ:  2.5 Hz = 2 scales
+    P0006.MH.02.MHZ: 1.25 Hz = 1 scale
     """
-    return 'MH'
 
+    # Use scales to determine location code (via their resulting sampling
+    # frequency) but first ensure scales applied to 40 Hz data.
+    fs = round(event.measured_fs)
+    if fs != 40:
+        raise ValueError(f"Expected rounded 'TRUE_SAMPLE_FREQ` (in .MER) to be 40 Hz, got {fs} Hz")
+
+    scale_dict = { "5": "00",
+                  "-1": "01",
+                   "4": "02",
+                   "3": "00",
+                   "2": "01",
+                   "1": "02"}
+    loc = scale_dict.get(event.scales)
+    if loc is None:
+        from pprint import pprint; import ipdb; ipdb.set_trace()
+        raise ValueError(f"Unexpected number of scales: {event.scales}")
+
+    # fs = round(sample_rate)
+    # loc_dict = {20: "00",
+    #             40: "01",
+    #             10: "02",
+    #              5: "00"}
+    # loc = loc_dict.get(fs)
+    # if loc is None:
+    #     raise ValueError(f"Unexpected sampling frequency: {fs} (location unassigned)")
+
+    return loc
 
 def set_mseed_time_correction(mseed_filename, time_corr_secs):
     """Set 'Time correction applied' flag and 'Time correction' value in every
@@ -465,4 +509,3 @@ def princeton_mermaids():
     """
 
     return {f"452.020-P-{i:02}" for i in range(8, 26)}
-

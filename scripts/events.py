@@ -6,7 +6,8 @@
 # Developer: Joel D. Simon <JDS>
 # Developer: Frédéric rocca <FRO>
 # Contact:  frederic.rocca@osean.fr
-# Last modified by JDS: 09-Jun-2025
+# Last modified by JDS: 12-Jan-2026
+# Python Python 3.10.15, Darwin Kernel Version 23.6.0
 # Last modified by FRO: 09-Sep-2024
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
 
@@ -855,10 +856,10 @@ class Event:
 
         # Fill metadata common to SAC and miniSEED formats
         stats = Stats()
-        stats.network = utils.network()
         stats.station = self.kstnm
-        stats.location = "00"
+        stats.network = utils.network()
         stats.channel = self.kcmpnm
+        stats.location = utils.location(self)
         stats.starttime = self.corrected_starttime
         stats.sampling_rate = self.decimated_fs
         stats.npts = len(self.processed_data)
