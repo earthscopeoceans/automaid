@@ -2,7 +2,7 @@
 # @Author: fro
 # @Date:   2024-10-23 10:29:38
 # @Last Modified by:   fro
-# @Last Modified time: 2025-05-22 15:10:51
+# @Last Modified time: 2025-05-15 11:48:33
 # -*- coding: utf-8 -*-
 #
 # Part of automaid -- a Python package to process MERMAID files
@@ -138,6 +138,31 @@ def concatenate_files(path):
                         with open(file_to_merge, "wb") as fl:
                             fl.write(bin)
                         bin = b''
+
+'''
+
+Concatenate RBR files with decimal extensions
+.RBR .RB0 .RB1 .RB3 => .RBR
+
+Keyword arguments:
+path -- Path with source files of one profiler
+
+'''
+def concatenate_rbr_files(path):
+    files_path = glob.glob(path + "*.RBR")
+    for file_path in files_path:
+        # list file with same head than log file
+        files_to_merge = list(glob.glob(file_path[:-4] +".R[0-9][0-9]"))
+        # Sort list => [0000_XXXXXX.R00,0000_XXXXXX.R01,0000_XXXXXX.R02,0000_XXXXXX.R03]
+        files_to_merge.sort()       
+        for file_to_merge in files_to_merge :
+            bin = b''
+            with open(file_to_merge, "rb") as fl:
+                bin = fl.read()
+            with open(file_path, "ab") as fl:
+                fl.write(bin)
+                # Remove file after append
+                os.remove(file_to_merge)
 
 # Get database name with linker file and version read on file
 '''
@@ -285,9 +310,10 @@ def decrypt_explicit(f,LOG_card,WARN_card,ERR_card) :
         string += str(timestamp) + ":" + type_string + "["+"{:04d}".format(id)+"] Format not found\r\n"
         return string
     #print (Formats)
-    string += str(timestamp) + ":"
-    string +="["+"{:6}".format(File)+","+"{:04d}".format(id)+"]"
-    string += type_string
+    if File != "__BLANK__" :
+        string += str(timestamp) + ":"
+        string +="["+"{:6}".format(File)+","+"{:04d}".format(id)+"]"
+        string += type_string
     index=0
     argIndex=0
     if dataSize > 0:
@@ -539,7 +565,8 @@ def decrypt_short(f,short_card) :
         specifier = shortformatfind[0][4]
         if specifier == 't' :
             # value is a timestamp
-            isodate = UTCDateTime(int(arg_value)).isoformat()
+            isodate = UTCDateTime(int(arg_value)).isoformat().replace(':','_')
+            isodate.replace(":","_")
             format_str = format_str + arg["FORMAT"].replace(replace_pattern,isodate)
         elif specifier == 'f' :
             # value is a float stored on integer
@@ -854,7 +881,7 @@ def convert_in_cycle(path,begin,end):
                         internal_pressure = re.findall('(\d+):.+internal pressure (-?\d+)Pa', line)
                         if internal_pressure :
                             next_index = index
-                            while next_index < len(lines):
+                            while next_index < len(lines) - 1:
                                 next_index = next_index+1
                                 before_dive = re.findall('(\d+):(\[.+\])? +bypass (\d+)ms (\d+)ms \((\d+)ms (\d+)ms stored\)', lines[next_index])
                                 if before_dive :

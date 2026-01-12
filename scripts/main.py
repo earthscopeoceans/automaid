@@ -21,6 +21,7 @@ import shutil
 import argparse
 import datetime
 import functools
+import pickle
 
 import kml
 import gps
@@ -33,6 +34,7 @@ import geocsv
 import preprocess
 import sbe41
 import sbe61
+import rbr
 
 ## !!! TEMP VARS !! ##
 csv_file = True
@@ -115,7 +117,7 @@ write_mhpsd = True
 
 # Use WebGL implementation of graph to
 # increase speed, improve interactivity, and the ability to plot even more data
-optimized_html = False
+optimized_html = True
 
 # Integrate the plotly library into every html file
 # If false user must have internet connection to access graph
@@ -232,13 +234,15 @@ def main():
         # Build list of all S61 profiles recorded
         ms61s = sbe61.Profiles(mfloat_path)
 
+        # Concatenate RBR files
+        preprocess.concatenate_rbr_files(mfloat_path);
+        # Build list of all RBR profiles recorded
+        mRBRs = rbr.Profiles(mfloat_path)
+
         # Collect all the .CYCLE files
         print(" ...matching those events to {:s} .LOG ('dive') files (GPS & dive metadata)..." \
               .format(mfloat))
-        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s)
-
-        kml.generate(mfloat_path, mfloat, cycle_logs)
-
+        cycle_logs = cycles.get_cycles(mfloat_path, mevents, ms41s, ms61s, mRBRs)
 
         # Verify dive logs are sorted as expected
         if cycle_logs!= sorted(cycle_logs, key=lambda x: x.start_date):
@@ -316,8 +320,11 @@ def main():
         # Sort event lists by corrected starttime is exist => use uncorrected_starttime elsewhere
         if events_list != sorted(events_list, key=functools.cmp_to_key(sort_events)):
             raise ValueError('`cycle_logs[*].events` improperly sorted')
-        # Plot vital data
+
+        # Generate kml file for Google Earth
         kml.generate(mfloat_path, mfloat, cycle_logs)
+
+        # Plot vital data
         vitals.plot_battery_voltage(mfloat_path, mfloat + ".vit", begin, end)
         vitals.plot_internal_pressure(mfloat_path, mfloat + ".vit", begin, end)
         vitals.plot_pressure_offset(mfloat_path, mfloat + ".vit", begin, end)
@@ -366,6 +373,7 @@ def main():
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.MER")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S41")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.S61")
+        files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.RBR")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.LOG")
         files_to_delete += glob.glob(mfloat_path + "/" + mfloat_nb + "_*.BIN")
         files_to_delete += glob.glob(mfloat_path + "/" + "*.CYCLE")
@@ -383,6 +391,9 @@ def main():
             complete_cycle = incomplete_cycle.replace('IcCycle', '')
             if os.path.exists(os.path.join(mfloat_path, complete_cycle)):
                 shutil.rmtree(os.path.join(mfloat_path, incomplete_cycle))
+
+        with open(mfloat_path + "/" + mfloat + '.pickle', 'wb') as handle:
+            pickle.dump(cycle_logs, handle)
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#

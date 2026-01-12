@@ -17,10 +17,12 @@ import glob
 import subprocess
 import numpy as np
 import matplotlib
-# if os.environ.get('DISPLAY','') == '':
-#     print "no display found. Using non-interactive Agg backend"#
-#     matplotlib.use('agg',warn=False, force=True)
-matplotlib.use('tkagg')   # Joel's edit on MacOS, Big Sur 11.6 (otherwise `plt.show()` throws seg fault)
+
+def_mermaid_backend = os.environ.get("MERMAID_BACKEND", matplotlib.get_backend())
+if def_mermaid_backend :
+    print("backend for matplotlib : " + def_mermaid_backend)
+    matplotlib.use(def_mermaid_backend)
+    
 import matplotlib.pyplot as plt
 import plotly.offline as plotly
 import plotly.graph_objs as graph
@@ -200,6 +202,7 @@ class Event:
         self.mseed_time_correction = None
         self.obspy_trace_stats = None
         self.processed_file_name = None
+        self.uncorrected_processed_file_name = None
 
         self.is_requested = None
 
@@ -575,6 +578,10 @@ class Event:
 
         '''
 
+        processed_file_name = UTCDateTime.strftime(UTCDateTime(self.uncorrected_starttime),\
+                                                   "%Y%m%dT%H%M%S") + "." + self.mer_binary_name
+        self.uncorrected_processed_file_name = processed_file_name
+
         if not self.corrected_starttime:
             return
 
@@ -943,7 +950,10 @@ class Event:
 
         # String describing detection/request status, and number of wavelet scales transmitted
         # (e.g., 'DET.WLT5')
-        reqdet_scales = self.processed_file_name.split('.')[-2:]
+        if self.processed_file_name :
+            reqdet_scales = self.processed_file_name.split('.')[-2:]
+        else :
+            reqdet_scales = self.uncorrected_processed_file_name.split('.')[-2:]
         stats.sac['kuser1'] = '.'.join(reqdet_scales)
 
         # String detailing the type of (i)CDF24 transform: edge correction and
