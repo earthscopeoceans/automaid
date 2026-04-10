@@ -107,15 +107,15 @@ class Profile:
     reference_channel : str
     # regime 1
     ascent_bottom_max_dbar : int
-    ascent_bottom_size_dbar : int
+    ascent_bottom_size_dbar : float
     ascent_bottom_period_ms : int
     # regime 2
     ascent_middle_max_dbar : int
-    ascent_middle_size_dbar : int
+    ascent_middle_size_dbar : float
     ascent_middle_period_ms : int
     # regime 3
     ascent_top_max_dbar : int
-    ascent_top_size_dbar : int
+    ascent_top_size_dbar : float
     ascent_top_period_ms : int
     datasets : list[Dataset]
 
@@ -128,17 +128,17 @@ class Profile:
         park_period = re.findall(r"<PARK PERIOD=(\d+)>", self.header)
         if len(park_period) > 0:
             self.park_period_s = park_period[0]
-        bottom = re.findall(r"BOTTOM=(\d+):(\d+):(\d+)", self.header)
+        bottom = re.findall(r"BOTTOM=(\d+):(\d+\.?\d*):(\d+)", self.header)
         if len(bottom) > 0:
             self.ascent_bottom_max_dbar = bottom[0][0]
             self.ascent_bottom_size_dbar = bottom[0][1]
             self.ascent_bottom_period_ms = bottom[0][2]
-        middle = re.findall(r"MIDDLE=(\d+):(\d+):(\d+)", self.header)
+        middle = re.findall(r"MIDDLE=(\d+):(\d+\.?\d*):(\d+)", self.header)
         if len(middle) > 0:
             self.ascent_middle_max_dbar = middle[0][0]
             self.ascent_middle_size_dbar = middle[0][1]
             self.ascent_middle_period_ms = middle[0][2]            
-        top = re.findall(r"TOP=(\d+):(\d+):(\d+)", self.header)
+        top = re.findall(r"TOP=(\d+):(\d+\.?\d*):(\d+)", self.header)
         if len(top) > 0 :
             self.ascent_top_max_dbar = top[0][0]
             self.ascent_top_size_dbar = top[0][1]
@@ -149,6 +149,8 @@ class Profile:
         reference_channel = re.findall(r"REFERENCE=(\w+)", self.header)
         if len(reference_channel) > 0 :
             self.reference_channel = reference_channel[0]
+        else :
+            self.reference_channel = "seapressure_00"
         self.datasets = []
         datasets = self.binary.split(b'</DATA>\x0D\x0A')
         index = 0
@@ -267,15 +269,15 @@ class Profile:
                                 mode="markers",
                                 name=channel)]          
 
-            title = "Temperature(s) profile with RBRArgo\r\n"
+            title = "Temperature(s) profile with RBRArgo<br>"
             if self.reference_channel == "pressure_00" :
-                title += "The following zones are defined based on Absolute pressure (dbar)"
+                title += "The following zones are defined based on Absolute pressure (dbar)<br>"
             else :
-                title += "The following zones are defined based on Hydrostatic pressure (dbar)"
+                title += "The following zones are defined based on Hydrostatic pressure (dbar)<br>"
                 
-            title += "bottom : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)\r\n".format(self.ascent_bottom_size_dbar,self.ascent_bottom_max_dbar,self.ascent_middle_max_dbar,self.ascent_bottom_period_ms)
-            title += "middle : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)\r\n".format(self.ascent_middle_size_dbar,self.ascent_middle_max_dbar,self.ascent_top_max_dbar, self.ascent_middle_period_ms)
-            title += "top    : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)\r\n".format(self.ascent_top_size_dbar,self.ascent_top_max_dbar,self.final_dbar, self.ascent_top_period_ms)
+            title += "bottom : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)<br>".format(self.ascent_bottom_size_dbar,self.ascent_bottom_max_dbar,self.ascent_middle_max_dbar,self.ascent_bottom_period_ms)
+            title += "middle : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)<br>".format(self.ascent_middle_size_dbar,self.ascent_middle_max_dbar,self.ascent_top_max_dbar, self.ascent_middle_period_ms)
+            title += "top    : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)<br>".format(self.ascent_top_size_dbar,self.ascent_top_max_dbar,self.final_dbar, self.ascent_top_period_ms)
 
             layout = graph.Layout(title=title,
                                   xaxis=dict(title='Temperature (°C)', titlefont=dict(size=18)),
@@ -344,8 +346,18 @@ class Profile:
             Scatter = graph.Scatter
             if optimize :
                 Scatter = graph.Scattergl
+
+            title = "Salinity(s) profile with RBRArgo<br>"
+            if self.reference_channel == "pressure_00" :
+                title += "The following zones are defined based on Absolute pressure (dbar)<br>"
+            else :
+                title += "The following zones are defined based on Hydrostatic pressure (dbar)<br>"
                 
-            layout = graph.Layout(title="Salinity(s) profile with RBRArgo ",
+            title += "bottom : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)<br>".format(self.ascent_bottom_size_dbar,self.ascent_bottom_max_dbar,self.ascent_middle_max_dbar,self.ascent_bottom_period_ms)
+            title += "middle : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)<br>".format(self.ascent_middle_size_dbar,self.ascent_middle_max_dbar,self.ascent_top_max_dbar, self.ascent_middle_period_ms)
+            title += "top    : 1 bin every {}dbar from {}dbar to {}dbar (sampling every {}ms)<br>".format(self.ascent_top_size_dbar,self.ascent_top_max_dbar,self.final_dbar, self.ascent_top_period_ms)
+                
+            layout = graph.Layout(title=title,
                                   xaxis=dict(title='Salinity (PSU)', titlefont=dict(size=18)),
                                   yaxis=dict(title='Absolute pressure (dbar)', titlefont=dict(size=18), autorange="reversed"),
                                   hovermode='closest')
