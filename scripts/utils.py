@@ -273,6 +273,9 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
     * Time correction value in [2] is in units of 0.0001 seconds.
     * In [2] it is unknown what 'Activity flags: 2'  means.
 
+    Note: `msmod` package contains similar time-correction processing
+    https://github.com/EarthScope/msmod/blob/main/doc/msmod.md
+    
     """
     ## All page numbers refer to the SEED Format Version 2.4 manual
     ## http://www.fdsn.org/pdf/SEEDManual_V2.4.pdf
