@@ -205,8 +205,10 @@ class Event:
         self.processed_file_name = None
         self.uncorrected_processed_file_name = None
 
+        #!! self.is_detected = None <REFACTOR REQUIRED FOR BUFFER DATA>
         self.is_requested = None
-
+        #!! self.is_buffer = None  <REFACTOR REQUIRED FOR BUFFER DATA>
+        
         self.is_stanford_event = None
         self.stanford_rounds = None
         self.stanford_duration = None
@@ -231,6 +233,8 @@ class Event:
             #self.requested = True
 
         else:
+            ## REQUIRES REFACTOR to add `.is_buffer` (raw buffer data/no time correction)
+
             self.is_stanford_event = False
             self.scales = re.findall(b" STAGES=(-?\d+)", self.mer_binary_header)[0].decode("utf-8","replace")
             catch_trig = re.findall(b" TRIG=(\d+)", self.mer_binary_header)
@@ -873,11 +877,19 @@ class Event:
         # in overlap/merge at EarthScope DMC. While "D" is the default when
         # written to disk, the .mseed attr isn't actually set by default (so set
         # it here -- it's needed in geocsv.py).
+
+        #!! REFACTOR REQURIED FOR BUFFER DATA (quality indicator  "R")
+        #!! stats.mseed = {'dataquality': 'R'}
+
+        # !! WARNING: `utils.set_mseed_time_correction` (run after this) says it
+        # !! will overwrite data quality flags -- check on that because we need
+        # !! to retain these flags.
+
         if self.is_requested:
             stats.mseed = {'dataquality': 'D'}
         else:
             stats.mseed = {'dataquality': 'Q'}
-
+            
         # Extra metadata, some of which is only written to SAC files
         keys = ['stla',
                 'stlo',

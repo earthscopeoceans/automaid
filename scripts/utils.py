@@ -256,7 +256,7 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
         modifies miniSEED file (see warnings and notes)
 
     Warnings:
-    * Unsets all other 'Activity', 'I/O and clock', and 'Data Quality' flags.
+    * !!! POTENTIALLY? !!! Unsets all other 'Activity', 'I/O and clock', and 'Data Quality' flags.
     * Only adds time correction to header; does not also adjust start/end times.
 
     Verifications:
