@@ -163,3 +163,4 @@ cython_debug/
 
 scripts/bin/icdf24_v103_test
 scripts/bin/icdf24_v103ec_test
+tests_and_verifications/comparesac_automaid3_automaid4.txt
