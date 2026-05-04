@@ -881,10 +881,6 @@ class Event:
         #!! REFACTOR REQURIED FOR BUFFER DATA (quality indicator  "R")
         #!! stats.mseed = {'dataquality': 'R'}
 
-        # !! WARNING: `utils.set_mseed_time_correction` (run after this) says it
-        # !! will overwrite data quality flags -- check on that because we need
-        # !! to retain these flags.
-
         if self.is_requested:
             stats.mseed = {'dataquality': 'D'}
         else:
@@ -1015,6 +1011,7 @@ class Event:
         # precedes each record) the mseed file with time-correction metadata
         if not force_without_time_correction and not self.station_loc_is_preliminary:
             utils.set_mseed_time_correction(mseed_filename, self.mseed_time_correction)
+
 
     def write_sac(self, processed_path, force_without_loc=False, force_redo=False):
         '''

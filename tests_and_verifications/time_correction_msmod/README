@@ -1,0 +1,38 @@
+JOEL: do not spend any more time on this issue; automaid install is fine.
+
+Q: Does my automaid utils.set_mseed_time_correction flip the proper activity
+flag bit?
+
+A: Yes.
+
+I saved a normal output of automaid (bit flipped and value added to header) and
+one without the bit flipped (but value still added to header) and then used
+msmod to flip the bit -->
+
+$ ~/programs/msmod/msmod --actflags 1,1 automaid_bit_not_flipped.mseed -o msmod_bit_flipped.mseed
+
+* If we then inspect the `recordanalyzer` output for both (automaid vs msmod bit
+  flipping) we see that in both cases "Activity flags: 2" (maybe it's a sum of
+  `--actflags 1,1)?
+
+$ diff -y --suppress-common-lines automaid_bit_flipped.recordanalyzer msmod_bit_flipped.recordanalyzer
+FILE: automaid_bit_flipped.mseed				|       FILE: msmod_bit_flipped.mseed
+        mu_sec: 40						|               mu_sec: 0
+    Corrected Starttime: 2018-07-06T01:49:28.590640Z		|           Corrected Starttime: 2018-07-06T01:49:28.590600Z
+FILE: automaid_bit_flipped.mseed				|       FILE: msmod_bit_flipped.mseed
+FILE: automaid_bit_flipped.mseed				|       FILE: msmod_bit_flipped.mseed
+FILE: automaid_bit_flipped.mseed				|       FILE: msmod_bit_flipped.mseed
+FILE: automaid_bit_flipped.mseed				|       FILE: msmod_bit_flipped.mseed
+
+* If we additionally inspect the records using libmseed,
+  `~/programs/libmseed/example/mseedview`, you'll not the same 40 mu_sec diff in
+  the purported starttimes of the first record (only) in the set, but if you use
+  -vvv flag with mseedveiw you'll see that it says "Byte swapping needed for
+  unpacking of header" so maybe that offset gets applied when header further
+  unpacked? I don't know; nor do I care. Offset is 3 orders of mag smaller than
+  our sampling interval.
+
+$ diff -y --suppress-common-lines *mseedview       
+FDSN:MH_P0006_00_B_D_H, 2, 4096, 1033 samples, 20.0071 Hz       |       FDSN:MH_P0006_00_B_D_H, 2, 4096, 1033 samples, 20.0071 Hz
+
+So I'm content my version in automaid flips (only) the proper bit.

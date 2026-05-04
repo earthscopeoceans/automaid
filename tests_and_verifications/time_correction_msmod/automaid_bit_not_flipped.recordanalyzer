@@ -1,0 +1,175 @@
+FILE: automaid_bit_not_flipped.mseed
+Record Number: 0
+Record Offset: 0 byte
+Header Endianness: Big Endian
+
+FIXED SECTION OF DATA HEADER
+    Sequence number: 1
+    Data header/quality indicator: D
+    Station identifier code: P0006
+    Location identifier: 00
+    Channel identifier: BDH
+    Network code: MH
+    Record start time: 2018-07-06T01:49:28.590600Z
+    Number of samples: 1033
+    Sample rate factor: 14165
+    Sample rate multiplier: -708
+    Activity flags: 0
+    I/O and clock flags: 0
+    Data quality flags: 0
+    Number of blockettes that follow: 2
+    Time correction: -3925
+    Beginning of data: 64
+    First blockette: 48
+
+BLOCKETTES
+    1001:    Timing quality: 0
+        mu_sec: 40
+        Frame count: 0
+    1000:    Encoding Format: 11
+        Word Order: 1
+        Data Record Length: 12
+
+CALCULATED VALUES
+    Corrected Starttime: 2018-07-06T01:49:28.198140Z
+
+FILE: automaid_bit_not_flipped.mseed
+Record Number: 1
+Record Offset: 4096 byte
+Header Endianness: Big Endian
+
+FIXED SECTION OF DATA HEADER
+    Sequence number: 2
+    Data header/quality indicator: D
+    Station identifier code: P0006
+    Location identifier: 00
+    Channel identifier: BDH
+    Network code: MH
+    Record start time: 2018-07-06T01:50:20.222400Z
+    Number of samples: 1022
+    Sample rate factor: 14165
+    Sample rate multiplier: -708
+    Activity flags: 0
+    I/O and clock flags: 0
+    Data quality flags: 0
+    Number of blockettes that follow: 2
+    Time correction: 0
+    Beginning of data: 64
+    First blockette: 48
+
+BLOCKETTES
+    1001:    Timing quality: 0
+        mu_sec: 8
+        Frame count: 0
+    1000:    Encoding Format: 11
+        Word Order: 1
+        Data Record Length: 12
+
+CALCULATED VALUES
+    Corrected Starttime: 2018-07-06T01:50:20.222408Z
+
+FILE: automaid_bit_not_flipped.mseed
+Record Number: 2
+Record Offset: 8192 byte
+Header Endianness: Big Endian
+
+FIXED SECTION OF DATA HEADER
+    Sequence number: 3
+    Data header/quality indicator: D
+    Station identifier code: P0006
+    Location identifier: 00
+    Channel identifier: BDH
+    Network code: MH
+    Record start time: 2018-07-06T01:51:11.304400Z
+    Number of samples: 998
+    Sample rate factor: 14165
+    Sample rate multiplier: -708
+    Activity flags: 0
+    I/O and clock flags: 0
+    Data quality flags: 0
+    Number of blockettes that follow: 2
+    Time correction: 0
+    Beginning of data: 64
+    First blockette: 48
+
+BLOCKETTES
+    1001:    Timing quality: 0
+        mu_sec: -31
+        Frame count: 0
+    1000:    Encoding Format: 11
+        Word Order: 1
+        Data Record Length: 12
+
+CALCULATED VALUES
+    Corrected Starttime: 2018-07-06T01:51:11.304369Z
+
+FILE: automaid_bit_not_flipped.mseed
+Record Number: 3
+Record Offset: 12288 byte
+Header Endianness: Big Endian
+
+FIXED SECTION OF DATA HEADER
+    Sequence number: 4
+    Data header/quality indicator: D
+    Station identifier code: P0006
+    Location identifier: 00
+    Channel identifier: BDH
+    Network code: MH
+    Record start time: 2018-07-06T01:52:01.186800Z
+    Number of samples: 1045
+    Sample rate factor: 14165
+    Sample rate multiplier: -708
+    Activity flags: 0
+    I/O and clock flags: 0
+    Data quality flags: 0
+    Number of blockettes that follow: 2
+    Time correction: 0
+    Beginning of data: 64
+    First blockette: 48
+
+BLOCKETTES
+    1001:    Timing quality: 0
+        mu_sec: -46
+        Frame count: 0
+    1000:    Encoding Format: 11
+        Word Order: 1
+        Data Record Length: 12
+
+CALCULATED VALUES
+    Corrected Starttime: 2018-07-06T01:52:01.186754Z
+
+FILE: automaid_bit_not_flipped.mseed
+Record Number: 4
+Record Offset: 16384 byte
+Header Endianness: Big Endian
+
+FIXED SECTION OF DATA HEADER
+    Sequence number: 5
+    Data header/quality indicator: D
+    Station identifier code: P0006
+    Location identifier: 00
+    Channel identifier: BDH
+    Network code: MH
+    Record start time: 2018-07-06T01:52:53.418300Z
+    Number of samples: 702
+    Sample rate factor: 14165
+    Sample rate multiplier: -708
+    Activity flags: 0
+    I/O and clock flags: 0
+    Data quality flags: 0
+    Number of blockettes that follow: 2
+    Time correction: 0
+    Beginning of data: 64
+    First blockette: 48
+
+BLOCKETTES
+    1001:    Timing quality: 0
+        mu_sec: 10
+        Frame count: 0
+    1000:    Encoding Format: 11
+        Word Order: 1
+        Data Record Length: 12
+
+CALCULATED VALUES
+    Corrected Starttime: 2018-07-06T01:52:53.418310Z
+

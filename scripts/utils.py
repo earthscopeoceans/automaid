@@ -255,10 +255,6 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
     Result:
         modifies miniSEED file (see warnings and notes)
 
-    Warnings:
-    * !!! POTENTIALLY? !!! Unsets all other 'Activity', 'I/O and clock', and 'Data Quality' flags.
-    * Only adds time correction to header; does not also adjust start/end times.
-
     Verifications:
     [1] Verify the 'Timing correction applied' FLAG has been set for N records:
 
@@ -269,17 +265,18 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
         `$ python -m obspy.io.mseed.scripts.recordanalyzer -a mseed_filename`
 
     Notes:
-    * Time correction value in [1] appears to be a bug/percentage?
+    * Maybe 'timing_correction': ... in [1] (at bottom) is a bug?
     * Time correction value in [2] is in units of 0.0001 seconds.
-    * In [2] it is unknown what 'Activity flags: 2'  means.
+      --> in [2] it is unknown what 'Activity flags: 2'  means**
+      --> it might be a sum of from `--actflags 1,1` in msmod, see notes**
 
     Note: `msmod` package contains similar time-correction processing
     https://github.com/EarthScope/msmod/blob/main/doc/msmod.md
-    
+
+    See .tests_and_verifications/time_correction_msmod/
     """
     ## All page numbers refer to the SEED Format Version 2.4 manual
     ## http://www.fdsn.org/pdf/SEEDManual_V2.4.pdf
-
     # Time correction values are in units of 0.0001 (1e-4) seconds (pg. 109)
     time_corr_one_ten_thous = np.int32(time_corr_secs / 0.0001)
 
@@ -315,7 +312,6 @@ def set_mseed_time_correction(mseed_filename, time_corr_secs):
             mseed_file.write(time_correction_binstr)
 
             # Find the offset of the next record relative to the start of the file
-            record_offset += record_info.get('record_length')
 
 
 def flattenList(toplist):
