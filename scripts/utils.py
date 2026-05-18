@@ -6,7 +6,7 @@
 # Developer: Joel D. Simon (JDS)
 # Original author: Sebastien Bonnieux (SB)
 # Contact: jdsimon@bathymetrix.com
-# Last modified by JDS: 18-Feb-2026
+# Last modified by JDS: 06-May-2026
 # Python Python 3.10.15, Darwin Kernel Version 23.6.0
 
 import re
@@ -215,13 +215,13 @@ def location(event):
     from the header in .MER files. "-1" means return raw 40 Hz data.  Otherwise
     data frequencies vary based on the number of scales as follows:
 
-    P0006.MH.00.BHZ:   20 Hz = 5 scales (default; primary data assigned to location "00")
-    P0006.MH.01.BHZ:   40 Hz = "-1" (or 6?) raw 40 Hz data
-    P0006.MH.02.BHZ:   10 Hz = 4 scales
+    <sta>.<net>.00.BHZ ->   20 Hz ->  5 scales (default; primary data assigned to location "00")
+    <sta>.<net>.10.BHZ ->   40 Hz -> -1 scales (native instrument sampling rate)
+    <sta>.<net>.20.BHZ ->   10 Hz ->  4 scales
 
-    P0006.MH.00.MHZ:    5 Hz = 3 scales (mid period, so back to "00" primary loc)
-    P0006.MH.01.MHZ:  2.5 Hz = 2 scales
-    P0006.MH.02.MHZ: 1.25 Hz = 1 scale
+    <sta>.<net>.00.MHZ ->    5 Hz ->  3 scales (mid period, so back to "00" primary loc)
+    <sta>.<net>.10.MHZ ->  2.5 Hz ->  2 scales
+    <sta>.<net>.20.MHZ -> 1.25 Hz ->  1 scale
     """
 
     # Use scales to determine location code (via their resulting sampling
@@ -231,12 +231,11 @@ def location(event):
         raise ValueError(f"Expected rounded 'TRUE_SAMPLE_FREQ` (in .MER) to be 40 Hz, got {fs} Hz")
 
     scale_dict = { "5": "00",
-                  "-1": "01",
-                   "6": "01",
-                   "4": "02",
+                  "-1": "10",
+                   "4": "20",
                    "3": "00",
-                   "2": "01",
-                   "1": "02"}
+                   "2": "10",
+                   "1": "20"}
     loc = scale_dict.get(event.scales)
     if loc is None:
         raise ValueError(f"Unexpected number of scales: {event.scales}")
