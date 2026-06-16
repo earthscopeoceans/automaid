@@ -215,13 +215,13 @@ def location(event):
     from the header in .MER files. "-1" means return raw 40 Hz data.  Otherwise
     data frequencies vary based on the number of scales as follows:
 
-    <sta>.<net>.00.BHZ ->   20 Hz ->  5 scales (default; primary data assigned to location "00")
-    <sta>.<net>.10.BHZ ->   40 Hz -> -1 scales (native instrument sampling rate)
-    <sta>.<net>.20.BHZ ->   10 Hz ->  4 scales
+    <sta>.<net>.00.BDH ->   20 Hz ->  5 scales (default; primary data assigned to location "00")
+    <sta>.<net>.10.BDH ->   40 Hz -> -1 scales (native instrument sampling rate)
+    <sta>.<net>.20.BDH ->   10 Hz ->  4 scales
 
-    <sta>.<net>.00.MHZ ->    5 Hz ->  3 scales (mid period, so back to "00" primary loc)
-    <sta>.<net>.10.MHZ ->  2.5 Hz ->  2 scales
-    <sta>.<net>.20.MHZ -> 1.25 Hz ->  1 scale
+    <sta>.<net>.00.MDH ->    5 Hz ->  3 scales (mid period, so back to "00" primary loc)
+    <sta>.<net>.10.MDH ->  2.5 Hz ->  2 scales
+    <sta>.<net>.20.MDH -> 1.25 Hz ->  1 scale
     """
 
     # Use scales to determine location code (via their resulting sampling
