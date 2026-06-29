@@ -231,40 +231,21 @@ def linear_interpolation(gps_list, date):
         input_lat_drift_dist_deg = gps_list[j].latitude - gps_list[i].latitude
         input_lat_drift_vel_degs = input_lat_drift_dist_deg / input_drift_time
 
-        # Do longitude arithmetic on [0:360] instead of [-180:180] system to
-        # avoid wrapping issues when float crosses antimeridian
-        # Ex.
-        #    lon[i] = -174 (converted: 186)
-        #    lon[j] = +178
-        # Drifted west -8 degrees, not +352 if we do lon[j]-lon[i]
-        # At conclusion of this algorithm, subtract 360 (if >180) to convert
-        # back to [-180:+180]
-        lonj = gps_list[j].longitude if gps_list[j].longitude >= 0 else gps_list[j].longitude + 360
-        loni = gps_list[i].longitude if gps_list[i].longitude >= 0 else gps_list[i].longitude + 360
-
-        # This is a bit of a cheat because it assumes an longitude lines are equally spaced on the
-        # sphere, which they are not
-        input_lon_drift_dist_deg = lonj - loni
-        input_lon_drift_vel_degs = input_lon_drift_dist_deg / input_drift_time
+        loni = gps_list[i].longitude
+        lonj = gps_list[j].longitude
 
         interp_drift_time = date - gps_list[i].date
-        interp_lat_drift_vel_degs = input_lat_drift_vel_degs # they must equal
+
+        interp_lat_drift_vel_degs = input_lat_drift_vel_degs
         interp_lat_drift_dist_deg = interp_lat_drift_vel_degs * interp_drift_time
         interp_lat = gps_list[i].latitude + interp_lat_drift_dist_deg
 
-        interp_lon_drift_vel_degs = input_lon_drift_vel_degs # they must equal
+        input_lon_drift_dist_deg = signed_lon_delta(loni, lonj)
+        input_lon_drift_vel_degs = input_lon_drift_dist_deg / input_drift_time
+
+        interp_lon_drift_vel_degs = input_lon_drift_vel_degs
         interp_lon_drift_dist_deg = interp_lon_drift_vel_degs * interp_drift_time
-        interp_lon = loni + interp_lon_drift_dist_deg
-
-        # Previously longitudes converted to [0:360] from [-180:180]
-        if loni > 180:
-            loni -= 360
-
-        if lonj > 180:
-            lonj -= 360
-
-        if interp_lon > 180:
-            interp_lon -= 360
+        interp_lon = wrap_lon(loni + interp_lon_drift_dist_deg)
 
         # This is also a bit of flub -- the interpolated drift distance computed here is using our
         # (ever so slightly) incorrect longitude, so when projected on a sphere we get a slightly
@@ -834,3 +815,13 @@ def write_gps_interpolation_txt(cycles, creation_datestr, processed_path, mfloat
                             .format(leg_ascent.interp_dict['description']))
 
             f.write('\n__________END__________\n\n')
+
+
+def wrap_lon(lon):
+    """Wrap longitude to [-180, 180)."""
+    return ((lon + 180) % 360) - 180
+
+
+def signed_lon_delta(lon0, lon1):
+    """Shortest signed delta lon0 -> lon1, in degrees."""
+    return ((lon1 - lon0 + 180) % 360) - 180

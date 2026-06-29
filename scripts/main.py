@@ -8,10 +8,8 @@
 # Last modified by FRO: 09-Sep-2024
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
 #
-# Developer: Joel D. Simon (JDS)
-# Contact: jdsimon@alumni.princeton.edu
-# Last modified: 20-Oct-2025
-# Last tested: Python Python 3.10.15, Darwin Kernel Version 23.6.0
+# Developer: Joel D. Simon (JDS) <jdsimon@bathymetrix.com>
+# Last modified: 29-Jun-2026
 
 import os
 import re
@@ -103,7 +101,7 @@ database_path = os.path.abspath(args.database)
 filterDate = utils.deploy2present()
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = False
+redo = True
 
 # Filter to only run Princeton set.
 princeton_only = False

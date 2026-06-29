@@ -9,7 +9,7 @@ def get_version():
 
     """
     # semver -> v<MAJOR>.<MINOR>.<PATCH>-<PRE_RELEASE>
-    return 'v4.5.6'
+    return 'v4.5.7'
 
 def get_url():
     return 'https://github.com/earthscopeoceans/automaid [doi: 10.5281/zenodo.5057096]'
