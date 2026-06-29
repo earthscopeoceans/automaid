@@ -101,7 +101,7 @@ database_path = os.path.abspath(args.database)
 filterDate = utils.deploy2present()
 
 # Boolean set to true in order to delete every processed data and redo everything
-redo = True
+redo = False
 
 # Filter to only run Princeton set.
 princeton_only = False
