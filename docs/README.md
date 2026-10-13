@@ -7,9 +7,14 @@ own page so that updates stay focused.
 
 `automaid` processes raw MERMAID instrument files from the configured `server`
 directory and writes derived products to the configured `processed` directory.
-Its outputs include seismic data products, plots, and metadata. These Argo
-pages are reference material; automaid does not currently produce standard
-Argo profile files.
+Its outputs include seismic data products, plots, and metadata. After each run,
+it refreshes flat symlink directories containing links to every matching
+waveform file found under the processed directory. With `-p` omitted or set to
+`processed`, they are `$MERMAID/waveforms/sac/` and
+`$MERMAID/waveforms/mseed/`; with any other `-p` value, they are under that
+processed directory. A duplicate waveform basename causes processing to fail
+rather than silently omitting a file. These Argo pages are reference material;
+automaid does not currently produce standard Argo profile files.
 
 - [Where Argo files go](CTD_data_centers.md): authoritative archives and discovery tools.
 - [What the file formats are](CTD_file_formats.md): Argo profile formats and automaid's current SAL/TEMP-related outputs.

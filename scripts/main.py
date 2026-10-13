@@ -95,6 +95,13 @@ args = parser.parse_args()
 server_path = os.path.abspath(args.server)
 processed_path = os.path.abspath(args.processed)
 database_path = os.path.abspath(args.database)
+if os.path.normpath(args.processed) in {
+    os.path.normpath(def_processed_path),
+    "processed",
+}:
+    waveforms_path = os.path.join(def_mermaid_path, "waveforms")
+else:
+    waveforms_path = os.path.join(processed_path, "waveforms")
 
 # Set an inclusive time range of analysis for a specific float
 # (by default, deployment to present...adjust here or there)
@@ -142,6 +149,59 @@ def sort_mfloats(a,b):
     nbA = int(buoy_nbA,10)
     nbB = int(buoy_nbB,10)
     return nbA - nbB
+
+
+def rebuild_waveform_symlink_dirs(processed_path, waveforms_path):
+    """Rebuild flat SAC and miniSEED symlink directories from processed files."""
+    processed_path = os.path.abspath(processed_path)
+    waveforms_path = os.path.abspath(waveforms_path)
+    waveform_sources = {".sac": {}, ".mseed": {}}
+    waveforms_are_nested = os.path.commonpath([processed_path, waveforms_path]) == processed_path
+    if waveforms_are_nested:
+        nested_waveforms_name = os.path.relpath(waveforms_path, processed_path).split(os.sep)[0]
+
+    # Exclude the generated mirror itself so its links are not rediscovered.
+    for directory, subdirectories, filenames in os.walk(processed_path):
+        if waveforms_are_nested and directory == processed_path:
+            subdirectories[:] = [
+                name for name in subdirectories if name != nested_waveforms_name
+            ]
+
+        for filename in filenames:
+            extension = os.path.splitext(filename)[1]
+            if extension not in waveform_sources:
+                continue
+
+            source_path = os.path.join(directory, filename)
+            if not os.path.isfile(source_path):
+                continue
+
+            previous_source = waveform_sources[extension].get(filename)
+            if previous_source is not None:
+                raise ValueError(
+                    f"Multiple {extension} files share the flat waveform filename "
+                    f"{filename!r}: {previous_source} and {source_path}"
+                )
+            waveform_sources[extension][filename] = source_path
+
+    output_directories = {
+        ".sac": os.path.join(waveforms_path, "sac"),
+        ".mseed": os.path.join(waveforms_path, "mseed"),
+    }
+
+    # Check all names before clearing either destination, so a collision leaves
+    # the previous mirrors intact and fails the processing run visibly.
+    for output_directory in output_directories.values():
+        if os.path.islink(output_directory):
+            os.unlink(output_directory)
+        elif os.path.isdir(output_directory):
+            shutil.rmtree(output_directory)
+
+    for extension, output_directory in output_directories.items():
+        os.makedirs(output_directory, exist_ok=True)
+        for filename, source_path in waveform_sources[extension].items():
+            os.symlink(source_path, os.path.join(output_directory, filename))
+
 
 def main():
     # Set working directory in "scripts"
@@ -392,6 +452,10 @@ def main():
 
         with open(mfloat_path + "/" + mfloat + '.pickle', 'wb') as handle:
             pickle.dump(cycle_logs, handle)
+
+    # Rebuild complete flat mirrors after all floats have been processed. This
+    # also picks up existing waveform files that were not regenerated this run.
+    rebuild_waveform_symlink_dirs(processed_path, waveforms_path)
 
     # Done looping through all dives for each float
     #______________________________________________________________________________________#
