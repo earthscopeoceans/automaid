@@ -63,10 +63,12 @@ You may have to remove some error-prone log files and create some directories -
 we will be editing the script for increased versatility as we go along.
 
 At the end of each run, flat symlink mirrors of waveform files are refreshed in
-`$MERMAID/waveforms/sac/` and `$MERMAID/waveforms/mseed/` when `-p` is omitted or
-set to `processed`. For any other `-p` value, the `waveforms/` directory is
-created inside the specified processed directory. Duplicate waveform basenames
-within a format cause processing to fail.
+`$MERMAID/waveforms/sac/` and `$MERMAID/waveforms/mseed/`, and metadata CSV
+symlinks are refreshed in `$MERMAID/metadata/`, when `-p` is omitted or set to
+`processed`. For any other `-p` value, `waveforms/` and `metadata/` are created
+inside the specified processed directory. Metadata links retain their
+per-float relative paths. Duplicate waveform basenames within a format cause
+processing to fail.
 
 The "main.py" file can be edited to select some options:
 

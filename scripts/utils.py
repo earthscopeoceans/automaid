@@ -12,6 +12,8 @@
 import re
 import sys
 import struct
+import os
+import shutil
 import datetime
 import warnings
 import csv
@@ -518,3 +520,78 @@ def princeton_mermaids():
     """
 
     return {f"452.020-P-{i:02}" for i in range(8, 26)}
+
+
+def rebuild_processed_mirrors(processed_path, mirror_base_path):
+    """Refresh waveform and metadata symlink mirrors from processed files.
+
+    Waveforms are flat within ``waveforms/sac`` and ``waveforms/mseed``.
+    Metadata CSVs retain their paths relative to ``processed_path`` so files
+    with the same name for different floats remain distinct.
+    """
+    processed_path = os.path.abspath(processed_path)
+    mirror_base_path = os.path.abspath(mirror_base_path)
+    waveforms_path = os.path.join(mirror_base_path, "waveforms")
+    metadata_path = os.path.join(mirror_base_path, "metadata")
+    waveform_sources = {".sac": {}, ".mseed": {}}
+    metadata_sources = {}
+
+    nested_mirror_names = set()
+    for mirror_path in (waveforms_path, metadata_path):
+        if os.path.commonpath([processed_path, mirror_path]) == processed_path:
+            relative_path = os.path.relpath(mirror_path, processed_path)
+            if relative_path != ".":
+                nested_mirror_names.add(relative_path.split(os.sep)[0])
+
+    # Exclude generated mirror roots when they are inside processed_path.
+    for directory, subdirectories, filenames in os.walk(processed_path):
+        if directory == processed_path:
+            subdirectories[:] = [
+                name for name in subdirectories if name not in nested_mirror_names
+            ]
+
+        for filename in filenames:
+            source_path = os.path.join(directory, filename)
+            if not os.path.isfile(source_path):
+                continue
+
+            extension = os.path.splitext(filename)[1]
+            if extension in waveform_sources:
+                previous_source = waveform_sources[extension].get(filename)
+                if previous_source is not None:
+                    raise ValueError(
+                        f"Multiple {extension} files share the flat waveform filename "
+                        f"{filename!r}: {previous_source} and {source_path}"
+                    )
+                waveform_sources[extension][filename] = source_path
+
+            if filename.endswith(".csv") and filename.startswith(
+                ("mseed2sac_metadata_", "automaid_metadata_")
+            ):
+                relative_path = os.path.relpath(source_path, processed_path)
+                metadata_sources[relative_path] = source_path
+
+    output_directories = {
+        ".sac": os.path.join(waveforms_path, "sac"),
+        ".mseed": os.path.join(waveforms_path, "mseed"),
+        "metadata": metadata_path,
+    }
+
+    # Validate waveform names before clearing any mirrors.
+    for output_directory in output_directories.values():
+        if os.path.islink(output_directory):
+            os.unlink(output_directory)
+        elif os.path.isdir(output_directory):
+            shutil.rmtree(output_directory)
+
+    for extension in (".sac", ".mseed"):
+        output_directory = output_directories[extension]
+        os.makedirs(output_directory, exist_ok=True)
+        for filename, source_path in waveform_sources[extension].items():
+            os.symlink(source_path, os.path.join(output_directory, filename))
+
+    os.makedirs(metadata_path, exist_ok=True)
+    for relative_path, source_path in metadata_sources.items():
+        link_path = os.path.join(metadata_path, relative_path)
+        os.makedirs(os.path.dirname(link_path), exist_ok=True)
+        os.symlink(source_path, link_path)
