@@ -13,10 +13,10 @@ import re
 import sys
 import struct
 import os
-import shutil
 import datetime
 import warnings
 import csv
+from pathlib import Path
 import numpy as np
 import plotly.graph_objs as graph
 
@@ -526,72 +526,104 @@ def rebuild_processed_mirrors(processed_path, mirror_base_path):
     """Refresh waveform and metadata symlink mirrors from processed files.
 
     Waveforms are flat within ``waveforms/sac`` and ``waveforms/mseed``.
-    Metadata CSVs retain their paths relative to ``processed_path`` so files
-    with the same name for different floats remain distinct.
+    Metadata files are grouped by type and named with their instrument ID, so
+    mirror paths do not retain the processed directory hierarchy.
     """
-    processed_path = os.path.abspath(processed_path)
-    mirror_base_path = os.path.abspath(mirror_base_path)
-    waveforms_path = os.path.join(mirror_base_path, "waveforms")
-    metadata_path = os.path.join(mirror_base_path, "metadata")
-    waveform_sources = {".sac": {}, ".mseed": {}}
-    metadata_sources = {}
+    processed_dir = Path(processed_path).expanduser().resolve()
+    mirror_base = Path(mirror_base_path).expanduser().resolve()
+    if not processed_dir.is_dir():
+        raise ValueError(f"Processed directory does not exist: {processed_dir}")
 
-    nested_mirror_names = set()
-    for mirror_path in (waveforms_path, metadata_path):
-        if os.path.commonpath([processed_path, mirror_path]) == processed_path:
-            relative_path = os.path.relpath(mirror_path, processed_path)
-            if relative_path != ".":
-                nested_mirror_names.add(relative_path.split(os.sep)[0])
+    mirror_directories = (
+        "waveforms/sac",
+        "waveforms/mseed",
+        "metadata/geocsv",
+        "metadata/gps",
+        "metadata/automaid",
+        "metadata/mseed2sac",
+    )
+    sources = {directory: {} for directory in mirror_directories}
+    destinations = {mirror_base / directory for directory in mirror_directories}
 
-    # Exclude generated mirror roots when they are inside processed_path.
-    for directory, subdirectories, filenames in os.walk(processed_path):
-        if directory == processed_path:
-            subdirectories[:] = [
-                name for name in subdirectories if name not in nested_mirror_names
-            ]
+    for destination in destinations:
+        if processed_dir.is_relative_to(destination.resolve()):
+            raise ValueError(f"Source archive is inside a mirror: {destination}")
 
-        for filename in filenames:
-            source_path = os.path.join(directory, filename)
-            if not os.path.isfile(source_path):
+    def raise_walk_error(error):
+        """Abort rather than build a partial mirror from an unreadable tree."""
+        raise error
+
+    for directory, subdirectories, filenames in os.walk(
+        processed_dir, onerror=raise_walk_error,
+    ):
+        directory = Path(directory)
+        subdirectories[:] = sorted(
+            name for name in subdirectories
+            if (directory / name).resolve() not in destinations
+        )
+
+        for filename in sorted(filenames):
+            source = directory / filename
+            if not source.is_file():
                 continue
 
-            extension = os.path.splitext(filename)[1]
-            if extension in waveform_sources:
-                previous_source = waveform_sources[extension].get(filename)
-                if previous_source is not None:
-                    raise ValueError(
-                        f"Multiple {extension} files share the flat waveform filename "
-                        f"{filename!r}: {previous_source} and {source_path}"
-                    )
-                waveform_sources[extension][filename] = source_path
+            if source.suffix == ".sac":
+                mirror = "waveforms/sac"
+                link_name = filename
+            elif source.suffix == ".mseed":
+                mirror = "waveforms/mseed"
+                link_name = filename
+            elif filename == "geo_DET_REQ.csv":
+                mirror = "metadata/geocsv"
+                relative_parts = source.relative_to(processed_dir).parts
+                if len(relative_parts) < 2:
+                    raise ValueError(f"Metadata has no instrument directory: {source}")
+                link_name = f"{relative_parts[0]}.geocsv"
+            elif filename in {"gps.txt", "gps.csv"}:
+                mirror = "metadata/gps"
+                relative_parts = source.relative_to(processed_dir).parts
+                if len(relative_parts) < 2:
+                    raise ValueError(f"Metadata has no instrument directory: {source}")
+                link_name = f"{relative_parts[0]}.gps{source.suffix}"
+            elif filename.endswith(".csv") and filename.startswith("automaid_metadata_"):
+                mirror = "metadata/automaid"
+                relative_parts = source.relative_to(processed_dir).parts
+                if len(relative_parts) < 2:
+                    raise ValueError(f"Metadata has no instrument directory: {source}")
+                link_name = f"{relative_parts[0]}.{filename}"
+            elif filename.endswith(".csv") and filename.startswith("mseed2sac_metadata_"):
+                mirror = "metadata/mseed2sac"
+                relative_parts = source.relative_to(processed_dir).parts
+                if len(relative_parts) < 2:
+                    raise ValueError(f"Metadata has no instrument directory: {source}")
+                link_name = f"{relative_parts[0]}.{filename}"
+            else:
+                continue
 
-            if filename.endswith(".csv") and filename.startswith(
-                ("mseed2sac_metadata_", "automaid_metadata_")
-            ):
-                relative_path = os.path.relpath(source_path, processed_path)
-                metadata_sources[relative_path] = source_path
+            previous_source = sources[mirror].get(link_name)
+            if previous_source is not None:
+                raise ValueError(
+                    f"Multiple files share {mirror}/{link_name}: "
+                    f"{previous_source} and {source}"
+                )
+            sources[mirror][link_name] = source
 
-    output_directories = {
-        ".sac": os.path.join(waveforms_path, "sac"),
-        ".mseed": os.path.join(waveforms_path, "mseed"),
-        "metadata": metadata_path,
-    }
+    # Preflight every destination before removing any previous links.
+    for mirror in sources:
+        destination = mirror_base / mirror
+        if destination.is_symlink():
+            raise ValueError(f"Mirror directory must not be a symlink: {destination}")
+        if destination.exists():
+            if not destination.is_dir():
+                raise ValueError(f"Mirror path is not a directory: {destination}")
+            for entry in destination.iterdir():
+                if not entry.is_symlink():
+                    raise ValueError(f"Refusing to remove non-symlink: {entry}")
 
-    # Validate waveform names before clearing any mirrors.
-    for output_directory in output_directories.values():
-        if os.path.islink(output_directory):
-            os.unlink(output_directory)
-        elif os.path.isdir(output_directory):
-            shutil.rmtree(output_directory)
-
-    for extension in (".sac", ".mseed"):
-        output_directory = output_directories[extension]
-        os.makedirs(output_directory, exist_ok=True)
-        for filename, source_path in waveform_sources[extension].items():
-            os.symlink(source_path, os.path.join(output_directory, filename))
-
-    os.makedirs(metadata_path, exist_ok=True)
-    for relative_path, source_path in metadata_sources.items():
-        link_path = os.path.join(metadata_path, relative_path)
-        os.makedirs(os.path.dirname(link_path), exist_ok=True)
-        os.symlink(source_path, link_path)
+    for mirror, files in sources.items():
+        destination = mirror_base / mirror
+        destination.mkdir(parents=True, exist_ok=True)
+        for entry in destination.iterdir():
+            entry.unlink()
+        for filename, source in files.items():
+            (destination / filename).symlink_to(source)

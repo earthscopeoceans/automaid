@@ -1,3 +1,1 @@
-* Remove resolution drop to float32 for GeoCSV
-
 * Implement loc.txt writing for PSD floats

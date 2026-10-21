@@ -9,14 +9,16 @@ own page so that updates stay focused.
 directory and writes derived products to the configured `processed` directory.
 Its outputs include seismic data products, plots, and metadata. After each run,
 it refreshes flat symlink directories containing links to every matching
-waveform file found under the processed directory, plus a metadata mirror that
-retains metadata CSVs' paths relative to the processed directory. With `-p`
-omitted or set to `processed`, these are `$MERMAID/waveforms/sac/`,
-`$MERMAID/waveforms/mseed/`, and `$MERMAID/metadata/`; with any other `-p`
-value, they are under that processed directory. A duplicate waveform basename
-causes processing to fail rather than silently omitting a file. These Argo
-pages are reference material; automaid does not currently produce standard
-Argo profile files.
+waveform file found under the processed directory, plus metadata symlink
+directories grouped by type. GeoCSV `geo_DET_REQ.csv` files are linked as
+`<instrument_id>.geocsv`; `gps.txt` and `gps.csv` become
+`<instrument_id>.gps.txt` and `<instrument_id>.gps.csv`. Automaid and mseed2sac
+metadata CSVs are also mirrored under their respective directories. With `-p`
+omitted or set to `processed`, mirrors are under `$MERMAID/`; with any other
+`-p` value, they are under that processed directory. Mirror paths do not retain
+the processed tree hierarchy, and duplicate mirror filenames cause processing
+to fail. These Argo pages are reference material; automaid does not currently
+produce standard Argo profile files.
 
 - [Where Argo files go](CTD_data_centers.md): authoritative archives and discovery tools.
 - [What the file formats are](CTD_file_formats.md): Argo profile formats and automaid's current SAL/TEMP-related outputs.

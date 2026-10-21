@@ -64,11 +64,13 @@ we will be editing the script for increased versatility as we go along.
 
 At the end of each run, flat symlink mirrors of waveform files are refreshed in
 `$MERMAID/waveforms/sac/` and `$MERMAID/waveforms/mseed/`, and metadata CSV
-symlinks are refreshed in `$MERMAID/metadata/`, when `-p` is omitted or set to
-`processed`. For any other `-p` value, `waveforms/` and `metadata/` are created
-inside the specified processed directory. Metadata links retain their
-per-float relative paths. Duplicate waveform basenames within a format cause
-processing to fail.
+symlinks are refreshed under `$MERMAID/metadata/` when `-p` is omitted or set
+to `processed`. For any other `-p` value, `waveforms/` and `metadata/` are
+created inside the specified processed directory. The metadata mirror groups
+files by type: GeoCSV as `<instrument_id>.geocsv`, GPS as
+`<instrument_id>.gps.txt` and `<instrument_id>.gps.csv`, and automaid and
+mseed2sac metadata CSVs under their respective directories. Duplicate
+waveform or metadata mirror filenames cause processing to fail.
 
 The "main.py" file can be edited to select some options:
 
