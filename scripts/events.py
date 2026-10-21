@@ -837,7 +837,7 @@ class Event:
         actually get written to disk with sac.write are stored in the private "._hf" attribute,
         which is not generated with initialization of the raw Stats() container. Therefore, if
         printing those values to, e.g. a text file, ensure the relevant F (float) fields are cast to
-        np.float32 first.
+        np.float32 first if you require exact duplication.
 
         For example:
         >> from obspy.core.trace import Trace

@@ -33,7 +33,7 @@ class GeoCSV:
     Args:
         cycles (list): List of cycles.Cycle instances
         creation_datestr (str): File-creation datestr as "YYYY-MM-DDTHH:MM:SS.sssZ"
-        mixed_layer_depth_m (float): Depth to thermocline in meters positive down (def: np.float32('nan'))
+        mixed_layer_depth_m (float): Depth to thermocline in meters positive down (def: np.float64('nan'))
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
 
@@ -42,7 +42,7 @@ class GeoCSV:
     def __init__(self,
                  cycle_list,
                  creation_datestr = datetime.datetime.now(pytz.UTC).isoformat()[:23] + "Z",
-                 mixed_layer_depth_m = np.float32('nan'),
+                 mixed_layer_depth_m = np.float64('nan'),
                  delimiter=',',
                  lineterminator='\n'):
 
@@ -60,9 +60,9 @@ class GeoCSV:
         self.created_comment = ['#created: ' + self.creation_datestr]
         self.description_comment = ['#description: Metadata for drifting Mobile Earthquake Recording in Marine Areas by Independent Divers (MERMAID) hydrophones, www.EarthScopeOceans.org']
         self.attribution_comment = ['#attribution: automaid {} ({})'.format(setup.get_version(), setup.get_url())]
-        self.matlab_comment = ['#matlab_reader: https://github.com/joelsimon/GeoCSV/blob/master/readGeoCSV.m']
-        self.waterpressure_comment = ['#waterpressure2depth: 100 mbar is approximately equal to the pressure of 1 meter of water']
-        self.response_comment = ["#frequency_response: http://ds.iris.edu/data/reports/MH/MH.Mermaids.Response.V3.pdf"]
+        #self.matlab_comment = ['#matlab_reader: https://github.com/joelsimon/GeoCSV/blob/master/readGeoCSV.m']
+        #self.waterpressure_comment = ['#waterpressure2depth: 100 mbar is approximately equal to the pressure of 1 meter of water']
+        #self.response_comment = ["#frequency_response: http://ds.iris.edu/data/reports/MH/MH.Mermaids.Response.V3.pdf"]
 
         self.lineterminator_comment = ['#lineterminator: ' + repr(self.lineterminator)]
         self.delimiter_comment = ['#delimiter: ' + repr(self.delimiter)]
@@ -138,9 +138,9 @@ class GeoCSV:
             self.created_comment,
             self.description_comment,
             self.attribution_comment,
-            self.matlab_comment,
-            self.waterpressure_comment,
-            self.response_comment,
+            #self.matlab_comment,
+            #self.waterpressure_comment,
+            #self.response_comment,
             self.lineterminator_comment,
             self.delimiter_comment,
             self.field_unit_comment,
@@ -161,11 +161,19 @@ class GeoCSV:
         ## Functional prototypes for self.write()
         ## ___________________________________________________________________________ ##
 
-        # Lambda functions to convert to float32 with specified precision
-        d0 = lambda x: format(np.float32(x), '.0f')
-        d1 = lambda x: format(np.float32(x), '.1f')
-        d6 = lambda x: format(np.float32(x), '.6f')
-        nan = np.float32('nan')
+        def check_float64(value):
+            """Accept Python float or NumPy float64 without hiding other float types."""
+            if isinstance(value, np.floating) and not isinstance(value, np.float64):
+                raise TypeError(
+                    f"GeoCSV requires float or numpy.float64; got {type(value).__name__}: {value!r}")
+            return value
+
+        # Check floating-point inputs before conversion; integers and pressure strings are valid.
+        d0 = lambda x: format(np.float64(check_float64(x)), '.0f')
+        d1 = lambda x: format(np.float64(check_float64(x)), '.1f')
+        d6 = lambda x: format(np.float64(check_float64(x)), '.6f')
+        nan = np.float64('nan')
+        check_float64(self.mixed_layer_depth_m)
 
         def format_gps_rows(cycle):
             """Format GeoCSV rows of GPS measurements

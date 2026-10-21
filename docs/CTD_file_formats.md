@@ -77,6 +77,14 @@ Code inspection found the following profile outputs:
 - automaid also writes GeoCSV metadata (`geo.csv` variants) for MERMAID GPS,
   pressure, event, and thermocline metadata. That GeoCSV output is not a CTD
   profile export and is not an alternate Argo NetCDF product.
+  The legacy writer accepts Python `float` and NumPy `float64` inputs, including
+  NaNs, and rejects other NumPy floating types before conversion or formatting.
+  Integer values and pressure strings from the logs remain accepted. Numeric
+  formatting uses `float64`, with six decimal places for coordinates, sample
+  rates, and timing offsets, and zero decimal places for measured pressures.
+  Thermocline pressure is written as mixed-layer depth in meters times 100,
+  without fixed decimal formatting. These checks cannot detect precision lost
+  before a value was converted to Python `float` or NumPy `float64`.
 
 For example, the existing SBE `.csv` contains rows shaped like this, with no
 header or location fields:
