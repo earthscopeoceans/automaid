@@ -527,7 +527,8 @@ def rebuild_processed_mirrors(processed_path, mirror_base_path):
 
     Waveforms are flat within ``waveforms/sac`` and ``waveforms/mseed``.
     Metadata files are grouped by type and named with their instrument ID, so
-    mirror paths do not retain the processed directory hierarchy.
+    mirror paths do not retain the processed directory hierarchy. IcCycle
+    directories and their contents are excluded from source discovery.
     """
     processed_dir = Path(processed_path).expanduser().resolve()
     mirror_base = Path(mirror_base_path).expanduser().resolve()
@@ -559,7 +560,8 @@ def rebuild_processed_mirrors(processed_path, mirror_base_path):
         directory = Path(directory)
         subdirectories[:] = sorted(
             name for name in subdirectories
-            if (directory / name).resolve() not in destinations
+            if "IcCycle" not in name
+            and (directory / name).resolve() not in destinations
         )
 
         for filename in sorted(filenames):
