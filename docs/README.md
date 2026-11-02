@@ -7,6 +7,15 @@ own page so that updates stay focused.
 
 `automaid` processes raw MERMAID instrument files from the configured `server`
 directory and writes derived products to the configured `processed` directory.
+The server directory is read only to automaid. Processing stops before any
+writes if it overlaps the processed tree, database directory, or mirror paths.
+Each processed float directory retains copies of server `.MER`, `.LOG`, and
+`.BIN` files in `MER/`, `LOG/`, and `BIN/`, respectively. Successfully decoded
+`.BIN` logs are retained in `LOG/decoded/` under their `.LOG` names, so a
+server `.LOG` with the same name remains available in `LOG/`. Server `.out`
+and `.vit` files remain at the float directory's top level. These archives are
+included in the final read-only processed tree. Numbered `.LOG` and `.BIN`
+fragments copied from the server are kept beside their terminal files.
 Its outputs include seismic data products, plots, and metadata. After each run,
 it refreshes flat symlink directories containing links to every matching
 waveform file found under the processed directory, plus metadata symlink

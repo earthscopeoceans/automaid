@@ -20,6 +20,7 @@ import argparse
 import datetime
 import functools
 import pickle
+from pathlib import Path
 
 import kml
 import gps
@@ -152,6 +153,23 @@ def sort_mfloats(a,b):
 
 
 def main():
+    # All writes must stay outside the source server tree, including the
+    # database refresh, processed products, mirrors, and final chmod pass.
+    server_root = Path(server_path).resolve()
+    writable_paths = (
+        processed_path,
+        database_path,
+        os.path.join(mirror_base_path, "waveforms"),
+        os.path.join(mirror_base_path, "metadata"),
+    )
+    for writable_path in writable_paths:
+        writable_root = Path(writable_path).resolve()
+        if (server_root.is_relative_to(writable_root)
+                or writable_root.is_relative_to(server_root)):
+            raise ValueError(
+                f"Server directory overlaps writable output: {server_root} and {writable_root}"
+            )
+
     # Set working directory in "scripts"
     os.chdir(scripts_path)
 
@@ -195,6 +213,15 @@ def main():
         if not os.path.exists(mfloat_path):
             os.mkdir(mfloat_path)
 
+        # Preserve the server files separately from the flat working copies,
+        # which concatenation, decryption, and final cleanup may change or remove.
+        source_directories = {
+            extension: os.path.join(mfloat_path, extension)
+            for extension in ("MER", "LOG", "BIN")
+        }
+        for directory in source_directories.values():
+            os.makedirs(directory, exist_ok=True)
+
         # Remove existing files in the processed directory (the script may have been previously
         # executed, copied the files, then failed)
         for f in glob.glob(mfloat_path + "*.*"):
@@ -213,12 +240,30 @@ def main():
         # Copy files
         for f in files_to_copy:
             shutil.copy(f, mfloat_path)
+            extension = os.path.splitext(f)[1][1:]
+            if extension in source_directories:
+                archive_extensions = [extension]
+            elif len(extension) == 3 and extension.isdigit():
+                # Numbered fragments belong to the LOG or BIN terminal file.
+                archive_extensions = [
+                    kind for kind in ("LOG", "BIN")
+                    if os.path.isfile(f[:-4] + "." + kind)
+                ]
+            else:
+                archive_extensions = []
+            for kind in archive_extensions:
+                shutil.copy(f, source_directories[kind])
 
         # Concatenate all files for this float
         preprocess.concatenate_files(mfloat_path);
 
         # Decrypt all files for this float
-        preprocess.decrypt_all(mfloat_path);
+        decoded_logs = preprocess.decrypt_all(mfloat_path)
+        if decoded_logs:
+            decoded_directory = os.path.join(source_directories["LOG"], "decoded")
+            os.makedirs(decoded_directory, exist_ok=True)
+            for log_file in decoded_logs:
+                shutil.copy(log_file, decoded_directory)
 
         # Determine the time range of analysis (generally; birth to death of a MERMAID)
         if mfloat in filterDate.keys():

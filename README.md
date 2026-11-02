@@ -59,6 +59,12 @@ To use the application:
   `source deactivate`
 
 You will be getting the processed files into the directory `$MERMAID/processed`.
+Automaid reads from `server/` but does not write there; it rejects output paths
+that overlap the server directory.
+Each float directory retains server `.MER`, `.LOG`, and `.BIN` files in
+`MER/`, `LOG/`, and `BIN/`. Logs decoded from `.BIN` are kept separately in
+`LOG/decoded/`. Numbered LOG and BIN fragments are kept with their terminal
+files; `.out` and `.vit` files stay at the float directory's top level.
 You may have to remove some error-prone log files and create some directories -
 we will be editing the script for increased versatility as we go along.
 
