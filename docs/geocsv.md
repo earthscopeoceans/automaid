@@ -82,3 +82,61 @@ explicit temporary output path to `GeoCSV(saved_cycles).write(...)`.
 Do not run the processing entry point or rebuild mirrors merely to inspect
 GeoCSV. Candidate creation and exhaustive verification belong to the publisher;
 use a separate workspace and fresh reports for changed bytes.
+
+## Bound JSON clash report
+
+Version v4.7.0 also writes geocsv-clash.json beside the combined GeoCSV on every
+generation, including zero clashes. It binds the exact GeoCSV SHA-256 and uses
+zero-based source_index / one-based physical source_line. Clash entries list all
+MiniSEED basenames, distinct raw event header/payload variant_count, every
+qualified header field difference with exact source string values, and
+payload_bytes_identical. Missing header attributes use present=false without a
+value. Raw header differences outside parsed attributes remain raw_header evidence.
+Payload equality describes raw DATA bytes; it does not compare decoded samples.
+
+The producer owns this analysis. The publisher does not call automaid or inspect
+MER provenance; it checks report binding, references and MiniSEED associations.
+Clashes are permitted. Owner review precedes entry into publication. The old
+Markdown reports remain producer detail. No processed tree regeneration is
+implicit in a source update. See the publisher's
+[report contract](../../mermaid-publisher/docs/geocsv/publication-reports.md).
+
+## Producer investigations retained from the consumer review
+
+## MERMAID sampling-rate follow-up
+
+Compare raw MER timing quantities and units, writer inputs and serialized
+rates, encoded MiniSEED rates, and ObsPy output. Establish whether differences
+arise from upstream formatting, waveform encoding, or reader conversion.
+Stored microseconds and six-decimal rates do not independently establish
+measurement accuracy. Rate computed from ObsPy's rate-derived endtime is
+not independent evidence.
+
+The [fixture evidence](../../mermaid-geocsv/data/fixtures/association/README.md#tolerance-evidence)
+supports the current agreement criterion for the checked sample. It does not
+settle raw-MER precision across producers and instrument generations. Reading
+preserves supplied rates; upstream corrections belong in the producer.
+
+
+### Instrument and product evidence
+
+Verify the hardware generations affected by reported REQ sampling-rate/time
+shifts and whether reconstruction uses acquisition-time or request-time rate.
+Claims that DET timing is more accurate, REQ location is less certain, and
+current hardware fixes earlier behavior require instrument-specific evidence.
+Do not generalize those claims across the archive.
+
+Check source MER classification and scale for the non-20-Hz DET.WLT2 example;
+the processed-header audit did not independently inspect every raw MER header.
+Preserve historical location codes as source evidence. The
+[product reference](../../mermaid-geocsv/docs/mermaid-data-quality.md) distinguishes requested RAW events
+from recovered continuous-buffer data.
+
+Resolve the missing P0006 buffer average rate and verify the P0023 value and
+the proposed Pipatprathanporn & Simon (2022) citation. Identify the incomplete
+Ivy reference and verify Nolet et al. (2024). The supplied MERMAID manual
+reference 452.000.852, Version 00, reportedly uses 101 mbar per metre;
+independent verification is pending. Current SAC mapping follows automaid's
+100 mbar per metre approximation for MERMAID receiver (station) depth in SAC
+`stdp`. This question concerns the station-depth approximation; earthquake-source
+metadata and `ev*` projections remain outside package scope.

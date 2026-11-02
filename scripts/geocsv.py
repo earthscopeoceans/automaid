@@ -9,6 +9,8 @@
 import csv
 import hashlib
 import io
+import json
+from pathlib import Path
 import re
 import pytz
 import datetime
@@ -43,6 +45,72 @@ def _format_utc(value):
     microseconds = int((Decimal(value.ns) / 1000).to_integral_value(rounding=ROUND_HALF_EVEN))
     seconds, fraction = divmod(microseconds, 1_000_000)
     return UTCDateTime(seconds).strftime("%Y-%m-%dT%H:%M:%S") + f".{fraction:06d}Z"
+
+
+def _write_clash_json(path, clashes):
+    """Bind producer clash findings to the exact combined GeoCSV output."""
+    path = Path(path)
+    locations = {}
+    with path.open(encoding="utf-8", newline="") as stream:
+        comments = 0
+        while True:
+            position = stream.tell()
+            line = stream.readline()
+            if not line.startswith("#"):
+                stream.seek(position)
+                break
+            comments += 1
+        reader = csv.reader(stream, strict=True)
+        next(reader)  # Column header.
+        previous_line = reader.line_num
+        for index, row in enumerate(reader):
+            locations[tuple(row)] = (index, comments + previous_line + 1)
+            previous_line = reader.line_num
+    entries = []
+    for variants in clashes:
+        index, line = locations[tuple(str(value) for value in variants[0]['row'])]
+        sources = []
+        for variant in variants:
+            header, payload = variant['event_data']
+            fields = {}
+            for element, attributes in re.findall(r'<([\w-]+)\s+([^<>]*?)/?>', header.decode('utf-8')):
+                for key, value in re.findall(r'([\w-]+)=([^\s]+)', attributes):
+                    fields[f"{element}.{key}"] = value
+            for name in sorted(set(variant['mseed_filenames'])):
+                sources.append((name, fields, header, payload))
+        sources.sort(key=lambda item: item[0])
+        if len({item[0] for item in sources}) != len(sources):
+            raise ValueError("distinct clash variants have the same MiniSEED basename")
+        differences = []
+        for key in sorted(set().union(*(item[1] for item in sources))):
+            if len({(key in item[1], item[1].get(key)) for item in sources}) == 1:
+                continue
+            values = []
+            for name, fields, _, _ in sources:
+                value = {"mseed_filename": name}
+                if key in fields:
+                    value["value"] = fields[key]
+                else:
+                    value["present"] = False
+                values.append(value)
+            differences.append({"field": key, "values": values})
+        # Preserve differences outside parsed attributes (including whitespace).
+        shapes = {re.sub(r'(?<==)[^\s]+', '', item[2].decode('utf-8')) for item in sources}
+        if len(shapes) > 1:
+            differences.append({"field": "raw_header", "values": [
+                {"mseed_filename": item[0], "value": item[2].decode('utf-8')}
+                for item in sources]})
+        entries.append({"source_index": index, "source_line": line,
+                        "variant_count": len(variants),
+                        "mseed_filenames": [item[0] for item in sources],
+                        "header_differences": differences,
+                        "payload_bytes_identical": len({item[3] for item in sources}) == 1})
+    report = {"schema_version": 1,
+              "geocsv_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              "clashes": sorted(entries, key=lambda item: item['source_index'])}
+    path.with_name('geocsv-clash.json').write_text(
+        json.dumps(report, indent=2, sort_keys=True, ensure_ascii=True) + '\n',
+        encoding='utf-8')
 
 class GeoCSV:
     """Organize MERMAID metadata and write them to GeoCSV format
@@ -368,11 +436,13 @@ class GeoCSV:
                 for variant in variants:
                     if event_data == variant['event_data']:
                         variant['mer_binary_names'].append(event.mer_binary_name)
+                        variant['mseed_filenames'].append(Path(event.processed_file_name + '.mseed').name)
                         break
                 else:
                     variants.append({
                         'event_data': event_data,
                         'mer_binary_names': [event.mer_binary_name],
+                        'mseed_filenames': [Path(event.processed_file_name + '.mseed').name],
                         'row': row,
                     })
                     if len(variants) == 1:
@@ -639,3 +709,5 @@ class GeoCSV:
         if written_clash_reports:
             print("WARNING: distinct event data rendered to duplicate GeoCSV rows; "
                   "review {}".format(', '.join(written_clash_reports)))
+
+        _write_clash_json(basename + '_DET_REQ.csv', det_req_clashes)
