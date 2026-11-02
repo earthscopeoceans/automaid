@@ -9,10 +9,14 @@ own page so that updates stay focused.
 directory and writes derived products to the configured `processed` directory.
 The server directory is read only to automaid. Processing stops before any
 writes if it overlaps the processed tree, database directory, or mirror paths.
+Each run also compares SHA-256 fingerprints of the server file tree before and
+after processing, including on failure. A changed fingerprint raises an error;
+the check detects changes by other processes as well as by automaid and reads
+the full server contents twice.
 Each processed float directory retains copies of server `.MER`, `.LOG`, and
 `.BIN` files in `MER/`, `LOG/`, and `BIN/`, respectively. Successfully decoded
-`.BIN` logs are retained in `LOG/decoded/` under their `.LOG` names, so a
-server `.LOG` with the same name remains available in `LOG/`. Server `.out`
+`.BIN` logs are written directly to `LOG/` under their `.LOG` names. A fresh
+decode replaces any same-stem server `.LOG` copy in that directory. Server `.out`
 and `.vit` files remain at the float directory's top level. These archives are
 included in the final read-only processed tree. Numbered `.LOG` and `.BIN`
 fragments copied from the server are kept beside their terminal files.

@@ -61,10 +61,13 @@ To use the application:
 You will be getting the processed files into the directory `$MERMAID/processed`.
 Automaid reads from `server/` but does not write there; it rejects output paths
 that overlap the server directory.
+It hashes the server tree before and after each run and raises an error if the
+contents or file metadata change, including if another process changes them.
 Each float directory retains server `.MER`, `.LOG`, and `.BIN` files in
-`MER/`, `LOG/`, and `BIN/`. Logs decoded from `.BIN` are kept separately in
-`LOG/decoded/`. Numbered LOG and BIN fragments are kept with their terminal
-files; `.out` and `.vit` files stay at the float directory's top level.
+`MER/`, `LOG/`, and `BIN/`. Logs decoded from `.BIN` go directly into `LOG/`
+and replace any same-stem server LOG copy. Numbered LOG and BIN fragments are
+kept with their terminal files; `.out` and `.vit` files stay at the float
+directory's top level.
 You may have to remove some error-prone log files and create some directories -
 we will be editing the script for increased versatility as we go along.
 

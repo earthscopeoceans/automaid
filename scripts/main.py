@@ -19,7 +19,9 @@ import shutil
 import argparse
 import datetime
 import functools
+import hashlib
 import pickle
+import stat
 from pathlib import Path
 
 import kml
@@ -152,7 +154,40 @@ def sort_mfloats(a,b):
     return nbA - nbB
 
 
-def main():
+def hash_server_tree(root):
+    """Fingerprint source names, metadata, symlinks, and file bytes."""
+    root = Path(root).resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"Server directory does not exist: {root}")
+    digest = hashlib.sha256()
+    root_metadata = root.stat()
+    digest.update(repr((root_metadata.st_mode, root_metadata.st_size,
+                        root_metadata.st_mtime_ns, root_metadata.st_ctime_ns)).encode("ascii"))
+
+    def raise_walk_error(error):
+        raise error
+
+    for directory, subdirectories, filenames in os.walk(root, onerror=raise_walk_error):
+        subdirectories.sort()
+        for name in sorted(subdirectories + filenames):
+            path = Path(directory) / name
+            metadata = path.lstat()
+            digest.update(str(path.relative_to(root)).encode("utf-8"))
+            digest.update(b"\0")
+            digest.update(repr((metadata.st_mode, metadata.st_size,
+                                metadata.st_mtime_ns, metadata.st_ctime_ns)).encode("ascii"))
+            digest.update(b"\0")
+            if stat.S_ISREG(metadata.st_mode):
+                with path.open("rb") as source:
+                    for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                        digest.update(chunk)
+            elif stat.S_ISLNK(metadata.st_mode):
+                digest.update(os.readlink(path).encode("utf-8"))
+            digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _run_processing():
     # All writes must stay outside the source server tree, including the
     # database refresh, processed products, mirrors, and final chmod pass.
     server_root = Path(server_path).resolve()
@@ -213,8 +248,8 @@ def main():
         if not os.path.exists(mfloat_path):
             os.mkdir(mfloat_path)
 
-        # Preserve the server files separately from the flat working copies,
-        # which concatenation, decryption, and final cleanup may change or remove.
+        # Keep source files separately from the flat working copies. A successful
+        # BIN decode supersedes any same-stem server LOG in the LOG directory.
         source_directories = {
             extension: os.path.join(mfloat_path, extension)
             for extension in ("MER", "LOG", "BIN")
@@ -259,11 +294,8 @@ def main():
 
         # Decrypt all files for this float
         decoded_logs = preprocess.decrypt_all(mfloat_path)
-        if decoded_logs:
-            decoded_directory = os.path.join(source_directories["LOG"], "decoded")
-            os.makedirs(decoded_directory, exist_ok=True)
-            for log_file in decoded_logs:
-                shutil.copy(log_file, decoded_directory)
+        for log_file in decoded_logs:
+            shutil.copy(log_file, source_directories["LOG"])
 
         # Determine the time range of analysis (generally; birth to death of a MERMAID)
         if mfloat in filterDate.keys():
@@ -460,6 +492,16 @@ def main():
 
     # Protect canonical outputs, including access through the symlink mirrors.
     utils.make_processed_read_only(processed_path)
+
+
+def main():
+    server_before = hash_server_tree(server_path)
+    try:
+        _run_processing()
+    finally:
+        server_after = hash_server_tree(server_path)
+        if server_after != server_before:
+            raise RuntimeError("Server directory changed during automaid processing")
 
 if __name__ == "__main__":
     main()
