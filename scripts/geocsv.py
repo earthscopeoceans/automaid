@@ -121,6 +121,7 @@ class GeoCSV:
         mixed_layer_depth_m (float): Configured upper mixed-layer depth in meters positive down (def: np.float64('nan'))
         delimiter (str): GeoCSV delimiter (def: ',')
         lineterminator (str): GeoCSV line terminator (def: '\n')
+        begin, end: Optional UTC deployment bounds, inclusive begin and exclusive end.
 
     """
 
@@ -129,7 +130,7 @@ class GeoCSV:
                  creation_datestr = None,
                  mixed_layer_depth_m = np.float64('nan'),
                  delimiter=',',
-                 lineterminator='\n'):
+                 lineterminator='\n', *, begin=None, end=None):
 
         if not all(isinstance(cycle, cycles.Cycle) for cycle in cycle_list):
             raise ValueError('Input `cycle_list` must be list of `cycles.Cycle` instances')
@@ -138,6 +139,12 @@ class GeoCSV:
         self.creation_datestr = _format_utc(
             datetime.datetime.now(pytz.UTC) if creation_datestr is None else creation_datestr)
         self.mixed_layer_depth_m = mixed_layer_depth_m
+        if (begin is None) != (end is None):
+            raise ValueError('GeoCSV deployment bounds require both begin and end')
+        self.begin = _format_utc(UTCDateTime(begin)) if begin is not None else None
+        self.end = _format_utc(UTCDateTime(end)) if end is not None else None
+        if self.begin is not None and self.begin >= self.end:
+            raise ValueError('GeoCSV deployment begin must precede end')
         if delimiter != ',' or lineterminator != '\n':
             raise ValueError("MERMAID GeoCSV requires comma delimiters and LF endings")
         self.delimiter = delimiter
@@ -581,13 +588,14 @@ class GeoCSV:
         thermo_algo_rows = []
         press_rows = []
         for cycle in self.cycles:
-            # Exclude preliminary/init namespaces before collecting any row type.
+            # Keep measurements from every cycle, including Init and IcCycle.
+            gps_rows.extend(format_gps_rows(cycle))
+            press_rows.extend(format_press_rows(cycle))
+
+            # Exclude preliminary/init namespaces from derived rows.
             if any(marker in cycle.directory_name.casefold()
                    for marker in ('iccycle', 'init')):
                 continue
-            # Get and extend lists of formatted "Measurement" rows
-            gps_rows.extend(format_gps_rows(cycle))
-            press_rows.extend(format_press_rows(cycle))
 
             # Recording rows, paired with their source Event instances
             algo_rows_tup = format_algo_event_rows(cycle)
@@ -597,17 +605,29 @@ class GeoCSV:
             # Interpolated upper mixed-layer boundary rows
             thermo_algo_rows.extend(format_algo_thermo_rows(cycle))
 
-        # Remove pressure measurements taken before(after) first(last) GPS measurements
-        # (currently: GPS dates, but not pressure dates, affected by `filterDate` in main.py)
-        #print(gps_rows)
-        gps_dates = [x[1] for x in sorted(gps_rows, key=lambda x: x[1])]
-        try:
-            press_rows = [x for x in press_rows if x[1] > gps_dates[0] and x[1] < gps_dates[-1]]
-        except IndexError:
-            pass
-
         # The "Measurement:" rows are "GPS" and "Pressure"
         meas_rows = gps_rows + press_rows
+
+        def in_deployment(row):
+            return self.begin is None or self.begin <= row[1] < self.end
+
+        gps_dates = sorted(row[1] for row in gps_rows if in_deployment(row))
+
+        def in_window(row):
+            return (in_deployment(row) and bool(gps_dates)
+                    and gps_dates[0] <= row[1] <= gps_dates[-1])
+
+        # Keep rejected formatted rows for review, separately from normal output
+        # and its producer clash evidence. Init/IcCycle derived rows were never collected.
+        outside_rows = [row for row in meas_rows + thermo_algo_rows if not in_window(row)]
+        outside_records = [record for record in det_algo_records + req_algo_records
+                           if not in_window(record[0])]
+        outside_algo_rows, _ = deduplicate_algo_event_rows(outside_records)
+        outside_rows.extend(outside_algo_rows)
+        meas_rows = [row for row in meas_rows if in_window(row)]
+        thermo_algo_rows = [row for row in thermo_algo_rows if in_window(row)]
+        det_algo_records = [record for record in det_algo_records if in_window(record[0])]
+        req_algo_records = [record for record in req_algo_records if in_window(record[0])]
 
         # Deduplicate each GeoCSV independently: an event may occur in the
         # combined DET_REQ file without occurring in the corresponding DET or
@@ -625,38 +645,42 @@ class GeoCSV:
         # These identifiers are required on every data row, independent of
         # measurement or algorithm type.  Validate the superset before writing
         # any of the three output variants.
-        validate_required_fields(geocsv_det_req_rows)
+        validate_required_fields(geocsv_det_req_rows + outside_rows)
 
         # Sort the combined rows by date
         geocsv_det_req_rows.sort(key=lambda x: x[1])
         geocsv_det_rows.sort(key=lambda x: x[1])
         geocsv_req_rows.sort(key=lambda x: x[1])
+        outside_rows.sort(key=lambda x: x[1])
 
         # Open as as 'wb' in Python 2 rather than 'w' with newline='' in Python 3
         # https://docs.python.org/2/library/csv.html#csv.writer
         basename = filename.strip('.csv') if filename.endswith('.csv') else filename
         with open(basename+'_DET_REQ.csv', 'w', encoding='utf-8', newline='') as csvfile_det_req, \
              open(basename+'_DET.csv', 'w', encoding='utf-8', newline='') as csvfile_det, \
-             open(basename+'_REQ.csv', 'w', encoding='utf-8', newline='') as csvfile_req:
+             open(basename+'_REQ.csv', 'w', encoding='utf-8', newline='') as csvfile_req, \
+             open(Path(filename).with_name('outside_filterDate_gps.geocsv'), 'w', encoding='utf-8', newline='') as csvfile_outside:
 
-            # Define writer object for all three files
+            # Define writer objects for normal output and the outside-window sidecar.
             # https://stackoverflow.com/questions/3191528/csv-in-python-adding-an-extra-carriage-return-on-windows
             csvwriter_det_req = csv.writer(csvfile_det_req, delimiter=self.delimiter, lineterminator=self.lineterminator)
             csvwriter_det = csv.writer(csvfile_det, delimiter=self.delimiter, lineterminator=self.lineterminator)
             csvwriter_req = csv.writer(csvfile_req, delimiter=self.delimiter, lineterminator=self.lineterminator)
 
-            # Write the same comment lines and single header to all three files
-            csvfile_list = [csvfile_det_req, csvfile_det, csvfile_req]
-            csvwriter_list = [csvwriter_det_req, csvwriter_det, csvwriter_req]
+            # Write the same comment lines and single header to all files.
+            csvfile_list = [csvfile_det_req, csvfile_det, csvfile_req, csvfile_outside]
+            csvwriter_list = [csvwriter_det_req, csvwriter_det, csvwriter_req,
+                              csv.writer(csvfile_outside, delimiter=self.delimiter, lineterminator=self.lineterminator)]
             for csvfile, csvwriter in zip(csvfile_list, csvwriter_list):
                 for comment_fields in self.get_comment_lines():
                     csvfile.write(self.delimiter.join(comment_fields) + self.lineterminator)
                 csvwriter.writerow(self.header)
 
-            # Write the combined measurement, recording and crossing rows to all three files
+            # Write formatted rows, preserving canonical blank Location spelling.
             for csvfile, rows in [(csvfile_det, geocsv_det_rows),
                                   (csvfile_req, geocsv_req_rows),
-                                  (csvfile_det_req, geocsv_det_req_rows)]:
+                                  (csvfile_det_req, geocsv_det_req_rows),
+                                  (csvfile_outside, outside_rows)]:
                 for row in rows:
                     # Keep standard CSV escaping and make the defined blank
                     # Location visible as the canonical quoted two-space cell.
@@ -671,14 +695,18 @@ class GeoCSV:
         print("Wrote: {}".format(csvfile_det.name))
         print("Wrote: {}".format(csvfile_req.name))
         print("Wrote: {}\n".format(csvfile_det_req.name))
+        print("Wrote: {} (outside deployment [{}, {}) or retained GPS span: {})".format(
+            csvfile_outside.name, self.begin, self.end,
+            dict(Counter(row[0] for row in outside_rows))))
 
         # Extra verifications: read file and check that lines are (1) sorted, and (2) unique
         with open(csvfile_det_req.name, 'r') as csvfile_det_req, \
              open(csvfile_det.name, 'r') as csvfile_det, \
-             open(csvfile_req.name, 'r') as csvfile_req:
+             open(csvfile_req.name, 'r') as csvfile_req, \
+             open(csvfile_outside.name, 'r') as csvfile_outside:
 
             len_comment = len(self.get_comment_lines())
-            csvfile_list = [csvfile_det_req, csvfile_det, csvfile_req]
+            csvfile_list = [csvfile_det_req, csvfile_det, csvfile_req, csvfile_outside]
             for csvfile in csvfile_list:
                 # Read
                 csvreader = csv.reader(csvfile, delimiter=self.delimiter, lineterminator=self.lineterminator)

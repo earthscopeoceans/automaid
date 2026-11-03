@@ -106,7 +106,7 @@ if os.path.normpath(args.processed) in {
 else:
     mirror_base_path = processed_path
 
-# Set an inclusive time range of analysis for a specific float
+# Set an inclusive-begin, exclusive-end UTC time range for a specific float
 # (by default, deployment to present...adjust here or there)
 filterDate = utils.deploy2present()
 
@@ -450,7 +450,8 @@ def _run_processing():
         events.write_obspy_trace_stats(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write GeoCSV files
-        geocsv_meta = geocsv.GeoCSV(cycle_logs, creation_datestr, mixed_layer_depth_m)
+        geocsv_meta = geocsv.GeoCSV(cycle_logs, creation_datestr, mixed_layer_depth_m,
+                                  begin=begin, end=end)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories

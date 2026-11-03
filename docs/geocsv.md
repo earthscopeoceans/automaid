@@ -141,17 +141,41 @@ independent verification is pending. Current SAC mapping follows automaid's
 `stdp`. This question concerns the station-depth approximation; earthquake-source
 metadata and `ev*` projections remain outside package scope.
 
-## IcCycle and Init exclusion
+## Measurement retention and derived-row exclusion
 
-From v4.9.1, GeoCSV collection skips every cycle whose `directory_name`
-contains `IcCycle` or `Init`, case-insensitively, before collecting GPS,
-pressure, Recording or crossing rows. IcCycle outputs use preliminary location
-inputs; Init outputs are excluded as a precaution. Recording collection also
-excludes events whose processed filename contains either substring, regardless
-of case. Excluded events do not enter the combined clash report. The existing
-per-event preliminary-location exclusion remains in effect for other events.
+From v4.9.2, GeoCSV collects Position and Pressure-Absolute measurements from
+every cycle, including Init and IcCycle wherever they occur. Identical repeated
+pressure log messages still produce one row. Recording and
+crossing rows are excluded from cycles whose `directory_name` contains
+`IcCycle` or `Init`, case-insensitively. IcCycle derived outputs use preliminary
+location inputs; Init derived outputs are excluded as a precaution. Recording
+collection also excludes events whose processed filename contains either
+substring, regardless of case. Excluded events do not enter the combined clash
+report. The existing per-event preliminary-location exclusion remains in effect
+for other events.
 GPS/cycle algorithms, cleanup and waveform files are unchanged by this writer
 policy.
+
+`main.py` passes its resolved `filterDate` bounds into the writer as `begin`
+and `end`. All formatted rows are selected with inclusive begin and exclusive
+end (`begin <= Time < end`). The earliest and latest GPS measurements retained
+in that window then bound every normal output row, inclusively. This is a
+GeoCSV writing policy; LOG selection and waveform exports are unchanged.
+No additional GPS or pressure observations are inferred.
+
+Excluded formatted rows from the combined DET/REQ dataset are written, sorted
+and deduplicated under the existing row rules, to
+`outside_filterDate_gps.geocsv` beside the normal files. It has the full schema
+header, creation identity and attribution. Console counts identify excluded
+MethodIdentifiers. It includes rows outside either the deployment window or
+retained GPS span; Init/IcCycle derived rows are never collected into either
+output. With no GPS in the deployment window, the normal files are recordless
+and all collected rows go to the sidecar. The normal clash report binds only
+the normal combined file. The sidecar is local audit evidence and is not a
+publication payload.
+
+Saved-cycle callers can omit both bounds to apply only GPS bracketing; supplying
+one bound without the other or a non-increasing window raises an error.
 
 Publisher 0.6.1 independently excludes both substrings in waveform directory
 names and filenames, case-insensitively. Fresh producer output is required to
