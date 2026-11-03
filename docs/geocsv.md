@@ -183,3 +183,12 @@ align GeoCSV Recording coverage with that scope; old GeoCSV payloads are never
 edited by the publisher. Regeneration needs a new creation identity and fresh
 validation evidence. Source changes do not regenerate protected processed
 products or establish new corpus acceptance.
+
+The [2026-11-03 P0006/P0045 testing publication](../../mermaid-publisher/docs/geocsv/testing-publication-20261103.md)
+records acceptance of 3,288 waveform pairs from the v4.9.2 rebuild and restored
+measurement rows. This two-instrument record does not accept other instruments.
+
+The publisher treats a producer revision change alone in a Recording or crossing
+MethodIdentifier as provenance, without requiring a metadata-change override
+when every other row byte is identical. Exact audit diffs retain the revision
+changes; other edits or deletions require review.
