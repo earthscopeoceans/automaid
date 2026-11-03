@@ -377,6 +377,9 @@ class GeoCSV:
             for event in sorted(event_list, key=lambda x: x.corrected_starttime):
                 if event.station_loc_is_preliminary:
                     continue
+                if any(marker in event.processed_file_name.casefold()
+                       for marker in ('iccycle', 'init')):
+                    continue
 
                 algorithm_row = [
                     self.MethodIdentifier_Algorithm_Event,
@@ -578,6 +581,10 @@ class GeoCSV:
         thermo_algo_rows = []
         press_rows = []
         for cycle in self.cycles:
+            # Exclude preliminary/init namespaces before collecting any row type.
+            if any(marker in cycle.directory_name.casefold()
+                   for marker in ('iccycle', 'init')):
+                continue
             # Get and extend lists of formatted "Measurement" rows
             gps_rows.extend(format_gps_rows(cycle))
             press_rows.extend(format_press_rows(cycle))

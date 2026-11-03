@@ -551,6 +551,27 @@ def princeton_mermaids():
     return {f"452.020-P-{i:02}" for i in range(8, 26)}
 
 
+def make_processed_writable(processed_path):
+    """Restore owner write permission within an existing processed tree."""
+    processed_dir = Path(processed_path).expanduser().resolve()
+    if not processed_dir.is_dir():
+        raise ValueError(f"Processed directory does not exist: {processed_dir}")
+
+    def raise_walk_error(error):
+        raise error
+
+    # Unlock parents first so subsequent files and directories can be updated.
+    for directory, subdirectories, filenames in os.walk(
+        processed_dir, topdown=True, onerror=raise_walk_error,
+    ):
+        directory = Path(directory)
+        directory.chmod(stat.S_IMODE(directory.stat().st_mode) | stat.S_IWUSR)
+        for name in filenames:
+            path = directory / name
+            if not path.is_symlink():
+                path.chmod(stat.S_IMODE(path.stat().st_mode) | stat.S_IWUSR)
+
+
 def make_processed_read_only(processed_path):
     """Remove write permissions from the completed tree without following links."""
     processed_dir = Path(processed_path).expanduser().resolve()

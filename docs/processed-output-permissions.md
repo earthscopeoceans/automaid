@@ -14,12 +14,12 @@ read-only access. Mirror directories located outside the processed tree retain
 their existing permissions. Mirrors located inside a custom processed tree have
 their directory write permissions removed along with the rest of the tree.
 
-Automaid does not automatically restore write permissions on subsequent runs.
-Use a fresh writable processed directory for a rebuild, or explicitly restore
-the required file and directory write permissions before updating in place.
-The automatic final locking step is not reached if processing or mirror
-rebuilding fails. A permission error during locking propagates to the caller
-and can leave the tree partially locked.
+At the start of a subsequent run, automaid restores owner write permission to
+every regular file and directory in an existing processed tree. Symlinks and
+their targets are not modified. A fresh processed directory starts writable.
+The automatic final locking step is reached only after processing and mirror
+rebuilding succeed. A failed run can leave the processed tree writable; a
+permission error during locking propagates and can leave it partially locked.
 
 These permission bits protect against accidental modification through normal
 filesystem access. The file owner can change them again; they do not provide

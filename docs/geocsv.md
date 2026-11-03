@@ -140,3 +140,22 @@ independent verification is pending. Current SAC mapping follows automaid's
 100 mbar per metre approximation for MERMAID receiver (station) depth in SAC
 `stdp`. This question concerns the station-depth approximation; earthquake-source
 metadata and `ev*` projections remain outside package scope.
+
+## IcCycle and Init exclusion
+
+From v4.9.1, GeoCSV collection skips every cycle whose `directory_name`
+contains `IcCycle` or `Init`, case-insensitively, before collecting GPS,
+pressure, Recording or crossing rows. IcCycle outputs use preliminary location
+inputs; Init outputs are excluded as a precaution. Recording collection also
+excludes events whose processed filename contains either substring, regardless
+of case. Excluded events do not enter the combined clash report. The existing
+per-event preliminary-location exclusion remains in effect for other events.
+GPS/cycle algorithms, cleanup and waveform files are unchanged by this writer
+policy.
+
+Publisher 0.6.2 independently excludes both substrings in waveform directory
+names and filenames, case-insensitively. Fresh producer output is required to
+align GeoCSV Recording coverage with that scope; old GeoCSV payloads are never
+edited by the publisher. Regeneration needs a new creation identity and fresh
+validation evidence. Source changes do not regenerate protected processed
+products or establish new corpus acceptance.

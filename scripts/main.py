@@ -211,6 +211,8 @@ def _run_processing():
     # Create processed directory if it doesn't exist
     if not os.path.exists(processed_path):
         os.mkdir(processed_path)
+    else:
+        utils.make_processed_writable(processed_path)
 
     # Search MERMAID floats
     vitfile_path = os.path.join(server_path, "[0-9]*.*-*-*[0-9].vit")
