@@ -153,7 +153,7 @@ per-event preliminary-location exclusion remains in effect for other events.
 GPS/cycle algorithms, cleanup and waveform files are unchanged by this writer
 policy.
 
-Publisher 0.6.2 independently excludes both substrings in waveform directory
+Publisher 0.6.1 independently excludes both substrings in waveform directory
 names and filenames, case-insensitively. Fresh producer output is required to
 align GeoCSV Recording coverage with that scope; old GeoCSV payloads are never
 edited by the publisher. Regeneration needs a new creation identity and fresh
