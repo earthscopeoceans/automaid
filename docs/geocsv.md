@@ -3,7 +3,7 @@
 # MERMAID GeoCSV production
 
 Automaid writes station metadata and original waveform descriptions to the
-controlled [MERMAID GeoCSV schema 1.0.0](../../mermaid-geocsv/docs/format-spec.md).
+controlled [MERMAID GeoCSV schema 1.0.0-rc1](../../mermaid-geocsv/docs/format-spec.md).
 Schema and software versions are independent. The writer records its actual
 version from `scripts/setup.py` in derivation and interpolation identifiers.
 
@@ -166,7 +166,7 @@ No additional GPS or pressure observations are inferred.
 Excluded formatted rows from the combined DET/REQ dataset are written, sorted
 and deduplicated under the existing row rules, to
 `outside_filterDate_gps.geocsv` beside the normal files. It has the full schema
-header, creation identity and attribution. Console counts identify excluded
+header, creation identity and producer description. Console counts identify excluded
 MethodIdentifiers. It includes rows outside either the deployment window or
 retained GPS span; Init/IcCycle derived rows are never collected into either
 output. With no GPS in the deployment window, the normal files are recordless
@@ -192,3 +192,17 @@ The publisher treats a producer revision change alone in a Recording or crossing
 MethodIdentifier as provenance, without requiring a metadata-change override
 when every other row byte is identical. Exact audit diffs retain the revision
 changes; other edits or deletions require review.
+
+## PPHC header and testing schema
+
+The writer emits dataset-first GeoCSV 2.0 with `schema: MERMAID GeoCSV
+v1.0.0-rc1`, padded comment keywords, unquoted comma/LF declarations and
+producer/publisher/hoster/consumer project descriptions. `references` is reserved
+for the describing paper and omitted until its DOI exists. Final schema 1.0.0
+is reserved for paper publication. Testing accepts the 1.0.0 version family,
+retains the exact revision and applies all scientific requirements.
+
+This header requires consumer >= 0.29.0 and publisher >= 0.8.0. Existing hosted
+snapshots retain their original old header; fetch can retrieve their exact bytes,
+but the dataset-first reader rejects them. No upload, activation or retirement
+is implied by local candidate validation. Canonical sources remain read-only.

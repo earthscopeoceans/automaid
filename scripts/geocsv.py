@@ -150,22 +150,22 @@ class GeoCSV:
         self.delimiter = delimiter
         self.lineterminator = lineterminator
 
-        # Comments (multiple, some keywords required, start with # or "#)
-        self.schema_comment = ['# MERMAID GeoCSV schema: 1.0.0']
-        self.dataset_comment = ['#dataset: GeoCSV']
-        self.created_comment = ['#created: ' + self.creation_datestr]
-        self.description_comment = ['#description: Metadata for drifting Mobile Earthquake Recording in Marine Areas by Independent Divers (MERMAID) hydrophones, www.EarthScopeOceans.org']
-        self.attribution_comment = ['#attribution: automaid {} ({})'.format(setup.get_version(), setup.get_url())]
-        #self.matlab_comment = ['#matlab_reader: https://github.com/joelsimon/GeoCSV/blob/master/readGeoCSV.m']
-        #self.waterpressure_comment = ['#waterpressure2depth: 100 mbar is approximately equal to the pressure of 1 meter of water']
-        #self.response_comment = ["#frequency_response: http://ds.iris.edu/data/reports/MH/MH.Mermaids.Response.V3.pdf"]
-
-        self.lineterminator_comment = ['#lineterminator: ' + repr(self.lineterminator)]
-        self.delimiter_comment = ['#delimiter: ' + repr(self.delimiter)]
+        # Canonical GeoCSV 2.0 container and MERMAID application-profile comments.
+        self.dataset_comment = ['# dataset: GeoCSV 2.0']
+        self.schema_comment = ['# schema: MERMAID GeoCSV v1.0.0-rc1']
+        self.created_comment = ['# created: ' + self.creation_datestr]
+        self.description_comment = ['# description: metadata for drifting Mobile Earthquake Recording in Marine Areas by Independent Divers (MERMAID) hydrophones (http://earthscopeoceans.org)']
+        self.producer_comment = ['# producer: automaid {} (https://github.com/earthscopeoceans/automaid, doi: 10.5281/zenodo.5057096) processes raw MERMAID data to generate miniSEED and GeoCSV files'.format(setup.get_version())]
+        self.publisher_comment = ['# publisher: mermaid-publisher (https://github.com/bathymetrix/mermaid-publisher) validates and publishes immutable metadata snapshots']
+        self.hoster_comment = ['# hoster: bathymetrix (https://bathymetrix.com) provides read-only snapshot hosting']
+        self.consumer_comment = ['# consumer: mermaid-geocsv (https://github.com/bathymetrix/mermaid-geocsv) fetches and parses metadata, associates it with waveforms, and optionally creates SAC station headers']
+        # The paper's references declaration is omitted until its DOI exists.
+        self.lineterminator_comment = [r'# lineterminator: \n']
+        self.delimiter_comment = ['# delimiter: ,']
         self.field_unit_comment = [
             # Keyword and first value must be together so that csvwriter does
             # not put a comment between the two (i.e. "#field_unit: ,unitless")
-            '#field_unit: unitless',
+            '# field_unit: unitless',
             'iso8601',
             'unitless',
             'unitless',
@@ -185,7 +185,7 @@ class GeoCSV:
         self.field_type_comment = [
             # Keyword and first value must be together so that csvwriter does
             # not put a comment between the two (i.e. "#field_type: ,string")
-            '#field_type: string',
+            '# field_type: string',
             'datetime',
             'string',
             'string',
@@ -231,20 +231,19 @@ class GeoCSV:
 
     def get_comment_lines(self):
         comment_lines = [
-            self.schema_comment,
             self.dataset_comment,
+            self.schema_comment,
             self.created_comment,
             self.description_comment,
-            self.attribution_comment,
-            #self.matlab_comment,
-            #self.waterpressure_comment,
-            #self.response_comment,
+            self.producer_comment,
+            self.publisher_comment,
+            self.hoster_comment,
+            self.consumer_comment,
             self.lineterminator_comment,
             self.delimiter_comment,
             self.field_unit_comment,
             self.field_type_comment,
         ]
-        #print(comment_lines)
         return comment_lines
 
     def write(self, filename='geo.csv'):
