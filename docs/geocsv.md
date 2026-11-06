@@ -184,9 +184,10 @@ edited by the publisher. Regeneration needs a new creation identity and fresh
 validation evidence. Source changes do not regenerate protected processed
 products or establish new corpus acceptance.
 
-The [2026-11-03 P0006/P0045 testing publication](../../mermaid-publisher/docs/geocsv/testing-publication-20261103.md)
-records acceptance of 3,288 waveform pairs from the v4.9.2 rebuild and restored
-measurement rows. This two-instrument record does not accept other instruments.
+The [full-corpus rc1 testing publication](../../mermaid-publisher/docs/geocsv/full-corpus-rc1-publication.md)
+records fresh exhaustive acceptance of the canonical v4.10.0 output. It binds
+the exact input revision and payload bytes; previous acceptance reports do not
+apply to regenerated products.
 
 The publisher treats a producer revision change alone in a Recording or crossing
 MethodIdentifier as provenance, without requiring a metadata-change override
@@ -202,7 +203,8 @@ for the describing paper and omitted until its DOI exists. Final schema 1.0.0
 is reserved for paper publication. Testing accepts the 1.0.0 version family,
 retains the exact revision and applies all scientific requirements.
 
-This header requires consumer >= 0.29.0 and publisher >= 0.8.0. Existing hosted
-snapshots retain their original old header; fetch can retrieve their exact bytes,
-but the dataset-first reader rejects them. No upload, activation or retirement
-is implied by local candidate validation. Canonical sources remain read-only.
+This header requires consumer >= 0.29.0 and publisher >= 0.8.0. Testing latest
+serves the full-corpus rc1 snapshot `2026-11-05T23:41:47.235000Z`. Older retained
+snapshots keep their original headers and may be incompatible with this reader.
+Canonical sources remain read-only. Testing publication does not authorize
+production activation or retirement.
