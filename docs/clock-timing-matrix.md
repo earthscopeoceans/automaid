@@ -83,3 +83,32 @@ The cycle GPS eligibility guard compares signed `clockdrift < 5` and does not
 apply an absolute-value bound. Its treatment of large negative offsets remains
 a scientific review question; do not reinterpret it as `abs(clockdrift) < 5`
 or change it during documentation work.
+
+## Observed P0008 ClockOffset anomalies
+
+A review on 2026-11-12 identified eight anomalously large negative `ClockOffset`
+values in four pairs of `Measurement:Position:u-blox_NEO-M8N` rows. The reviewed
+file was `/Users/jdsimon/Desktop/wip/452.020-P-08.geocsv`, with schema
+`MERMAID GeoCSV v1.0.0-rc1`, producer `automaid v4.10.0` and creation timestamp
+`2026-11-05T23:41:47.235000Z`.
+
+The file's SHA-256 is
+`2b69cc1655b6126dff5786c50d7532f438f7a935ce6c42ad21dccbad2689625b`.
+Line numbers below are one-based physical file lines, including the comment
+and column headers. Offsets are the exact serialized values in seconds.
+
+| Source line | GPS row Time (UTC) | ClockOffset (s) |
+| --- | --- | --- |
+| 9826 | 2020-05-02T06:05:46.000000Z | -1587046398.421204 |
+| 9827 | 2020-05-02T06:05:57.000000Z | -1587046398.421204 |
+| 15295 | 2021-04-05T13:58:00.000000Z | -1616173526.566926 |
+| 15296 | 2021-04-05T13:58:11.000000Z | -1616173526.566926 |
+| 15645 | 2021-04-22T15:15:46.000000Z | -1617788518.512238 |
+| 15646 | 2021-04-22T15:15:57.000000Z | -1617788518.512238 |
+| 16952 | 2021-07-08T17:34:22.000000Z | -1624412535.300324 |
+| 16953 | 2021-07-08T17:34:33.000000Z | -1624412535.300324 |
+
+The current `mermaid-geocsv` reader accepted the full file's 23,081 rows during
+the review. These finite numeric values passed its validation. Their origin
+and any effect on derived positions or waveform time corrections remain
+unresolved. Source diagnosis and corrective action are pending.

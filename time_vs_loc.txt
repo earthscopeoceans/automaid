@@ -1,0 +1,12 @@
+A pressure row describes one observation at a reported instrument time. A
+waveform row describes a segment of samples on a UTC time grid, defined by its
+corrected first-sample time, sample rate, and sample count.
+
+The waveform row’s estimated position refers to that first-sample time. The
+pressure row’s estimated position refers to the reported observation time. Both
+can be evaluated along the same dive trajectory.
+
+Only waveform timestamps receive a clock correction. The float’s position at the
+corrected first-sample time is estimated along a trajectory constructed from GPS
+fixes and thermocline crossings inferred from pressure measurements at their
+measured times.
