@@ -2,10 +2,11 @@
 
 # MERMAID GeoCSV production
 
-Automaid writes station metadata and original waveform descriptions to the
-controlled [MERMAID GeoCSV schema 1.0.0-rc1](../../mermaid-geocsv/docs/format-spec.md).
-Schema and software versions are independent. The writer records its actual
-version from `scripts/setup.py` in derivation and interpolation identifiers.
+Automaid's development writer emits MERMAID GeoCSV `1.0.0-rc2`. The
+[consumer format specification](../../mermaid-geocsv/docs/format-spec.md)
+still describes the published `1.0.0-rc1` layout; downstream support for rc2
+is pending. Schema and software versions are independent. The producer header
+records the automaid version from `scripts/setup.py`.
 
 ## Workflow and ownership
 
@@ -33,12 +34,35 @@ identifies the validated artifacts and their software.
 
 ## Scientific source rules
 
-Recording Time is the corrected first-sample epoch in the source trace Stats.
-`TimeCorrectionApplied` is `event.mseed_time_correction`, already added to the
-uncorrected start. `ClockOffset` is `gps.mseed_time_delay = -gps.clockdrift`.
+Waveform `derived_time` is the corrected first-sample epoch in the source trace
+Stats. `time_correction_applied` is `event.mseed_time_correction`, already added
+to the uncorrected start. GPS `clock_offset` is
+`gps.mseed_time_delay = -gps.clockdrift`.
 Never apply the correction a second time. See the [clock matrix](clock-timing-matrix.md).
 Six-digit UTC formatting rounds to the nearest microsecond with decimal ties
 to even; display width does not establish clock accuracy.
+
+The rc2 column order is:
+
+```csv
+type,measured_time,derived_time,network,station,location,channel,data_quality,measured_latitude,measured_longitude,estimated_latitude,estimated_longitude,measured_pressure,estimated_pressure,sample_rate,sample_count,clock_offset,time_correction_applied
+```
+
+`type` is `gps`, `pressure`, `downcrossing`, `upcrossing` or `waveform`.
+GPS and pressure rows use `measured_time`; crossings and waveforms use
+`derived_time`. Only GPS rows have measured coordinates. The writer retains
+the waveform's source Location string, including `00`. Sensor and MERMAID model
+descriptions and the former sea-level Elevation field are absent from rc2.
+
+| Row type | Populated scientific fields |
+| --- | --- |
+| `gps` | `measured_time`, measured coordinates, optional `clock_offset` |
+| `pressure` | `measured_time`, `measured_pressure`, optional estimated coordinates |
+| `downcrossing`, `upcrossing` | `derived_time`, estimated coordinates and pressure, zero `time_correction_applied` |
+| `waveform` | `derived_time`, estimated coordinates, `location`, `channel`, `data_quality`, `sample_rate`, `sample_count`, `time_correction_applied`; measured pressure is required for DET and optional for REQ |
+
+Every row retains its source `network` and `station`. Blank cells indicate
+unavailable or inapplicable values; no zero is inferred for missing pressure.
 
 Recording sampling frequency comes from the assigned acquisition-dive
 `ENVIRONMENT/TRUE_SAMPLE_FREQ FS_Hz`, with the product's decimation applied.
@@ -46,22 +70,41 @@ It is not selected from a repeated EVENT header or inferred from DET/REQ
 classification. [P0006 source evidence](../notes/p0006-historical-sample-frequencies/README.md)
 records discrepancies whose cause remains unresolved.
 
-Recording Elevation is explicitly numeric zero metres: an adopted sea-level
-reference, not the submerged sensor elevation. Recording WaterPressure retains
-source pressure; REQ pressure can be absent. Pressure divided by 100
-approximates station depth in metres positive down. Pressure-Absolute sensor
-readings preserve finite signed gauge error; Recording and Crossing pressures
-remain nonnegative. No atmospheric, density, geoid or tidal correction is inferred.
+Pressure rows preserve finite signed gauge readings as `measured_pressure` in
+mbar. DET waveform rows preserve their source pressure in the same column;
+REQ waveform pressure can be absent. Crossing `estimated_pressure` is a
+configured boundary proxy, not a sensor reading. Pressure divided by 100
+approximates station depth in metres positive down. Waveform and crossing
+pressures remain nonnegative. No atmospheric, density, geoid or tidal
+correction is inferred.
 
 The configured upper mixed-layer boundary is approximately 50 m deep; it is
 not detected from a measured temperature profile. Descent exits its base and
-ascent enters it. Crossing WaterPressure is configured depth multiplied by 100,
+ascent enters it. Crossing `estimated_pressure` is configured depth multiplied by 100,
 a boundary proxy rather than a sensor measurement. The GPS interpolation
 stability fallback can retain an anchor position and its epoch instead of a
-crossing estimate. A Crossing Time therefore need not be the physical crossing
+crossing estimate. Crossing `derived_time` therefore need not be the physical crossing
 epoch. Preserve this behavior and the existing interpolation model. Faster horizontal
 drift in the upper layer is empirical; the model imposes no fixed velocity
 ratio. Scientific context: [Nolet et al. (2024), pp. 2369, 2372](https://doi.org/10.1785/0220230377).
+
+For cycles eligible for the existing full-dive GPS location calculation,
+pressure rows also carry estimated coordinates at their uncorrected measured
+times. The writer evaluates the existing piecewise surface, deep-water and
+ascent segments only when both their physical phase and retained anchor epochs
+bracket the measurement. Surface-layer positions use the original pre-dive or
+post-dive GPS fixes so a second 20 m fallback is not applied to already
+interpolated endpoints. The deep segment uses the same anchors as waveforms.
+A missing or fallback position at the requested epoch leaves both estimated coordinates
+empty. Init and IcCycle pressure rows remain measurements without these
+estimates. Pressure times and waveform locations are not changed.
+
+For each emitted waveform row, the writer evaluates that same dive trajectory
+at the corrected first-sample time and requires the six-decimal estimated
+coordinates to match the source trace Stats. If no bounded at-time estimate is
+available, it checks against the event calculation's original anchor pair
+without changing the waveform. The check compares position, not the helper's
+returned epoch; the retained-anchor fallback is preserved.
 
 ## Ordering, deduplication and review
 
@@ -71,7 +114,7 @@ in adjacent `geo_DET_REQ-CLASHES.md`, `geo_DET-CLASHES.md` or
 `geo_REQ-CLASHES.md` reports; the CSV contains the first rendered row.
 Review clashes without silently changing source values or sampling-frequency
 precedence. Repeated original waveforms can independently associate with one
-Recording row.
+`waveform` row.
 
 ## Safe verification
 
@@ -143,7 +186,7 @@ metadata and `ev*` projections remain outside package scope.
 
 ## Measurement retention and derived-row exclusion
 
-From v4.9.2, GeoCSV collects Position and Pressure-Absolute measurements from
+From v4.9.2, GeoCSV collects GPS and pressure measurements from
 every cycle, including Init and IcCycle wherever they occur. Identical repeated
 pressure log messages still produce one row. Recording and
 crossing rows are excluded from cycles whose `directory_name` contains
@@ -158,7 +201,7 @@ policy.
 
 `main.py` passes its resolved `filterDate` bounds into the writer as `begin`
 and `end`. All formatted rows are selected with inclusive begin and exclusive
-end (`begin <= Time < end`). The earliest and latest GPS measurements retained
+end (`begin <= row epoch < end`, using the populated time column). The earliest and latest GPS measurements retained
 in that window then bound every normal output row, inclusively. This is a
 GeoCSV writing policy; LOG selection and waveform exports are unchanged.
 No additional GPS or pressure observations are inferred.
@@ -167,7 +210,7 @@ Excluded formatted rows from the combined DET/REQ dataset are written, sorted
 and deduplicated under the existing row rules, to
 `outside_filterDate_gps.geocsv` beside the normal files. It has the full schema
 header, creation identity and producer description. Console counts identify excluded
-MethodIdentifiers. It includes rows outside either the deployment window or
+row types. It includes rows outside either the deployment window or
 retained GPS span; Init/IcCycle derived rows are never collected into either
 output. With no GPS in the deployment window, the normal files are recordless
 and all collected rows go to the sidecar. The normal clash report binds only
@@ -189,22 +232,22 @@ records fresh exhaustive acceptance of the canonical v4.10.0 output. It binds
 the exact input revision and payload bytes; previous acceptance reports do not
 apply to regenerated products.
 
-The publisher treats a producer revision change alone in a Recording or crossing
-MethodIdentifier as provenance, without requiring a metadata-change override
-when every other row byte is identical. Exact audit diffs retain the revision
-changes; other edits or deletions require review.
+For historical rc1 output, the publisher treats a producer revision change
+alone in a Recording or crossing MethodIdentifier as provenance. This rule
+does not describe the rc2 layout change.
 
 ## PPHC header and testing schema
 
-The writer emits dataset-first GeoCSV 2.0 with `schema: MERMAID GeoCSV
-v1.0.0-rc1`, padded comment keywords, unquoted comma/LF declarations and
+The development writer emits dataset-first GeoCSV 2.0 with `schema: MERMAID
+GeoCSV v1.0.0-rc2`, padded comment keywords, unquoted comma/LF declarations and
 producer/publisher/hoster/consumer project descriptions. `references` is reserved
 for the describing paper and omitted until its DOI exists. Final schema 1.0.0
-is reserved for paper publication. Testing accepts the 1.0.0 version family,
-retains the exact revision and applies all scientific requirements.
+is reserved for paper publication. The rc2 writer is not yet paired with an
+updated downstream reader or publisher.
 
-This header requires consumer >= 0.29.0 and publisher >= 0.8.0. Testing latest
-serves the full-corpus rc1 snapshot `2026-11-05T23:41:47.235000Z`. Older retained
-snapshots keep their original headers and may be incompatible with this reader.
+Testing latest still serves the full-corpus rc1 snapshot
+`2026-11-05T23:41:47.235000Z`. Its consumer and publisher contracts do not
+validate or publish the rc2 layout. Older retained snapshots keep their
+original headers.
 Canonical sources remain read-only. Testing publication does not authorize
 production activation or retirement.

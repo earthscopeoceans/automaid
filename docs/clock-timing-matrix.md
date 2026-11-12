@@ -7,18 +7,18 @@ Use **`t_mer` = uncorrected MERMAID time** and **`t_gps` = GPS-reference time fo
 For GPS rows, these describe the synchronization measurement. For Recording
 rows, use the original recording's first sample; its `t_gps` is **estimated**
 through the existing clock-correction model. The GeoCSV names below are the
-schema 1.0.0 names; their existing source variables, values
+development rc2 names; their existing source variables, values
 and signs are unchanged.
 
 | Context | Quantity | Definition | MERMAID ahead: `t_mer > t_gps` | MERMAID behind: `t_mer < t_gps` |
 | --- | --- | --- | --- | --- |
 | GPS | `gps.clockdrift` — manual's drift | `t_gps - t_mer` | Negative | Positive |
 | GPS | `gps.mseed_time_delay` | `t_mer - t_gps` | Positive | Negative |
-| Position GeoCSV row | `ClockOffset` | `t_mer - t_gps` | Positive | Negative |
+| GPS GeoCSV row | `clock_offset` | `t_mer - t_gps` | Positive | Negative |
 | Recording | `event.clockdrift_correction` | Estimated `t_gps - t_mer` | Negative | Positive |
 | Recording | `event.mseed_time_correction` | Estimated `t_gps - t_mer` | Negative | Positive |
-| Recording GeoCSV row | `TimeCorrectionApplied` | Estimated `t_gps - t_mer` | Negative | Positive |
-| Recording | `corrected_starttime` / GeoCSV `Time` | `t_mer + (t_gps - t_mer) = t_gps` | Moves earlier | Moves later |
+| Waveform GeoCSV row | `time_correction_applied` | Estimated `t_gps - t_mer` | Negative | Positive |
+| Recording | `corrected_starttime` / GeoCSV `derived_time` | `t_mer + (t_gps - t_mer) = t_gps` | Moves earlier | Moves later |
 | MiniSEED fixed header | Field 16: correction, in 0.0001-second ticks | `round_half_even(decimal(t_gps - t_mer) * 10000)` | Negative or zero after rounding | Positive or zero after rounding |
 
 **The GPS and Recording differences refer to different epochs. Their signs
@@ -33,7 +33,7 @@ The MiniSEED applied bit is separate from that numeric correction:
 
 A concrete sign check, illustrative rather than measured data:
 
-| Case | `t_mer` | `t_gps` | Manual drift | `ClockOffset` | `TimeCorrectionApplied` |
+| Case | `t_mer` | `t_gps` | Manual drift | `clock_offset` | `time_correction_applied` |
 | --- | --- | --- | --- | --- | --- |
 | MERMAID ahead | `12:00:02` | `12:00:00` | `-2 s` | `+2 s` | `-2 s` |
 | MERMAID behind | `11:59:58` | `12:00:00` | `+2 s` | `-2 s` | `+2 s` |
@@ -47,9 +47,11 @@ A concrete sign check, illustrative rather than measured data:
 
 ## Serialization and verification
 
-The GeoCSV writer reads ClockOffset from `gps.mseed_time_delay`,
-TimeCorrectionApplied from `event.mseed_time_correction`, and Recording Time
-from the already corrected source Stats. UTC strings have six fractional
+The GeoCSV writer reads `clock_offset` from `gps.mseed_time_delay`,
+`time_correction_applied` from `event.mseed_time_correction`, and waveform
+`derived_time` from the already corrected source Stats. GPS and pressure
+`measured_time` and crossing `derived_time` receive no clock correction.
+UTC strings have six fractional
 digits, rounded to the nearest microsecond with exact decimal ties to even.
 
 The MiniSEED helper rounds the decimal spelling of the supplied correction to

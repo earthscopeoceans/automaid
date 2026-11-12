@@ -19,8 +19,8 @@ from obspy import UTCDateTime
 import numpy as np
 
 import cycles
+import gps
 import setup
-import utils
 from collections import Counter
 
 
@@ -152,7 +152,7 @@ class GeoCSV:
 
         # Canonical GeoCSV 2.0 container and MERMAID application-profile comments.
         self.dataset_comment = ['# dataset: GeoCSV 2.0']
-        self.schema_comment = ['# schema: MERMAID GeoCSV v1.0.0-rc1']
+        self.schema_comment = ['# schema: MERMAID GeoCSV v1.0.0-rc2']
         self.created_comment = ['# created: ' + self.creation_datestr]
         self.description_comment = ['# description: metadata for drifting Mobile Earthquake Recording in Marine Areas by Independent Divers (MERMAID) hydrophones (http://earthscopeoceans.org)']
         self.producer_comment = ['# producer: automaid {} (https://github.com/earthscopeoceans/automaid, doi: 10.5281/zenodo.5057096) processes raw MERMAID data to generate miniSEED and GeoCSV files'.format(setup.get_version())]
@@ -167,6 +167,7 @@ class GeoCSV:
             # not put a comment between the two (i.e. "#field_unit: ,unitless")
             '# field_unit: unitless',
             'iso8601',
+            'iso8601',
             'unitless',
             'unitless',
             'unitless',
@@ -174,9 +175,10 @@ class GeoCSV:
             'unitless',
             'degrees_north',
             'degrees_east',
-            'meters',
+            'degrees_north',
+            'degrees_east',
             'mbar',
-            'unitless',
+            'mbar',
             'hertz',
             'unitless',
             'seconds',
@@ -187,6 +189,7 @@ class GeoCSV:
             # not put a comment between the two (i.e. "#field_type: ,string")
             '# field_type: string',
             'datetime',
+            'datetime',
             'string',
             'string',
             'string',
@@ -196,7 +199,8 @@ class GeoCSV:
             'float',
             'float',
             'float',
-            'string',
+            'float',
+            'float',
             'float',
             'integer',
             'float',
@@ -205,29 +209,25 @@ class GeoCSV:
 
         # Header line (single, first uncommented line after some comment(s))
         self.header = [
-            'MethodIdentifier',
-            'Time',
-            'Network',
-            'Station',
-            'Location',
-            'Channel',
-            'DataQuality',
-            'Latitude',
-            'Longitude',
-            'Elevation',
-            'WaterPressure',
-            'InstrumentDescription',
-            'SampleRate',
-            'SampleCount',
-            'ClockOffset',
-            'TimeCorrectionApplied'
+            'type',
+            'measured_time',
+            'derived_time',
+            'network',
+            'station',
+            'location',
+            'channel',
+            'data_quality',
+            'measured_latitude',
+            'measured_longitude',
+            'estimated_latitude',
+            'estimated_longitude',
+            'measured_pressure',
+            'estimated_pressure',
+            'sample_rate',
+            'sample_count',
+            'clock_offset',
+            'time_correction_applied'
         ]
-
-        self.MethodIdentifier_GPS = 'Measurement:Position:{:s}'.format(utils.get_gps_sensor_name().replace(' ', '_'))
-        self.MethodIdentifier_Pressure = 'Measurement:Pressure-Absolute:{:s}'.format(utils.get_absolute_pressure_sensor_name().replace(' ', '_'))
-        self.MethodIdentifier_Algorithm_Event = 'Derivation:Recording:automaid-{:s}'.format(setup.get_version())
-        self.MethodIdentifier_Crossing_Descent = 'Interpolation:Crossing-Descent:automaid-{:s}'.format(setup.get_version())
-        self.MethodIdentifier_Crossing_Ascent = 'Interpolation:Crossing-Ascent:automaid-{:s}'.format(setup.get_version())
 
     def get_comment_lines(self):
         comment_lines = [
@@ -282,10 +282,55 @@ class GeoCSV:
         d6 = lambda x: number(x, 6)
         absent = ''
 
-        def instrument(cycle):
-            if not isinstance(cycle.kinst, str) or not cycle.kinst.strip():
-                raise ValueError("Missing required MERMAID model")
-            return f'MERMAID_{cycle.kinst}'
+        def row(**values):
+            """Keep sparse row construction aligned with the declared columns."""
+            unknown = values.keys() - self.header
+            if unknown:
+                raise ValueError(f'Unknown GeoCSV fields: {sorted(unknown)}')
+            return [values.get(field, absent) for field in self.header]
+
+        def row_time(values):
+            return values[1] or values[2]
+
+        def pressure_location(cycle, date):
+            """Evaluate the existing dive trajectory at an uncorrected pressure time."""
+            if (not cycle.gps_valid4location_interp or
+                    any(marker in cycle.directory_name.casefold()
+                        for marker in ('iccycle', 'init'))):
+                return None
+
+            if cycle.descent_leave_surface_layer_date is not None and \
+                    cycle.ascent_reach_surface_layer_date is not None:
+                segments = [
+                    (cycle.descent_leave_surface_date, cycle.descent_leave_surface_layer_date,
+                     cycle.descent_leave_surface_loc, cycle.descent_leave_surface_layer_loc,
+                     cycle.gps_before_dive),
+                    (cycle.descent_leave_surface_layer_date, cycle.ascent_reach_surface_layer_date,
+                     cycle.descent_last_loc_before_event, cycle.ascent_first_loc_after_event,
+                     [cycle.descent_last_loc_before_event, cycle.ascent_first_loc_after_event]),
+                    (cycle.ascent_reach_surface_layer_date, cycle.ascent_reach_surface_date,
+                     cycle.ascent_reach_surface_layer_loc, cycle.ascent_reach_surface_loc,
+                     cycle.gps_after_dive),
+                ]
+            else:
+                segments = [(cycle.descent_leave_surface_date, cycle.ascent_reach_surface_date,
+                             cycle.descent_last_loc_before_event, cycle.ascent_first_loc_after_event,
+                             [cycle.descent_last_loc_before_event, cycle.ascent_first_loc_after_event])]
+
+            for start_time, end_time, start, end, sources in segments:
+                if start is None or end is None or start_time is None or end_time is None:
+                    continue
+                # The physical phase and retained anchor epochs must both
+                # bracket this pressure measurement.
+                if start_time <= date <= end_time and start.date <= date <= end.date:
+                    # Use original GPS fixes in the surface layers. A second
+                    # interpolation between their nearby derived endpoints
+                    # could spuriously trigger the 20 m stability fallback.
+                    location = gps.linear_interpolation(list(sources), date)
+                    if location.date == date:
+                        return location
+            return None
+
         check_float64(self.mixed_layer_depth_m)
 
         def format_gps_rows(cycle):
@@ -301,31 +346,16 @@ class GeoCSV:
             # Loop over all GPS instances and write single line for each
             gps_rows = []
             for gps in sorted(cycle.gps_list, key=lambda x: x.date):
-                gps_rows.append([
-                    self.MethodIdentifier_GPS,
-                    _format_utc(gps.date),
-                    cycle.network,
-                    cycle.kstnm,
-                    absent,
-                    absent,
-                    absent,
-                    d6(gps.latitude),
-                    d6(gps.longitude),
-                    absent,
-                    absent,
-                    instrument(cycle),
-                    absent,
-                    absent,
-                    number(gps.mseed_time_delay, 6, optional=True),
-                    absent
-                ])
+                gps_rows.append(row(type='gps', measured_time=_format_utc(gps.date),
+                                    network=cycle.network, station=cycle.kstnm,
+                                    measured_latitude=d6(gps.latitude),
+                                    measured_longitude=d6(gps.longitude),
+                                    clock_offset=number(gps.mseed_time_delay, 6, optional=True)))
 
             return gps_rows
 
         def format_press_rows(cycle):
-            """Format GeoCSV rows of mbar absolute pressure measurements
-
-            pressure metadata == 'Measurement'
+            """Format measured gauge pressure with optional modeled position.
 
             Args:
                 cycle (cycles.Cycle instance):
@@ -338,24 +368,12 @@ class GeoCSV:
             press_rows = []
             prev_pressure_row = []
             for pressure in sorted(cycle.pressure_mbar, key=lambda x:x[1]):
-                pressure_row = [
-                    self.MethodIdentifier_Pressure,
-                    _format_utc(pressure[1]),
-                    cycle.network,
-                    cycle.kstnm,
-                    absent,
-                    absent,
-                    absent,
-                    absent,
-                    absent,
-                    absent,
-                    d0(pressure[0]),
-                    instrument(cycle),
-                    absent,
-                    absent,
-                    absent,
-                    absent
-                ]
+                location = pressure_location(cycle, pressure[1])
+                pressure_row = row(type='pressure', measured_time=_format_utc(pressure[1]),
+                                   network=cycle.network, station=cycle.kstnm,
+                                   estimated_latitude=d6(location.latitude) if location else absent,
+                                   estimated_longitude=d6(location.longitude) if location else absent,
+                                   measured_pressure=d0(pressure[0]))
 
                 if pressure_row != prev_pressure_row:
                     press_rows.append(pressure_row)
@@ -387,25 +405,34 @@ class GeoCSV:
                        for marker in ('iccycle', 'init')):
                     continue
 
-                algorithm_row = [
-                    self.MethodIdentifier_Algorithm_Event,
-                    _format_utc(event.obspy_trace_stats["starttime"]),
-                    cycle.network,
-                    cycle.kstnm,
-                    ('  ' if event.obspy_trace_stats["location"] == ''
-                     else event.obspy_trace_stats["location"]),
-                    event.obspy_trace_stats["channel"],
-                    event.obspy_trace_stats.mseed["dataquality"],
-                    d6(event.obspy_trace_stats.sac["stla"]),
-                    d6(event.obspy_trace_stats.sac["stlo"]),
-                    '0',
-                    number(event.pressure_mbar, 0, optional=event.is_requested),
-                    instrument(cycle),
-                    d6(event.obspy_trace_stats["sampling_rate"]),
-                    event.obspy_trace_stats["npts"],
-                    absent,
-                    d6(event.mseed_time_correction)
-                ]
+                if _format_utc(event.obspy_trace_stats['starttime']) != _format_utc(event.corrected_starttime):
+                    raise ValueError(f'Waveform time differs from corrected event time: {event.processed_file_name}')
+                if cycle.descent_last_loc_before_event is None or cycle.ascent_first_loc_after_event is None:
+                    raise ValueError(f'Missing waveform location anchors: {event.processed_file_name}')
+                expected = pressure_location(cycle, event.corrected_starttime)
+                if expected is None:
+                    # Preserve the event calculation's retained-anchor fallback
+                    # or an exceptional recording outside the modeled dive span.
+                    expected = gps.linear_interpolation(
+                        [cycle.descent_last_loc_before_event, cycle.ascent_first_loc_after_event],
+                        event.corrected_starttime)
+                actual_lat = d6(event.obspy_trace_stats.sac['stla'])
+                actual_lon = d6(event.obspy_trace_stats.sac['stlo'])
+                if (d6(expected.latitude), d6(expected.longitude)) != (actual_lat, actual_lon):
+                    raise ValueError(f'Waveform location differs from dive interpolation: {event.processed_file_name}')
+
+                algorithm_row = row(
+                    type='waveform', derived_time=_format_utc(event.obspy_trace_stats['starttime']),
+                    network=cycle.network, station=cycle.kstnm,
+                    location=('  ' if event.obspy_trace_stats['location'] == ''
+                              else event.obspy_trace_stats['location']),
+                    channel=event.obspy_trace_stats['channel'],
+                    data_quality=event.obspy_trace_stats.mseed['dataquality'],
+                    estimated_latitude=actual_lat, estimated_longitude=actual_lon,
+                    measured_pressure=number(event.pressure_mbar, 0, optional=event.is_requested),
+                    sample_rate=d6(event.obspy_trace_stats['sampling_rate']),
+                    sample_count=event.obspy_trace_stats['npts'],
+                    time_correction_applied=d6(event.mseed_time_correction))
 
                 if event.is_requested:
                     req_algo_records.append((algorithm_row, event))
@@ -488,53 +515,73 @@ class GeoCSV:
                             hashlib.sha256(payload).hexdigest()))
 
         def validate_required_fields(rows):
-            """Ensure fields required by every GeoCSV data row are populated."""
+            """Check row-specific fields without conflating measured and derived values."""
 
-            required_fields = [
-                'MethodIdentifier',
-                'Time',
-                'Network',
-                'Station',
-                'InstrumentDescription',
-            ]
+            common = {'type', 'network', 'station'}
+            required_by_type = {
+                'gps': {'measured_time', 'measured_latitude', 'measured_longitude'},
+                'pressure': {'measured_time', 'measured_pressure'},
+                'downcrossing': {'derived_time', 'estimated_latitude',
+                                 'estimated_longitude', 'estimated_pressure',
+                                 'time_correction_applied'},
+                'upcrossing': {'derived_time', 'estimated_latitude',
+                               'estimated_longitude', 'estimated_pressure',
+                               'time_correction_applied'},
+                'waveform': {'derived_time', 'location', 'channel', 'data_quality',
+                             'estimated_latitude', 'estimated_longitude', 'sample_rate',
+                             'sample_count', 'time_correction_applied'},
+            }
+            optional_by_type = {
+                'gps': {'clock_offset'},
+                'pressure': {'estimated_latitude', 'estimated_longitude'},
+                'downcrossing': set(),
+                'upcrossing': set(),
+                'waveform': {'measured_pressure'},
+            }
             for row_number, row in enumerate(rows, start=1):
+                if len(row) != len(self.header):
+                    raise ValueError(f'GeoCSV row {row_number} has {len(row)} columns')
                 source = dict(zip(self.header, row))
-                required = list(required_fields)
-                subject = source['MethodIdentifier'].split(':')[1]
-                if subject == 'Position':
-                    required += ['Latitude', 'Longitude']
-                elif subject == 'Pressure-Absolute':
-                    required += ['WaterPressure']
-                elif subject == 'Recording':
-                    required += ['Location', 'Channel', 'DataQuality', 'Latitude', 'Longitude',
-                                 'Elevation', 'SampleRate', 'SampleCount', 'TimeCorrectionApplied']
-                    if source['DataQuality'] not in {'Q', 'D'}:
-                        raise ValueError('Recording DataQuality must be Q or D')
-                    if source['DataQuality'] == 'Q':
-                        required += ['WaterPressure']
-                    count = source['SampleCount']
+                kind = source['type']
+                if kind not in required_by_type:
+                    raise ValueError(f'Unsupported GeoCSV row type: {kind!r}')
+                required = common | required_by_type[kind]
+                if kind == 'waveform':
+                    if source['data_quality'] not in {'Q', 'D'}:
+                        raise ValueError('Waveform data_quality must be Q or D')
+                    if source['data_quality'] == 'Q':
+                        required |= {'measured_pressure'}
+                    count = source['sample_count']
                     if not isinstance(count, (int, np.integer)) or not 1 <= count < 2**63:
-                        raise ValueError('Recording SampleCount must be a positive Int64')
-                    if float(source['SampleRate']) <= 0:
-                        raise ValueError('Recording SampleRate must be positive')
-                else:
-                    required += ['Latitude', 'Longitude', 'WaterPressure']
+                        raise ValueError('Waveform sample_count must be a positive Int64')
+                    if float(source['sample_rate']) <= 0:
+                        raise ValueError('Waveform sample_rate must be positive')
                 for field in required:
                     value = source[field]
                     if (value is None or value == '' or
                             (isinstance(value, str) and not value.strip()
-                             and not (field == 'Location' and value == '  '))):
+                             and not (field == 'location' and value == '  '))):
                         raise ValueError(f"GeoCSV required field {field!r} is empty in data row {row_number}")
-                for field in ['Network', 'Station', 'InstrumentDescription']:
+                allowed = required | optional_by_type[kind]
+                if any(source[field] != absent for field in self.header if field not in allowed):
+                    raise ValueError(f'GeoCSV row {row_number} has a field outside {kind}')
+                if kind == 'pressure' and bool(source['estimated_latitude']) != bool(source['estimated_longitude']):
+                    raise ValueError('Pressure estimated coordinates must occur together')
+                for field in ['network', 'station']:
                     if not isinstance(source[field], str):
                         raise ValueError(f'GeoCSV {field} requires a source string')
-                for field, low, high in [('Latitude', -90, 90), ('Longitude', -180, 180)]:
+                for field, low, high in [('measured_latitude', -90, 90),
+                                         ('measured_longitude', -180, 180),
+                                         ('estimated_latitude', -90, 90),
+                                         ('estimated_longitude', -180, 180)]:
                     if source[field] != '' and not low <= float(source[field]) <= high:
                         raise ValueError(f'GeoCSV {field} is out of range')
-                if (subject != 'Pressure-Absolute' and source['WaterPressure'] != ''
-                        and float(source['WaterPressure']) < 0):
-                    raise ValueError('GeoCSV WaterPressure must be nonnegative')
-            for field in ['Network', 'Station', 'InstrumentDescription']:
+                if (kind == 'waveform' and source['measured_pressure'] != ''
+                        and float(source['measured_pressure']) < 0):
+                    raise ValueError('Waveform measured_pressure must be nonnegative')
+                if source['estimated_pressure'] != '' and float(source['estimated_pressure']) < 0:
+                    raise ValueError('GeoCSV estimated_pressure must be nonnegative')
+            for field in ['network', 'station']:
                 if len({row[self.header.index(field)] for row in rows}) > 1:
                     raise ValueError(f'GeoCSV requires one {field} per file')
 
@@ -551,29 +598,17 @@ class GeoCSV:
             thermo_algo_rows = []
             descent = cycle.descent_leave_surface_layer_loc
             ascent =  cycle.ascent_reach_surface_layer_loc
-            for thermo, identifier in [(descent, self.MethodIdentifier_Crossing_Descent),
-                                       (ascent, self.MethodIdentifier_Crossing_Ascent)]:
+            for thermo, kind in [(descent, 'downcrossing'), (ascent, 'upcrossing')]:
                 if thermo is None:
                     continue
 
-                thermo_algo_rows.append([
-                    identifier,
-                    _format_utc(thermo.date),
-                    cycle.network,
-                    cycle.kstnm,
-                    absent,
-                    absent,
-                    absent,
-                    d6(thermo.latitude),
-                    d6(thermo.longitude),
-                    absent,
-                    d0(self.mixed_layer_depth_m * 100),
-                    instrument(cycle),
-                    absent,
-                    absent,
-                    absent,
-                    absent
-                ])
+                thermo_algo_rows.append(row(
+                    type=kind, derived_time=_format_utc(thermo.date),
+                    network=cycle.network, station=cycle.kstnm,
+                    estimated_latitude=d6(thermo.latitude),
+                    estimated_longitude=d6(thermo.longitude),
+                    estimated_pressure=d0(self.mixed_layer_depth_m * 100),
+                    time_correction_applied=d6(0)))
 
             return thermo_algo_rows
 
@@ -604,17 +639,17 @@ class GeoCSV:
             # Interpolated upper mixed-layer boundary rows
             thermo_algo_rows.extend(format_algo_thermo_rows(cycle))
 
-        # The "Measurement:" rows are "GPS" and "Pressure"
+        # GPS and pressure retain measured epochs; crossings and waveforms use derived epochs.
         meas_rows = gps_rows + press_rows
 
         def in_deployment(row):
-            return self.begin is None or self.begin <= row[1] < self.end
+            return self.begin is None or self.begin <= row_time(row) < self.end
 
         gps_dates = sorted(row[1] for row in gps_rows if in_deployment(row))
 
         def in_window(row):
             return (in_deployment(row) and bool(gps_dates)
-                    and gps_dates[0] <= row[1] <= gps_dates[-1])
+                    and gps_dates[0] <= row_time(row) <= gps_dates[-1])
 
         # Keep rejected formatted rows for review, separately from normal output
         # and its producer clash evidence. Init/IcCycle derived rows were never collected.
@@ -641,16 +676,14 @@ class GeoCSV:
         geocsv_req_rows = meas_rows + req_algo_rows + thermo_algo_rows
         geocsv_det_req_rows = meas_rows + det_req_algo_rows + thermo_algo_rows
 
-        # These identifiers are required on every data row, independent of
-        # measurement or algorithm type.  Validate the superset before writing
-        # any of the three output variants.
+        # Validate source fields and provenance before writing output variants.
         validate_required_fields(geocsv_det_req_rows + outside_rows)
 
         # Sort the combined rows by date
-        geocsv_det_req_rows.sort(key=lambda x: x[1])
-        geocsv_det_rows.sort(key=lambda x: x[1])
-        geocsv_req_rows.sort(key=lambda x: x[1])
-        outside_rows.sort(key=lambda x: x[1])
+        geocsv_det_req_rows.sort(key=row_time)
+        geocsv_det_rows.sort(key=row_time)
+        geocsv_req_rows.sort(key=row_time)
+        outside_rows.sort(key=row_time)
 
         # Open as as 'wb' in Python 2 rather than 'w' with newline='' in Python 3
         # https://docs.python.org/2/library/csv.html#csv.writer
@@ -675,20 +708,20 @@ class GeoCSV:
                     csvfile.write(self.delimiter.join(comment_fields) + self.lineterminator)
                 csvwriter.writerow(self.header)
 
-            # Write formatted rows, preserving canonical blank Location spelling.
+            # Write formatted rows, preserving canonical blank location spelling.
             for csvfile, rows in [(csvfile_det, geocsv_det_rows),
                                   (csvfile_req, geocsv_req_rows),
                                   (csvfile_det_req, geocsv_det_req_rows),
                                   (csvfile_outside, outside_rows)]:
                 for row in rows:
                     # Keep standard CSV escaping and make the defined blank
-                    # Location visible as the canonical quoted two-space cell.
+                    # location visible as the canonical quoted two-space cell.
                     cells = []
                     for field, value in zip(self.header, row):
                         cell = io.StringIO(newline='')
                         csv.writer(cell, lineterminator=self.lineterminator).writerow([value])
                         encoded = '' if value == '' else cell.getvalue()[:-len(self.lineterminator)]
-                        cells.append('"  "' if field == 'Location' and value == '  ' else encoded)
+                        cells.append('"  "' if field == 'location' and value == '  ' else encoded)
                     csvfile.write(self.delimiter.join(cells) + self.lineterminator)
 
         print("Wrote: {}".format(csvfile_det.name))
@@ -713,7 +746,7 @@ class GeoCSV:
 
                 # (1) Verify all dates sorted (skip comments and single header line)
                 # NB, this assumes all comments grouped and contiguous at top of file
-                dates = [row[1] for row in rows[len_comment+1:]]
+                dates = [row[1] or row[2] for row in rows[len_comment+1:]]
                 if dates == sorted(dates):
                     print("Verified: {} rows sorted".format(csvfile.name))
                 else:
