@@ -376,7 +376,7 @@ class Cycle:
                 self.last_p2t_log_name = log.log_name
                 break
 
-        # Compile all water presure (100 mbar = 1 dbar = 1 m)
+        # Compile gauge water-pressure observations in mbar.
         # Run some verifications like we do for GPS to check for redudancies?
         # I do not know if pressure values are repeated over fragmented LOGs...
         # DO NOT DO: `('\[PRESS ,\s*\d+\]P\s*(\+?\-?\d+)mbar', self.cycle_content)`
@@ -593,7 +593,7 @@ class Cycle:
             return
 
         # Add pressure values to the graph
-        p_val = [-int(p[0])/100. for p in pressure]
+        p_val = [-utils.pressure_mbar_to_depth_m(int(p[0])) for p in pressure]
         p_date = [p[1] for p in pressure]
 
         # Plotly you can implement WebGL with Scattergl() in place of Scatter()
@@ -915,6 +915,9 @@ class Cycle:
         layer, etc.), including `self.events[*].station_loc`, which is required
         to write the out .sac and .mseed files.
 
+        The configured mixed-layer depth is converted to mbar with the shared
+        pressure-depth approximation before comparison with measured pressure.
+
         '''
         if not self.gps_valid4location_interp:
             if preliminary_location_ok:
@@ -948,16 +951,13 @@ class Cycle:
         # Find when & where the float reached the surface
         self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive, \
                                                                   self.ascent_reach_surface_date)
-        # Find pressure values
+        # Compare the measured and configured boundary pressures in mbar.
         pressure_date = [p[1] for p in self.pressure_mbar]
-
-        # Convert pressure values from mbar to dbar
-        # For our purposes it it fine to assume that 1 dbar = 1 m = 100 mbar
-        # (NOT 1 m = 101 mbar as stated in MERMAID manual Réf : 452.000.852 Version 00)
-        pressure_dbar = [int(p[0])/100. for p in self.pressure_mbar]
+        pressure_mbar = [int(p[0]) for p in self.pressure_mbar]
+        mixed_layer_pressure_mbar = utils.depth_m_to_pressure_mbar(mixed_layer_depth_m)
 
         # Determine if using one- or two-layer ocean.
-        if max(pressure_dbar) > mixed_layer_depth_m and not self.emergency_triggers:
+        if max(pressure_mbar) > mixed_layer_pressure_mbar and not self.emergency_triggers:
             # Two-layer ocean case (surface and mixed)
             # Interpolate for location that MERMAID passed from the surface layer to the mixed layer
             # on the descent
@@ -966,26 +966,26 @@ class Cycle:
             # mixed layer -- this assumes we don't bob in and out of the mixed layer, and it only
             # retains the date of the first crossing
             i = 0
-            while pressure_dbar[i] < mixed_layer_depth_m and i < len(pressure_dbar):
+            while pressure_mbar[i] < mixed_layer_pressure_mbar and i < len(pressure_mbar):
                 i += 1
 
             descent_date_in_mixed_layer = pressure_date[i]
-            descent_depth_in_mixed_layer = pressure_dbar[i]
+            descent_mixed_pressure_mbar = pressure_mbar[i]
 
             if i > 0:
                 descent_date_in_surface_layer = pressure_date[i-1]
-                descent_depth_in_surface_layer = pressure_dbar[i-1]
+                descent_surface_pressure_mbar = pressure_mbar[i-1]
             else:
                 # On the descent: we have pressure readings in the mixed layer but not in the
                 # surface layer -- just interpolate using the last-known (diving) location
                 descent_date_in_surface_layer = self.descent_leave_surface_date
-                descent_depth_in_surface_layer = 0
+                descent_surface_pressure_mbar = 0
 
             # Compute when the float leaves the surface layer and reaches the mixed layer
-            descent_vel = (descent_depth_in_mixed_layer - descent_depth_in_surface_layer) \
-                          / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
-            descent_dist_to_mixed_layer = mixed_layer_depth_m - descent_depth_in_surface_layer
-            descent_time_to_mixed_layer = descent_dist_to_mixed_layer / descent_vel
+            descent_pressure_rate = (descent_mixed_pressure_mbar - descent_surface_pressure_mbar) \
+                                    / (descent_date_in_mixed_layer - descent_date_in_surface_layer)
+            descent_pressure_to_mixed_layer = mixed_layer_pressure_mbar - descent_surface_pressure_mbar
+            descent_time_to_mixed_layer = descent_pressure_to_mixed_layer / descent_pressure_rate
             self.descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
             self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, \
                                                                             self.descent_leave_surface_layer_date)
@@ -998,28 +998,28 @@ class Cycle:
             # Loop through pressure readings until we've exited mixed layer and passed into the
             # surface layer -- this assumes we don't bob in and out of the mixed layer, and it only
             # retains the date of the final crossing
-            i = len(pressure_dbar)-1
-            while pressure_dbar[i] < mixed_layer_depth_m and i > 0:
+            i = len(pressure_mbar)-1
+            while pressure_mbar[i] < mixed_layer_pressure_mbar and i > 0:
                 i -= 1
 
             ascent_date_in_mixed_layer = pressure_date[i]
-            ascent_depth_in_mixed_layer = pressure_dbar[i]
+            ascent_mixed_pressure_mbar = pressure_mbar[i]
 
-            if i < len(pressure_dbar)-1:
+            if i < len(pressure_mbar)-1:
                 ascent_date_in_surface_layer = pressure_date[i+1]
-                ascent_depth_in_surface_layer = pressure_dbar[i+1]
+                ascent_surface_pressure_mbar = pressure_mbar[i+1]
             else:
                 # On the ascent: we have pressure readings in the mixed layer but not the surface
                 # layer -- just interpolate using next-know (surfacing) location
                 ascent_date_in_surface_layer = self.ascent_reach_surface_date
-                ascent_depth_in_surface_layer = 0
+                ascent_surface_pressure_mbar = 0
 
             # Compute when the float leaves the mixed layer and reaches the surface (flipped
             # subtraction order so that ascent velocity is positive)
-            ascent_vel = (ascent_depth_in_mixed_layer - ascent_depth_in_surface_layer) \
-                         / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
-            ascent_dist_to_mixed_layer = ascent_depth_in_mixed_layer - mixed_layer_depth_m
-            ascent_time_to_mixed_layer = ascent_dist_to_mixed_layer / ascent_vel
+            ascent_pressure_rate = (ascent_mixed_pressure_mbar - ascent_surface_pressure_mbar) \
+                                   / (ascent_date_in_surface_layer - ascent_date_in_mixed_layer)
+            ascent_pressure_to_mixed_layer = ascent_mixed_pressure_mbar - mixed_layer_pressure_mbar
+            ascent_time_to_mixed_layer = ascent_pressure_to_mixed_layer / ascent_pressure_rate
             self.ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
             self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive, \
                                                                            self.ascent_reach_surface_layer_date)

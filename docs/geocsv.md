@@ -58,7 +58,7 @@ descriptions and the former sea-level Elevation field are absent from rc2.
 | --- | --- |
 | `gps` | `measured_time`, measured coordinates, optional `clock_offset` |
 | `pressure` | `measured_time`, `measured_pressure`, optional estimated coordinates |
-| `downcrossing`, `upcrossing` | `derived_time`, estimated coordinates and pressure, zero `time_correction_applied` |
+| `downcrossing`, `upcrossing` | `derived_time`, estimated coordinates and pressure; `time_correction_applied` is empty |
 | `waveform` | `derived_time`, estimated coordinates, `location`, `channel`, `data_quality`, `sample_rate`, `sample_count`, `time_correction_applied`; measured pressure is required for DET and optional for REQ |
 
 Every row retains its source `network` and `station`. Blank cells indicate
@@ -73,15 +73,19 @@ records discrepancies whose cause remains unresolved.
 Pressure rows preserve finite signed gauge readings as `measured_pressure` in
 mbar. DET waveform rows preserve their source pressure in the same column;
 REQ waveform pressure can be absent. Crossing `estimated_pressure` is a
-configured boundary proxy, not a sensor reading. Pressure divided by 100
-approximates station depth in metres positive down. Waveform and crossing
-pressures remain nonnegative. No atmospheric, density, geoid or tidal
-correction is inferred.
+configured boundary proxy, not a sensor reading. Shared conversions in
+[`utils.py`](../scripts/utils.py) use the exact 100 mbar per dbar relation and
+the explicit approximation that 1 dbar corresponds to 1 m of water depth.
+The same helpers supply the mixed-layer pressure threshold, SAC receiver depth
+and dive-plot depth.
+Waveform and crossing pressures remain nonnegative. No atmospheric, density,
+geoid or tidal correction is inferred.
 
 The configured upper mixed-layer boundary is approximately 50 m deep; it is
 not detected from a measured temperature profile. Descent exits its base and
-ascent enters it. Crossing `estimated_pressure` is configured depth multiplied by 100,
-a boundary proxy rather than a sensor measurement. The GPS interpolation
+ascent enters it. Crossing `estimated_pressure` converts the configured depth
+to mbar using that shared approximation and is a boundary proxy rather than a
+sensor measurement. The GPS interpolation
 stability fallback can retain an anchor position and its epoch instead of a
 crossing estimate. Crossing `derived_time` therefore need not be the physical crossing
 epoch. Preserve this behavior and the existing interpolation model. Faster horizontal
@@ -180,7 +184,7 @@ the proposed Pipatprathanporn & Simon (2022) citation. Identify the incomplete
 Ivy reference and verify Nolet et al. (2024). The supplied MERMAID manual
 reference 452.000.852, Version 00, reportedly uses 101 mbar per metre;
 independent verification is pending. Current SAC mapping follows automaid's
-100 mbar per metre approximation for MERMAID receiver (station) depth in SAC
+shared pressure-to-depth approximation for MERMAID receiver (station) depth in SAC
 `stdp`. This question concerns the station-depth approximation; earthquake-source
 metadata and `ev*` projections remain outside package scope.
 

@@ -21,6 +21,7 @@ import numpy as np
 import cycles
 import gps
 import setup
+import utils
 from collections import Counter
 
 
@@ -438,14 +439,12 @@ class GeoCSV:
                     req_algo_records.append((algorithm_row, event))
 
                 else:
-                    # Sanity checks just to make sure all "depth" units in their expected mbar
-                    # The manual says 1 m = 101 mbar; automaid has always assumed 1 m = 1 dbar = 100 mbar
-                    # (MERMAID manual Réf : 452.000.852 Version 00)
-                    if event.pressure_dbar * 100 != event.pressure_mbar:
-                        raise ValueError("Expected 100 mbar to equal 1 dbar")
+                    # Check the shared pressure-unit and receiver-depth conversions.
+                    if utils.pressure_dbar_to_mbar(event.pressure_dbar) != event.pressure_mbar:
+                        raise ValueError("DET event pressure unit conversion is inconsistent")
 
-                    if event.pressure_dbar != event.obspy_trace_stats.sac["stdp"]:
-                        raise ValueError("`stdp` (roughly meters) should be the dbar pressure from .MER")
+                    if utils.pressure_dbar_to_depth_m(event.pressure_dbar) != event.obspy_trace_stats.sac["stdp"]:
+                        raise ValueError("`stdp` should match the approximate depth from .MER pressure")
 
                     det_algo_records.append((algorithm_row, event))
 
@@ -522,11 +521,9 @@ class GeoCSV:
                 'gps': {'measured_time', 'measured_latitude', 'measured_longitude'},
                 'pressure': {'measured_time', 'measured_pressure'},
                 'downcrossing': {'derived_time', 'estimated_latitude',
-                                 'estimated_longitude', 'estimated_pressure',
-                                 'time_correction_applied'},
+                                 'estimated_longitude', 'estimated_pressure'},
                 'upcrossing': {'derived_time', 'estimated_latitude',
-                               'estimated_longitude', 'estimated_pressure',
-                               'time_correction_applied'},
+                               'estimated_longitude', 'estimated_pressure'},
                 'waveform': {'derived_time', 'location', 'channel', 'data_quality',
                              'estimated_latitude', 'estimated_longitude', 'sample_rate',
                              'sample_count', 'time_correction_applied'},
@@ -607,8 +604,7 @@ class GeoCSV:
                     network=cycle.network, station=cycle.kstnm,
                     estimated_latitude=d6(thermo.latitude),
                     estimated_longitude=d6(thermo.longitude),
-                    estimated_pressure=d0(self.mixed_layer_depth_m * 100),
-                    time_correction_applied=d6(0)))
+                    estimated_pressure=d0(utils.depth_m_to_pressure_mbar(self.mixed_layer_depth_m))))
 
             return thermo_algo_rows
 

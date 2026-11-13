@@ -261,12 +261,10 @@ class Event:
 
                 # The "depth" of an event is actually units of dbar in both .LOG and .MER
                 # (not mbar, like other pressures in the .LOG)
-                # We assume 1 dbar = 1 m = 100 mbar
-                # (NOT 1 m = 101 mbar as stated in MERMAID manual Réf : 452.000.852 Version 00)
                 self.pressure_dbar = int(re.findall(b" PRESSURE=(-?\d+)", self.mer_binary_header)[0])
-                self.pressure_mbar = self.pressure_dbar * 100
+                self.pressure_mbar = utils.pressure_dbar_to_mbar(self.pressure_dbar)
                 self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S.%f")
-                self.depth = self.pressure_dbar # ~= meters
+                self.depth = utils.pressure_dbar_to_depth_m(self.pressure_dbar)
                 self.temperature = int(re.findall(b" TEMPERATURE=(-?\d+)", self.mer_binary_header)[0])
                 self.criterion = float(re.findall(b" CRITERION=(\d+\.\d+)", self.mer_binary_header)[0])
                 self.snr = float(re.findall(b" SNR=(\d+\.\d+)", self.mer_binary_header)[0])
@@ -944,7 +942,7 @@ class Event:
         # REQ events do not record their depth at the time of acquisition, and because the onboard
         # detection algorithm was not triggered there are no trigger parameters to report
         if not self.is_requested:
-            stats.sac["stdp"] = self.depth # dbar ~= meters (from external pressure sensor; down is positive)
+            stats.sac["stdp"] = self.depth # Approximate receiver depth; positive down
             stats.sac["user0"] = self.snr
             stats.sac["user1"] = self.criterion
             stats.sac["user2"] = self.trig # sample index

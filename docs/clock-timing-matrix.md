@@ -51,6 +51,8 @@ The GeoCSV writer reads `clock_offset` from `gps.mseed_time_delay`,
 `time_correction_applied` from `event.mseed_time_correction`, and waveform
 `derived_time` from the already corrected source Stats. GPS and pressure
 `measured_time` and crossing `derived_time` receive no clock correction.
+Crossing `time_correction_applied` cells are empty because no correction
+operation is recorded for those rows.
 UTC strings have six fractional
 digits, rounded to the nearest microsecond with exact decimal ties to even.
 

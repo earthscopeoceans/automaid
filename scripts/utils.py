@@ -31,6 +31,33 @@ import setup
 version = setup.get_version()
 
 
+# MERMAID pressure-depth convention: 1 dbar = 100 mbar exactly, while 1 dbar
+# is approximated as 1 m of water depth. This is not a hydrostatic calculation;
+# it applies no density, gravity, or tide correction.
+MBAR_PER_DBAR = 100
+METERS_PER_DBAR = 1
+
+
+def pressure_dbar_to_mbar(pressure_dbar):
+    """Convert decibars to millibars."""
+    return pressure_dbar * MBAR_PER_DBAR
+
+
+def pressure_dbar_to_depth_m(pressure_dbar):
+    """Approximate depth in metres from gauge pressure in decibars."""
+    return pressure_dbar * METERS_PER_DBAR
+
+
+def pressure_mbar_to_depth_m(pressure_mbar):
+    """Approximate depth in metres from gauge pressure in millibars."""
+    return pressure_mbar / MBAR_PER_DBAR * METERS_PER_DBAR
+
+
+def depth_m_to_pressure_mbar(depth_m):
+    """Approximate gauge pressure in millibars from depth in metres."""
+    return depth_m / METERS_PER_DBAR * MBAR_PER_DBAR
+
+
 def write_ctd_profile(path, pressure, temperature, salinity, gps_fix=None):
     """Write a temporary CTD profile with post-profile GPS metadata."""
     with open(path, mode="w", newline="") as ctd_file:
