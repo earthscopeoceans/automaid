@@ -9,8 +9,8 @@ explicitly when writing `geo_DET.csv`, `geo_REQ.csv`, and `geo_DET_REQ.csv`.
 
 ## What is compared
 
-The deduplication candidate is an identical rendered GeoCSV `Algorithm(event)`
-row.  For every such candidate, automaid compares the raw bytes extracted from
+The deduplication candidate is an identical rendered GeoCSV
+`waveform` row.  For every such candidate, automaid compares the raw bytes extracted from
 the event's `<EVENT>` block:
 
 ```python

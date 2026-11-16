@@ -128,7 +128,7 @@ similar to note 2 below, this should also probably be validated...
 
 ## GeoCSV metadata
 
-The writer emits [MERMAID GeoCSV schema 1.0.0](../mermaid-geocsv/docs/format-spec.md):
+The writer emits [MERMAID GeoCSV schema 1.0.0-rc2](../mermaid-geocsv/docs/format-spec.md):
 16 fixed columns, five method identifiers, six-digit UTC timestamps, empty
 missing cells and explicit zero Recording Elevation. Recording times already
 include their clock correction. See [GeoCSV production](docs/geocsv.md) for

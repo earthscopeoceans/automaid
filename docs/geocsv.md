@@ -2,10 +2,8 @@
 
 # MERMAID GeoCSV production
 
-Automaid's development writer emits MERMAID GeoCSV `1.0.0-rc2`. The
-[consumer format specification](../../mermaid-geocsv/docs/format-spec.md)
-still describes the published `1.0.0-rc1` layout; downstream support for rc2
-is pending. Schema and software versions are independent. The producer header
+Automaid emits [MERMAID GeoCSV 1.0.0-rc2](../../mermaid-geocsv/docs/format-spec.md).
+Schema and software versions are independent. The producer header
 records the automaid version from `scripts/setup.py`.
 
 ## Workflow and ownership
@@ -159,7 +157,7 @@ Stored microseconds and six-decimal rates do not independently establish
 measurement accuracy. Rate computed from ObsPy's rate-derived endtime is
 not independent evidence.
 
-The [fixture evidence](../../mermaid-geocsv/data/fixtures/association/README.md#tolerance-evidence)
+The [fixture evidence](../../mermaid-geocsv/data/fixtures/schema-1.0.0-rc2/README.md)
 supports the current agreement criterion for the checked sample. It does not
 settle raw-MER precision across producers and instrument generations. Reading
 preserves supplied rates; upstream corrections belong in the producer.
@@ -231,27 +229,13 @@ edited by the publisher. Regeneration needs a new creation identity and fresh
 validation evidence. Source changes do not regenerate protected processed
 products or establish new corpus acceptance.
 
-The [full-corpus rc1 testing publication](../../mermaid-publisher/docs/geocsv/full-corpus-rc1-publication.md)
-records fresh exhaustive acceptance of the canonical v4.10.0 output. It binds
-the exact input revision and payload bytes; previous acceptance reports do not
-apply to regenerated products.
-
-For historical rc1 output, the publisher treats a producer revision change
-alone in a Recording or crossing MethodIdentifier as provenance. This rule
-does not describe the rc2 layout change.
-
 ## PPHC header and testing schema
 
 The development writer emits dataset-first GeoCSV 2.0 with `schema: MERMAID
 GeoCSV v1.0.0-rc2`, padded comment keywords, unquoted comma/LF declarations and
 producer/publisher/hoster/consumer project descriptions. `references` is reserved
-for the describing paper and omitted until its DOI exists. Final schema 1.0.0
-is reserved for paper publication. The rc2 writer is not yet paired with an
-updated downstream reader or publisher.
+for the describing paper and omitted until its DOI exists. The rc2 workflow uses consumer 0.30.0
+and publisher 0.9.0 with validation report schema 6.
 
-Testing latest still serves the full-corpus rc1 snapshot
-`2026-11-05T23:41:47.235000Z`. Its consumer and publisher contracts do not
-validate or publish the rc2 layout. Older retained snapshots keep their
-original headers.
-Canonical sources remain read-only. Testing publication does not authorize
-production activation or retirement.
+Create a fresh candidate from the completed processed rebuild and validate all
+original waveform pairs using the [publisher workflow](../../mermaid-publisher/docs/geocsv/workflow.md).
