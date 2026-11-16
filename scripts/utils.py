@@ -1,13 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-# Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v3.10+)
-#
-# Developer: Joel D. Simon (JDS)
-# Original author: Sebastien Bonnieux (SB)
-# Contact: jdsimon@bathymetrix.com
-# Last modified by JDS: 06-May-2026
-# Python Python 3.10.15, Darwin Kernel Version 23.6.0
 
 import re
 import sys
@@ -266,27 +257,26 @@ def location(event):
     from the header in .MER files. "-1" means return raw 40 Hz data.  Otherwise
     data frequencies vary based on the number of scales as follows:
 
+    <sta>.<net>.10.BDH ->   40 Hz -> -1 scales (native instrument sampling rate; raw int32 in MER; no wavelet transformations)
     <sta>.<net>.00.BDH ->   20 Hz ->  5 scales (default; primary data assigned to location "00")
-    <sta>.<net>.10.BDH ->   40 Hz -> -1 scales (native instrument sampling rate)
     <sta>.<net>.20.BDH ->   10 Hz ->  4 scales
-
-    <sta>.<net>.00.MDH ->    5 Hz ->  3 scales (mid period, so back to "00" primary loc)
-    <sta>.<net>.10.MDH ->  2.5 Hz ->  2 scales
-    <sta>.<net>.20.MDH -> 1.25 Hz ->  1 scale
+    <sta>.<net>.30.MDH ->    5 Hz ->  3 scales (mid period, so back to "00" primary loc)
+    <sta>.<net>.40.MDH ->  2.5 Hz ->  2 scales
+    <sta>.<net>.50.MDH -> 1.25 Hz ->  1 scale
     """
 
     # Use scales to determine location code (via their resulting sampling
-    # frequency) but first ensure scales applied to 40 Hz data.
+    # frequency) but first ensure scales applied to nominal 40 Hz data.
     fs = round(event.measured_fs)
     if fs != 40:
         raise ValueError(f"Expected rounded 'TRUE_SAMPLE_FREQ` (in .MER) to be 40 Hz, got {fs} Hz")
 
-    scale_dict = { "5": "00",
-                  "-1": "10",
-                   "4": "20",
-                   "3": "00",
-                   "2": "10",
-                   "1": "20"}
+    scale_dict = {"-1": "10",
+                  "5": "00",
+                  "4": "20",
+                  "3": "30",
+                  "2": "40",
+                  "1": "50"}
     loc = scale_dict.get(event.scales)
     if loc is None:
         raise ValueError(f"Unexpected number of scales: {event.scales}")
