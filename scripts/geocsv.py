@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-#
-# Part of automaid -- a Python package to process MERMAID files
-# pymaid environment (Python v3.10)
-#
-# Developer: Joel D. Simon (JDS)
-# Contact: jdsimon@alumni.princeton.edu | joeldsimon@gmail.com
 
 import csv
 import hashlib
@@ -155,11 +149,11 @@ class GeoCSV:
         self.dataset_comment = ['# dataset: GeoCSV 2.0']
         self.schema_comment = ['# schema: MERMAID GeoCSV v1.0.0-rc2']
         self.created_comment = ['# created: ' + self.creation_datestr]
-        self.description_comment = ['# description: metadata for drifting Mobile Earthquake Recording in Marine Areas by Independent Divers (MERMAID) hydrophones (http://earthscopeoceans.org)']
-        self.producer_comment = ['# producer: automaid {} (https://github.com/earthscopeoceans/automaid, doi: 10.5281/zenodo.5057096) processes raw MERMAID data to generate miniSEED and GeoCSV files'.format(setup.get_version())]
-        self.publisher_comment = ['# publisher: mermaid-publisher (https://github.com/bathymetrix/mermaid-publisher) validates and publishes immutable metadata snapshots']
-        self.hoster_comment = ['# hoster: bathymetrix (https://bathymetrix.com) provides read-only snapshot hosting']
-        self.consumer_comment = ['# consumer: mermaid-geocsv (https://github.com/bathymetrix/mermaid-geocsv) fetches and parses metadata, associates it with waveforms, and optionally creates SAC station headers']
+        self.description_comment = ['# description: Mobile Earthquake Recorder in Marine Areas by Independent Divers (MERMAID) hydrophone metadata (http://earthscopeoceans.org)']
+        self.producer_comment = ['# producer: automaid {} (https://github.com/earthscopeoceans/automaid, doi: 10.5281/zenodo.5057096) creates GeoCSVs from MERMAID data'.format(setup.get_version())]
+        self.publisher_comment = ['# publisher: mermaid-publisher (https://github.com/bathymetrix/mermaid-publisher) validates and publishes immutable GeoCSV snapshots']
+        self.hoster_comment = ['# hoster: bathymetrix (https://bathymetrix.com) provides read-only GeoCSV snapshot web hosting']
+        self.consumer_comment = ['# consumer: mermaid-geocsv (https://github.com/bathymetrix/mermaid-geocsv) fetches, parses, and associates GeoCSV snapshots with ObsPy objects']
         # The paper's references declaration is omitted until its DOI exists.
         self.lineterminator_comment = [r'# lineterminator: \n']
         self.delimiter_comment = ['# delimiter: ,']
