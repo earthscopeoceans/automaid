@@ -9,7 +9,8 @@
 # Last tested: Python 3.10.13, 22.04.3-Ubuntu
 #
 # Developer: Joel D. Simon (JDS) <jdsimon@bathymetrix.com>
-# Last modified: 29-Jun-2026
+# Last modified: 18-Nov-2026
+# Last tested: Python 3.10.15, Darwin 23.6.0
 
 import os
 import re
@@ -450,8 +451,8 @@ def _run_processing():
         events.write_obspy_trace_stats(cycle_logs, creation_datestr, processed_path, mfloat_path)
 
         # Write GeoCSV files
-        geocsv_meta = geocsv.GeoCSV(cycle_logs, creation_datestr, mixed_layer_depth_m,
-                                  begin=begin, end=end)
+        geocsv_meta = geocsv.GeoCSV(mfloat, cycle_logs, creation_datestr,
+                                    mixed_layer_depth_m, begin=begin, end=end)
         geocsv_meta.write(os.path.join(processed_path, mfloat_path, 'geo.csv'))
 
         # Clean directories

@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+#
+# Developer: Joel D. Simon (JDS) <jdsimon@bathymetrix.com>
+# Last modified: 18-Nov-2026
+# Last tested: Python 3.10.15, Darwin 23.6.0
 
 import csv
 import hashlib
@@ -111,6 +115,7 @@ class GeoCSV:
     """Organize MERMAID metadata and write them to GeoCSV format
 
     Args:
+        station_name (string): Instrument serial number, e.g., 452.112-N-01
         cycles (list): List of cycles.Cycle instances
         creation_datestr (str): File-creation datestr as "YYYY-MM-DDTHH:MM:SS.ffffffZ"
         mixed_layer_depth_m (float): Configured upper mixed-layer depth in meters positive down (def: np.float64('nan'))
@@ -121,6 +126,7 @@ class GeoCSV:
     """
 
     def __init__(self,
+                 station_name,
                  cycle_list,
                  creation_datestr = None,
                  mixed_layer_depth_m = np.float64('nan'),
@@ -130,6 +136,7 @@ class GeoCSV:
         if not all(isinstance(cycle, cycles.Cycle) for cycle in cycle_list):
             raise ValueError('Input `cycle_list` must be list of `cycles.Cycle` instances')
 
+        self.station_name = station_name
         self.cycles = cycle_list
         self.creation_datestr = _format_utc(
             datetime.datetime.now(pytz.UTC) if creation_datestr is None else creation_datestr)
@@ -149,6 +156,7 @@ class GeoCSV:
         self.dataset_comment = ['# dataset: GeoCSV 2.0']
         self.schema_comment = ['# schema: MERMAID GeoCSV v1.0.0-rc2']
         self.created_comment = ['# created: ' + self.creation_datestr]
+        self.instrument_comment = ['# instrument: ' + self.station_name]
         self.description_comment = ['# description: Mobile Earthquake Recorder in Marine Areas by Independent Divers (MERMAID) hydrophone metadata (http://earthscopeoceans.org)']
         self.producer_comment = ['# producer: automaid {} (https://github.com/earthscopeoceans/automaid, doi: 10.5281/zenodo.5057096) creates GeoCSVs from MERMAID data'.format(setup.get_version())]
         self.publisher_comment = ['# publisher: mermaid-publisher (https://github.com/bathymetrix/mermaid-publisher) validates and publishes immutable GeoCSV snapshots']
@@ -229,6 +237,7 @@ class GeoCSV:
             self.dataset_comment,
             self.schema_comment,
             self.created_comment,
+            self.instrument_comment,
             self.description_comment,
             self.producer_comment,
             self.publisher_comment,
