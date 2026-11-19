@@ -88,6 +88,15 @@ run restores owner write permission to an existing processed tree before
 processing and locks it again after successful completion. See
 [processed output permissions](docs/processed-output-permissions.md).
 
+Existing-output handling needs revision. Several writers silently skip an
+output when its target filename already exists, without checking whether the
+source data or processing have changed. This can retain stale waveforms while
+metadata are regenerated. Until this behavior is revised, generate release
+candidates in a fresh processed output directory. The planned improvement is
+to record every skipped output with its path and reason, including existing-file
+skips and scientific exclusions, and replace filename existence as the sole
+criterion for reusing an output.
+
 The "main.py" file can be edited to select some options:
 
 * A date range between which to process the data can be chosen with

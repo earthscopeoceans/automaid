@@ -47,3 +47,4 @@ make automaid an Argo DAC, GDAC, or format-compliant producer.
 - [Production and workflow](geocsv.md): outputs, scientific sources, deduplication and ownership.
 - [Payload schema](../../mermaid-geocsv/docs/format-spec.md): exact header, fields, missingness and examples.
 - [Clock timing matrix](clock-timing-matrix.md): signs, source mappings, correction serialization and limitations.
+- [Scientific release review](scientific-release-review.md): queued fixes, known issues, open questions and retained clock distributions.

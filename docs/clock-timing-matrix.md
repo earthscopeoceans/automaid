@@ -84,9 +84,10 @@ See [producer source rules](geocsv.md) and the publisher's
 [artifact-bound verification records](../../mermaid-publisher/docs/geocsv/evidence.md).
 
 The cycle GPS eligibility guard compares signed `clockdrift < 5` and does not
-apply an absolute-value bound. Its treatment of large negative offsets remains
-a scientific review question; do not reinterpret it as `abs(clockdrift) < 5`
-or change it during documentation work.
+apply an absolute-value bound. Arbitrarily large finite negative offsets pass
+that comparison. A symmetric magnitude bound is a queued fix; its numerical
+limit is under review using the retained distributions. See the
+[scientific release review](scientific-release-review.md) for pending decisions.
 
 ## Observed P0008 clock offset anomalies
 
