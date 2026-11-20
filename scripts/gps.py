@@ -12,6 +12,7 @@
 
 import os
 import re
+import math
 
 from obspy import UTCDateTime
 from obspy.geodetics.base import gps2dist_azimuth
@@ -329,6 +330,23 @@ def valid_clockfreq(GPS_object):
     else:
         return False
 
+def clock_anchor_rejection_reasons(fix):
+    """Explain why a selected GPS synchronization cannot anchor clock correction."""
+    reasons = []
+    if fix.clockfreq is None or not math.isfinite(fix.clockfreq):
+        reasons.append('missing_or_invalid_clockfreq')
+    elif not valid_clockfreq(fix):
+        reasons.append('out_of_range_clockfreq')
+
+    # The 10 s limit is an arbitrary, deliberately loose screening cutoff;
+    # the scientifically appropriate maximum remains an open question.
+    if fix.clockdrift is None or not math.isfinite(fix.clockdrift):
+        reasons.append('missing_or_invalid_clockdrift')
+    elif abs(fix.clockdrift) >= 10:
+        reasons.append('clockdrift_at_least_ten_seconds')
+    return reasons
+
+
 def get_gps_from_mer_environment(mer_environment_name, mer_environment):
 
     '''
@@ -610,14 +628,10 @@ def write_gps(cycles, creation_datestr, processed_path, mfloat_path):
         f_txt.write(header_line_txt)
 
         for g in sorted(gps_genexp, key=lambda x: x.date):
-            if g.hdop is None:
-                g.hdop = float("NaN")
-            if g.vdop is None:
-                g.vdop = float("NaN")
-            if g.clockdrift is None:
-                g.clockdrift = float("NaN")
-            if g.clockfreq is None:
-                g.clockfreq = float("NaN")
+            hdop = float("NaN") if g.hdop is None else g.hdop
+            vdop = float("NaN") if g.vdop is None else g.vdop
+            clockdrift = float("NaN") if g.clockdrift is None else g.clockdrift
+            clockfreq = float("NaN") if g.clockfreq is None else g.clockfreq
 
             # Parse and format the raw strings.
             raw_lat = g.rawstr_dict['latitude']
@@ -627,10 +641,10 @@ def write_gps(cycles, creation_datestr, processed_path, mfloat_path):
             gps_data = [str(g.date)[:19] + 'Z',
                         g.latitude,
                         g.longitude,
-                        g.hdop,
-                        g.vdop,
-                        g.clockdrift,
-                        g.clockfreq,
+                        hdop,
+                        vdop,
+                        clockdrift,
+                        clockfreq,
                         g.source,
                         raw_lat,
                         raw_lon]

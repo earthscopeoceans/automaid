@@ -737,49 +737,63 @@ class Cycle:
 
         If max_time is ignored if num_gps=1.
 
-        Clock-correction eligibility requires both selected signed clockdrift
-        values to be less than 5 seconds. This is not an absolute-value bound.
-        The check screens positive reset offsets; the intended treatment of
-        large negative offsets remains a separate scientific review question.
+        Clock correction requires valid frequency and finite absolute clockdrift
+        below 10 seconds at the original last/first synchronization. An invalid
+        anchor is not replaced by another synchronization. Position interpolation
+        retains this cycle's original before/after lists without extending those
+        clock checks to every position input.
 
         """
 
         self.gps_valid4clockdrift_correction = False
         self.gps_valid4location_interp = False
+        self.gps_exclusion_reasons = []
+        self.rejected_gps = []
+
+        # Revalidation starts a fresh calculation, including for saved cycles.
+        for name in ('descent_leave_surface_loc', 'descent_leave_surface_layer_date',
+                     'descent_leave_surface_layer_loc', 'descent_last_loc_before_event',
+                     'ascent_reach_surface_loc', 'ascent_reach_surface_layer_date',
+                     'ascent_reach_surface_layer_loc', 'ascent_first_loc_after_event'):
+            setattr(self, name, None)
+        source_events = list(self.events or [])
+        source_events.extend(event for log in self.logs for event in log.events)
+        for event in dict.fromkeys(source_events):
+            event.reset_derived_metadata()
 
         # Only gps synchronization save one .MER file give clockfreq and clockdift
         if self.gps_sync_before_dive:
             gps_before = self.gps_sync_before_dive
         else:
+            self.gps_exclusion_reasons.append('missing_pre_dive_clock_anchor')
             print("Cycle {} : no gps sync before dive ({})".format(self.cycle_nb,self.ascent_reach_surface_date))
             return
 
         if self.gps_sync_after_dive:
             gps_after = self.gps_sync_after_dive
         else:
+            self.gps_exclusion_reasons.append('missing_post_dive_clock_anchor')
             print("Cycle {} : no gps sync after dive ({})".format(self.cycle_nb,self.ascent_reach_surface_date))
             return
 
         # Ensure MERMAID clock synchronized with last(first) GPS before(after) diving(surfacing)
         # (this also handles the case of verifying `gps.mer_time_log_loc` if `num_gps=1`)
-        if gps.valid_clockfreq(gps_before[-1]) \
-           and gps_before[-1].clockdrift < 5 \
-           and gps.valid_clockfreq(gps_after[0]) \
-           and gps_after[0].clockdrift < 5:
+        for fix in dict.fromkeys((gps_before[-1], gps_after[0])):
+            reasons = gps.clock_anchor_rejection_reasons(fix)
+            if reasons:
+                self.rejected_gps.append((fix, reasons))
+        if not self.rejected_gps:
            self.gps_valid4clockdrift_correction = True
         else:
+            self.gps_exclusion_reasons.append('invalid_clock_anchor')
             print("Cycle {} : clockdrift or clockfreq not valid".format(self.cycle_nb))
             print("******** : before drift {} freq {}".format(gps_before[-1].clockdrift,gps_before[-1].clockfreq))
             print("******** : after drift {} freq {}".format(gps_after[0].clockdrift,gps_after[0].clockfreq))
             return
 
-        # We only require that `gps.mer_time_log_loc()` be true for the
-        # last(first) GPS fix before(after) diving(surfacing) because we those
-        # are the two that are used to correct MERMAID's onboard clock and we
-        # are (1) not as concerned with timing for GPS fixes that are only used
-        # for location interpolation (which, already, has uncertainty), and (2)
-        # more importantly we know that clock drifts while at the surface are
-        # small because the onboard clock is constantly being resynced.
+        # Preserve the existing synchronization-entry count below. Other fixes
+        # remain available for position interpolation regardless of clock fields;
+        # whether an invalid clock frequency also invalidates a position is open.
 
         if num_gps > 1:
             # Ensure the required number of valid GPS exist within the required
@@ -791,6 +805,7 @@ class Cycle:
                     count += 1
 
             if count < num_gps:
+                self.gps_exclusion_reasons.append('insufficient_pre_dive_position_fixes')
                 print("Cycle {} : not enough positions before leave surface ({})".format(self.cycle_nb,self.descent_leave_surface_date))
                 return
 
@@ -803,6 +818,7 @@ class Cycle:
                     count += 1
 
             if count < num_gps:
+                self.gps_exclusion_reasons.append('insufficient_post_dive_position_fixes')
                 print("Cycle {} : not enough positions after ascent ({})".format(self.cycle_nb,self.ascent_reach_surface_date))
                 return
 
@@ -945,11 +961,11 @@ class Cycle:
             return
 
         # Find when & where the float left the surface
-        self.descent_leave_surface_loc = gps.linear_interpolation(self.gps_before_dive, \
+        self.descent_leave_surface_loc = gps.linear_interpolation(list(self.gps_before_dive), \
                                                                   self.descent_leave_surface_date)
 
         # Find when & where the float reached the surface
-        self.ascent_reach_surface_loc =  gps.linear_interpolation(self.gps_after_dive, \
+        self.ascent_reach_surface_loc =  gps.linear_interpolation(list(self.gps_after_dive), \
                                                                   self.ascent_reach_surface_date)
         # Compare the measured and configured boundary pressures in mbar.
         pressure_date = [p[1] for p in self.pressure_mbar]
@@ -987,7 +1003,7 @@ class Cycle:
             descent_pressure_to_mixed_layer = mixed_layer_pressure_mbar - descent_surface_pressure_mbar
             descent_time_to_mixed_layer = descent_pressure_to_mixed_layer / descent_pressure_rate
             self.descent_leave_surface_layer_date = descent_date_in_surface_layer + descent_time_to_mixed_layer
-            self.descent_leave_surface_layer_loc = gps.linear_interpolation(self.gps_before_dive, \
+            self.descent_leave_surface_layer_loc = gps.linear_interpolation(list(self.gps_before_dive), \
                                                                             self.descent_leave_surface_layer_date)
 
             #______________________________________________________________________________________#
@@ -1021,7 +1037,7 @@ class Cycle:
             ascent_pressure_to_mixed_layer = ascent_mixed_pressure_mbar - mixed_layer_pressure_mbar
             ascent_time_to_mixed_layer = ascent_pressure_to_mixed_layer / ascent_pressure_rate
             self.ascent_reach_surface_layer_date = ascent_date_in_mixed_layer + ascent_time_to_mixed_layer
-            self.ascent_reach_surface_layer_loc = gps.linear_interpolation(self.gps_after_dive, \
+            self.ascent_reach_surface_layer_loc = gps.linear_interpolation(list(self.gps_after_dive), \
                                                                            self.ascent_reach_surface_layer_date)
 
             #______________________________________________________________________________________#

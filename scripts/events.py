@@ -15,7 +15,10 @@ import sys
 import os
 import re
 import glob
+import hashlib
+import json
 import subprocess
+from pathlib import Path
 import numpy as np
 import matplotlib
 
@@ -80,7 +83,7 @@ class Events:
                 self.gps_info += gps.get_gps_from_mer_environment(mer_binary_name,mer_environment)
 
             events = content.split(b'</PARAMETERS>')[-1].split(b'<EVENT>')[1:]
-            for event in events:
+            for event_index, event in enumerate(events):
                 # Ensure every event block is complete(ly transmitted)
                 if event[0:14] != b"\n\r\t<INFO DATE=" or event[-22:] != b"\n\r\t</DATA>\n\r</EVENT>\n\r":
                     continue
@@ -113,6 +116,7 @@ class Events:
                         continue
 
                 evt = Event(mer_binary_name, mer_binary_header, mer_binary_binary,mer_environment)
+                evt.source_event_index = event_index
 
                 # Use weak catchall for obj init issues (e.g., formatting
                 # abnormalities in the .MER file)
@@ -171,6 +175,7 @@ class Event:
         self.mer_binary_name = mer_binary_name
         self.mer_binary_header = mer_binary_header
         self.mer_binary_binary = mer_binary_binary
+        self.source_event_index = None
         self.default_mer_environment = default_mer_environment
         self.__version__ = version
 
@@ -274,6 +279,22 @@ class Event:
                 self.is_requested = True
                 date = re.findall(b" DATE=(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})", mer_binary_header, re.DOTALL)
                 self.info_date = UTCDateTime.strptime(date[0].decode("utf-8","replace"), "%Y-%m-%dT%H:%M:%S")
+
+    def reset_derived_metadata(self):
+        """Clear calculated metadata before reprocessing an existing event."""
+        self.corrected_starttime = None
+        self.clockdrift_correction = None
+        self.mseed_time_correction = None
+        self.station_loc = None
+        self.station_loc_is_preliminary = None
+        self.obspy_trace_stats = None
+        self.processed_file_name = None
+
+    def waveform_exclusion_reason(self):
+        """Return the temporary source-pressure exclusion for DET waveforms."""
+        if not self.is_stanford_event and not self.is_requested and self.pressure_mbar == 0:
+            return 'zero_receiver_depth_pending_review'
+        return None
 
     def set_kstnm_kinst(self, kstnm=None, kinst=None):
         '''Sets `kstnm` and `kinst` attrs using those station and instrument names
@@ -594,7 +615,7 @@ class Event:
             processed_file_name += ".STD"
 
         else:
-            if not self.trig:
+            if self.is_requested:
                 processed_file_name += ".REQ"
             else:
                 processed_file_name += ".DET"
@@ -650,7 +671,7 @@ class Event:
         return title
 
     def plot_html(self, processed_path, optimize=False, include_plotly=True):
-        if self.processed_file_name is None:
+        if self.processed_file_name is None or self.waveform_exclusion_reason():
             return
 
         # Check if file exist
@@ -747,7 +768,7 @@ class Event:
                               include_plotlyjs='cdn', full_html=False)
 
     def plot_png(self, processed_path, force_redo=False):
-        if self.processed_file_name is None:
+        if self.processed_file_name is None or self.waveform_exclusion_reason():
             return
 
         # Check if file exist
@@ -855,7 +876,8 @@ class Event:
         # Do not try to hack SAC header vars to fit Stanford data...
         # Trust me (JDS), it's not worth it
         # (e.g., how to handle `npts`, 'delta`, and their effect on `start\endtime`?)
-        if self.is_stanford_event:
+        if self.is_stanford_event or self.waveform_exclusion_reason():
+            self.obspy_trace_stats = None
             return
 
         # Fill metadata common to SAC and miniSEED formats
@@ -978,7 +1000,7 @@ class Event:
         # where "D" is the quality indicator, "D -- The state of quality control
         # of the data is indeterminate" (SEED v2.4 manual pg. 108)
 
-        if self.is_stanford_event:
+        if self.is_stanford_event or self.waveform_exclusion_reason():
             return
 
         # Check if the station location has been calculated
@@ -1017,7 +1039,7 @@ class Event:
 
         '''
 
-        if self.is_stanford_event:
+        if self.is_stanford_event or self.waveform_exclusion_reason():
             return
 
         # Check if the station location has been calculated
@@ -1080,8 +1102,71 @@ class Event:
     #     return "Event('{}', '{}', {})".format(self.mer_binary_name, self.mer_binary_header, bin_str)
 
 
+def write_exclusion_reports(cycles, output_path):
+    """Record GPS eligibility and withheld source waveforms beside GeoCSV."""
+    def timestamp(value):
+        return str(value) if value is not None else None
+
+    output_path = Path(output_path)
+    with (output_path / 'gps-validation.jsonl').open('w', encoding='utf-8') as gps_file, \
+            (output_path / 'excluded-waveforms.jsonl').open('w', encoding='utf-8') as waveform_file:
+        for cycle in cycles:
+            cycle_reasons = getattr(cycle, 'gps_exclusion_reasons', [])
+            rejected_fixes = []
+            for fix, reasons in getattr(cycle, 'rejected_gps', []):
+                # Strings preserve non-finite legacy missing values without
+                # emitting invalid JSON or changing source GPS attributes.
+                observation = {
+                    name: None if getattr(fix, name) is None else str(getattr(fix, name))
+                    for name in ('latitude', 'longitude', 'clockfreq', 'clockdrift')}
+                observation.update(time=timestamp(fix.date), source=fix.source,
+                                   raw=fix.rawstr_dict, reasons=reasons)
+                rejected_fixes.append(observation)
+            if hasattr(cycle, 'rejected_gps'):
+                report = {
+                    'producer': setup.get_version(), 'cycle': cycle.cycle_name,
+                    'clock_eligible': cycle.gps_valid4clockdrift_correction,
+                    'location_eligible': cycle.gps_valid4location_interp,
+                    'validation_scope': 'clock_anchors',
+                    'reasons': cycle_reasons, 'rejected_fixes': rejected_fixes,
+                    'original_pre_dive_count': len(cycle.gps_before_dive or []),
+                    'original_post_dive_count': len(cycle.gps_after_dive or []),
+                    'pre_dive_sync_count': len(cycle.gps_sync_before_dive or []),
+                    'post_dive_sync_count': len(cycle.gps_sync_after_dive or [])}
+                gps_file.write(json.dumps(report, allow_nan=False) + '\n')
+
+            source_events = list(cycle.events or [])
+            source_events.extend(event for log in cycle.logs for event in log.events)
+            for event in dict.fromkeys(source_events):
+                if event.is_stanford_event:
+                    continue
+                reasons = list(cycle_reasons)
+                pressure_reason = event.waveform_exclusion_reason()
+                if pressure_reason:
+                    reasons.append(pressure_reason)
+                if not reasons:
+                    continue
+                name = event.processed_file_name
+                source_pressure = re.search(rb' PRESSURE=([^\s/>]+)', event.mer_binary_header)
+                report = {
+                    'producer': setup.get_version(), 'cycle': cycle.cycle_name,
+                    'reasons': reasons, 'source_mer': event.mer_binary_name,
+                    'source_event_index': getattr(event, 'source_event_index', None),
+                    'source_header_sha256': hashlib.sha256(event.mer_binary_header).hexdigest(),
+                    'source_payload_sha256': hashlib.sha256(event.mer_binary_binary).hexdigest(),
+                    'acquisition_mer': event.mer_environment_name,
+                    'log_files': [log.log_name for log in cycle.logs],
+                    'info_time': timestamp(event.info_date),
+                    'uncorrected_start': timestamp(event.uncorrected_starttime),
+                    'corrected_start': timestamp(event.corrected_starttime),
+                    'source_pressure_dbar': source_pressure[1].decode('utf-8') if source_pressure else None,
+                    'measured_pressure_mbar': event.pressure_mbar,
+                    'intended_waveform_files': [name + suffix for suffix in ('.mseed', '.sac')] if name else []}
+                waveform_file.write(json.dumps(report, allow_nan=False) + '\n')
+
+
 def write_traces_txt(cycles, creation_datestr, processed_path, mfloat_path):
-    event_cycle_tup = ((event, cycle) for cycle in cycles for event in cycle.events if event.station_loc and not event.station_loc_is_preliminary)
+    event_cycle_tup = ((event, cycle) for cycle in cycles for event in cycle.events if event.station_loc and not event.station_loc_is_preliminary and not event.waveform_exclusion_reason())
 
     traces_file = os.path.join(processed_path, mfloat_path, "traces.txt")
     fmt_spec = '{:>42s}    {:>17s}    {:>23s}    {:>32s}\n'
@@ -1109,7 +1194,7 @@ def write_loc_txt(complete_dives, creation_datestr, processed_path, mfloat_path)
 
     '''
 
-    event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
+    event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary and not event.waveform_exclusion_reason()]
 
     loc_file = os.path.join(processed_path, mfloat_path, "loc.txt")
     fmt_spec = "{:>42s}    {:>10.6f}    {:>11.6f}    {:>6.0f}\n"
@@ -1342,7 +1427,7 @@ def write_obspy_trace_stats(complete_dives, creation_datestr, processed_path, mf
         # atm_f_txt.write(atm_header_line_txt)
 
         # Loop over all events for which a station location was computed
-        event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary]
+        event_list = [event for dive in complete_dives for event in dive.events if event.station_loc and not event.station_loc_is_preliminary and not event.waveform_exclusion_reason()]
         for e in sorted(event_list, key=lambda x: x.corrected_starttime):
             if e.is_stanford_event:
                 # Revist this...

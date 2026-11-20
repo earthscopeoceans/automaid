@@ -30,6 +30,58 @@ Hosted data remain testing only; scientific acceptance does not authorize
 production activation. [Publication evidence](../../mermaid-publisher/docs/geocsv/evidence.md)
 identifies the validated artifacts and their software.
 
+## Version v4.11.3 eligibility and exclusions
+
+The original last pre-dive and first post-dive clock anchors require finite
+oscillator frequency between 3,000,000 and 4,000,000 Hz inclusive and finite
+absolute clock drift below ten seconds. Exactly ten seconds fails. Failure
+invalidates clock correction and normal position interpolation for the cycle;
+an invalid anchor is not replaced. Raw GPS objects and measurement rows retain
+their original values. The GPS text/CSV writer formats missing values with
+local variables and preserves the source objects.
+
+Ten seconds is an arbitrary, deliberately loose screening cutoff. The
+scientifically appropriate maximum remains an open question.
+
+Cycle membership and the original pre-dive/post-dive lists are preserved.
+Position estimates use those original lists without applying clock frequency
+or clock-drift filters to every input. The existing proximity/count gate still
+counts synchronization-list entries, which require both clock fields to be
+present but need not each pass the clock-anchor validity checks. Velocity and
+extrapolation duration have no automatic acceptance cutoff. The interpolation
+stability fallback is retained. Whether a zero-frequency synchronization also
+invalidates its associated position or GPS epoch remains an
+[open question](scientific-release-review.md#open-scientific-questions).
+
+DET source pressure of zero triggers temporary waveform exclusion pending
+instrument review. MiniSEED, SAC, waveform plots, waveform metadata tables and
+all GeoCSV waveform variants omit that event. Missing REQ pressure remains
+permitted. Waveform filenames use `is_requested`, including a present `TRIG=0`.
+
+Each GeoCSV generation writes two adjacent local review sidecars, including
+empty files when there are no corresponding decisions. `gps-validation.jsonl`
+contains one entry per revalidated cycle with eligibility, original position
+counts, synchronization-entry counts, cycle reasons and rejected clock anchors.
+Its `validation_scope` is `clock_anchors`; other position inputs are not
+filtered. Numerical rejected GPS fields use strings, preserving non-finite
+legacy missing values explicitly.
+`excluded-waveforms.jsonl` contains one entry per withheld source Event within
+its cycle. Entries include reason codes, source MER, zero-based EVENT block
+index when available, raw header and payload SHA-256, acquisition MER, LOG files,
+available times, literal source pressure in dbar, converted pressure in mbar
+and intended MiniSEED/SAC basenames when available. Old saved Event objects can
+lack the EVENT block index; their source hashes still identify the retained
+header and payload. These sidecars are local review evidence outside the rc2
+payload and publication contract.
+
+Revalidation clears calculated event and cycle metadata before recomputing it.
+Canonical saved cycles can therefore be reprocessed into a fresh explicit
+output directory using the current calculation methods, without decoding their
+samples or writing other products. Existing saved cycles require revalidation
+to apply the new GPS policy; the GeoCSV zero-pressure guard also applies when
+writing older saved events directly. A GeoCSV-only comparison does not generate
+updated waveform files.
+
 ## Scientific source rules
 
 Waveform `derived_time` is the corrected first-sample epoch in the source trace

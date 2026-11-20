@@ -137,9 +137,15 @@ similar to note 2 below, this should also probably be validated...
 
 ## GeoCSV metadata
 
-The writer emits [MERMAID GeoCSV schema 1.0.0-rc2](../mermaid-geocsv/docs/format-spec.md):
-16 fixed columns, five method identifiers, six-digit UTC timestamps, empty
-missing cells and explicit zero Recording Elevation. Recording times already
-include their clock correction. See [GeoCSV production](docs/geocsv.md) for
+The writer emits [MERMAID GeoCSV schema 1.0.0-rc2](../mermaid-geocsv/docs/format-spec.md)
+with 18 fixed columns, five row types, six-digit UTC timestamps and empty
+missing cells. Recording times already include their clock correction.
+Version v4.11.3 requires the original pre-dive and post-dive clock anchors to
+have valid frequencies and absolute clock drifts below ten seconds. Other
+position inputs retain their previous handling within the existing cycle
+assignments. Zero-pressure DET waveforms are temporarily withheld from
+waveform outputs and GeoCSV. Adjacent `gps-validation.jsonl` and
+`excluded-waveforms.jsonl` files record the decisions and source evidence.
+See [GeoCSV production](docs/geocsv.md) for
 source precedence, interpolation, deduplication and the complete workflow, and
 [the clock matrix](docs/clock-timing-matrix.md) for signs and header semantics.

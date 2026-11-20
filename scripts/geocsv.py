@@ -17,6 +17,7 @@ from obspy import UTCDateTime
 import numpy as np
 
 import cycles
+import events
 import gps
 import setup
 import utils
@@ -259,6 +260,8 @@ class GeoCSV:
 
         """
 
+        events.write_exclusion_reports(self.cycles, Path(filename).parent)
+
         ## Functional prototypes for self.write()
         ## ___________________________________________________________________________ ##
 
@@ -403,6 +406,8 @@ class GeoCSV:
             det_algo_records = []
             req_algo_records = []
             for event in sorted(event_list, key=lambda x: x.corrected_starttime):
+                if event.waveform_exclusion_reason():
+                    continue
                 if event.station_loc_is_preliminary:
                     continue
                 if any(marker in event.processed_file_name.casefold()

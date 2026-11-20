@@ -83,11 +83,17 @@ or crossing epochs.
 See [producer source rules](geocsv.md) and the publisher's
 [artifact-bound verification records](../../mermaid-publisher/docs/geocsv/evidence.md).
 
-The cycle GPS eligibility guard compares signed `clockdrift < 5` and does not
-apply an absolute-value bound. Arbitrarily large finite negative offsets pass
-that comparison. A symmetric magnitude bound is a queued fix; its numerical
-limit is under review using the retained distributions. See the
-[scientific release review](scientific-release-review.md) for pending decisions.
+From v4.11.3, the cycle GPS eligibility guard requires finite
+`abs(clockdrift) < 10` at both original clock anchors. Exactly ten seconds in
+either direction fails. Finite oscillator frequencies between 3,000,000 and
+4,000,000 Hz inclusive are also required at those anchors. Other GPS position
+inputs retain their previous handling without a frequency or clock-drift
+filter. Raw observations remain available in measurement outputs. Eligibility
+uses only the candidates already assigned to that cycle, and an invalid last
+pre-dive or first post-dive clock anchor invalidates correction and normal
+position interpolation for that cycle. The existing proximity/count gate over
+synchronization entries is retained. See the
+[scientific release review](scientific-release-review.md) for remaining questions.
 
 ## Observed P0008 clock offset anomalies
 
