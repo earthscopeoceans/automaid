@@ -314,11 +314,21 @@ BIN, LOG and MER already had distinct responsibilities in v4.3.2:
 
 Both endpoints concatenate working fragments, decode BIN to same-stem LOG,
 parse MER EVENT blocks, and select recordings by their uncorrected `INFO DATE`
-inside LOG intervals. The acquisition LOG's environment supplies
-`TRUE_SAMPLE_FREQ FS_Hz`, which is adjusted for transmitted wavelet scales.
+inside LOG intervals. The acquisition-associated MER environment, resolved
+through the LOG's MER reference, supplies `TRUE_SAMPLE_FREQ FS_Hz`, which is
+adjusted for transmitted wavelet scales. Environment blocks belong to MER
+files, not LOG files.
 The later transmission's EVENT `TRUE_FS` is not the selected authority. If the
-LOG has no environment, the existing fallback uses the first selected event's
-transmission environment. The [P0006 source comparison](p0006-historical-sample-frequencies/README.md)
+LOG-associated MER environment cannot be obtained, the existing fallback uses
+the first selected event's transmission-MER environment. This can be correct
+when that environment describes the acquisition cycle. Multiple LOGs provide
+evidence for reconstructing incomplete cycle histories, but time-based selection
+of a recording into a cycle does not by itself associate its containing MER's
+environment with that cycle: a later transmission can carry an older recording.
+Incorrect production fallback associations have not been established. See the
+[historical comparison](scientific-design-2de926a-to-4.11.3.md) for the distinction
+between recording membership and environment association.
+The [P0006 source comparison](p0006-historical-sample-frequencies/README.md)
 shows disagreements between historical EVENT and acquisition-environment rates;
 the present does not resolve their cause or change this precedence.
 
