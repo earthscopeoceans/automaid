@@ -10,6 +10,10 @@ Continually developed by @joelsimon (jdsimon@princeton.edu).  Originally written
 by @sebastienbx .  Many v3.6+ additions for generation 3+ MERMAID floats (.BIN
 decryption, CTD profiling, etc.) coded by @oseanfro.
 
+Code has outgrown itself and redesign is planned. Some docs are outdated (e.g.,
+.LOG/.MER time/location merging of earlier versions) but are retained here until
+that cleanup is complete.
+
 ### 1. INSTALLATION
 
 This installation procedure has been tested with linux
